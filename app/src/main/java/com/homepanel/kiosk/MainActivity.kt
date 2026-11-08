@@ -354,8 +354,8 @@ class MainActivity : Activity(), HaClient.Listener {
         val p = HomeText.presence(cfg.persons, app.ha.states)
         subtitleView.text = p
         subtitleView.visibility = if (p.isEmpty()) View.GONE else View.VISIBLE
-        // Vue d'ensemble : lumières, serrures, portes et fenêtres seulement.
-        updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"))
+        // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
+        updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"), activeOnly = true)
     }
 
     /** Prévisions (weather.get_forecasts) et agenda (API calendrier), rafraîchis toutes les 15 min. */
@@ -494,10 +494,18 @@ class MainActivity : Activity(), HaClient.Listener {
 
     // ------------------------------------------------------------ pastilles
 
-    /** Détail d'une pastille : liste des appareils/capteurs correspondants et leur état. */
+    /** Rafraîchit la fenêtre de détail d'une pastille ouverte (null si aucune). */
+    private var chipDetailRefresh: (() -> Unit)? = null
+
+    /**
+     * Détail d'une pastille : appareils/capteurs correspondants et leur état.
+     * Sur l'accueil, seulement ceux qui sont ouverts / allumés. Une lumière ou une serrure
+     * se commande directement depuis sa ligne ; la liste suit l'état en direct.
+     */
     private fun showChipDetail(room: Room, chip: Present.Chip) {
-        val list = room.entities.filter { Present.chipKind(it.id, app.ha.states[it.id]) == chip.kind }
-        if (list.isEmpty()) return
+        val home = room.id == "__home"
+        val all = room.entities.filter { Present.chipKind(it.id, app.ha.states[it.id]) == chip.kind }
+        if (all.isEmpty()) return
         val d = android.app.Dialog(this)
         d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         val box = LinearLayout(this).apply {
@@ -511,24 +519,47 @@ class MainActivity : Activity(), HaClient.Listener {
         // Nom de la pièce d'origine, utile dans la vue d'ensemble
         val roomOf = HashMap<String, Room>()
         for (r in cfg.rooms) for (e in r.entities) roomOf.putIfAbsent(e.id, r)
-        for (re in list) {
-            val e = app.ha.states[re.id]
-            val home = room.id == "__home"
-            val src = roomOf[re.id] ?: room
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(8), 0, dp(8))
+        // Sur l'accueil, la liste est figée à l'ouverture : une lumière qu'on vient d'éteindre
+        // reste affichée (on peut la rallumer) au lieu de disparaître sous le doigt.
+        val list = if (home) all.filter { Present.active(app.ha.states[it.id]) } else all
+        fun build() {
+            rows.removeAllViews()
+            if (list.isEmpty()) {
+                rows.addView(label(16f, 0xB3FFFFFF.toInt(), text = tr("Tout est fermé")).apply { setPadding(0, dp(8), 0, dp(8)) })
+                return
             }
-            row.addView(ImageView(this).apply {
-                setImageResource(Present.icon(re.id, e))
-                imageTintList = android.content.res.ColorStateList.valueOf(if (Present.active(e)) Present.accent(e) else 0xB3FFFFFF.toInt())
-            }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(14) })
-            val name = Present.displayName(re, e, src.name) + if (home) "  ·  ${src.name}" else ""
-            row.addView(label(16f, Color.WHITE, text = name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            row.addView(label(16f, 0xCCFFFFFF.toInt(), text = Present.status(e)).apply { setPadding(dp(16), 0, 0, 0) })
-            rows.addView(row)
+            for (re in list) {
+                val e = app.ha.states[re.id]
+                val src = roomOf[re.id] ?: room
+                val on = Present.active(e)
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(0, dp(8), 0, dp(8))
+                    minimumHeight = dp(52)
+                }
+                row.addView(ImageView(this).apply {
+                    setImageResource(Present.icon(re.id, e))
+                    imageTintList = android.content.res.ColorStateList.valueOf(if (on) Present.accent(e) else 0xB3FFFFFF.toInt())
+                }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(14) })
+                val name = Present.displayName(re, e, src.name) + if (home) "  ·  ${src.name}" else ""
+                row.addView(label(16f, Color.WHITE, text = name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                row.addView(label(16f, 0xCCFFFFFF.toInt(), text = Present.status(e)).apply { setPadding(dp(16), 0, 0, 0) })
+                val action = Present.quickAction(re.id, e)
+                if (action != null) {
+                    row.addView(label(15f, if (on) 0xFF1C1C1E.toInt() else Color.WHITE, true, action).apply {
+                        background = roundRect(if (on) 0xFFFFB300.toInt() else 0x33FFFFFF, dpf(16))
+                        setPadding(dp(14), dp(7), dp(14), dp(7))
+                    }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(14) })
+                    row.isClickable = true
+                    row.setOnClickListener {
+                        if (Present.tap(app.ha, re.id, app.ha.states[re.id])) row.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    }
+                }
+                rows.addView(row)
+            }
         }
+        build()
         // Liste longue (vue d'ensemble) : hauteur limitée, défilante
         val listH = if (list.size > 8) resources.displayMetrics.heightPixels * 6 / 10 else WRAP_CONTENT
         box.addView(ScrollView(this).apply { addView(rows) }, LinearLayout.LayoutParams(MATCH_PARENT, listH))
@@ -536,6 +567,9 @@ class MainActivity : Activity(), HaClient.Listener {
         d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         d.window?.setDimAmount(0.6f)
         d.setCanceledOnTouchOutside(true)
+        val refresh = { build() }
+        chipDetailRefresh = refresh
+        d.setOnDismissListener { if (chipDetailRefresh === refresh) chipDetailRefresh = null }
         d.window?.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
         d.show()
         @Suppress("DEPRECATION")
@@ -544,8 +578,9 @@ class MainActivity : Activity(), HaClient.Listener {
     }
 
     /** Met à jour les pastilles seulement si leur contenu a changé. */
-    private fun updateChips(room: Room?, only: Set<String>? = null) {
-        val chips = if (room == null) emptyList() else Present.chips(room, app.ha.states).filter { only == null || it.kind in only }
+    private fun updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false) {
+        val chips = if (room == null) emptyList() else Present.chips(room, app.ha.states)
+            .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light") }
         if (chips == lastChips && chipsView.childCount == chips.size) return
         lastChips = chips
         chipsView.removeAllViews()
@@ -585,6 +620,7 @@ class MainActivity : Activity(), HaClient.Listener {
     // ------------------------------------------------------------ mises à jour HA
 
     override fun onHaEntities(ids: Set<String>) {
+        chipDetailRefresh?.invoke()
         if (roomIndex == HOME) {
             if (ids.contains(cfg.weatherEntity)) weatherCard?.update(app.ha.states[cfg.weatherEntity])
             updateHomeHeader()

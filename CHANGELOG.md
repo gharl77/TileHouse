@@ -2,6 +2,12 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.3
+
+- Home screen: the summary chips only show what needs attention (lights on, unlocked locks, open doors and windows).
+- Tapping a chip lists those devices with a quick action button (turn off / on, lock / unlock); the list updates live.
+- New About tab in the tablet settings and on the web page: version, build, GitHub links (repository, release notes, issues), tablet, Android and Home Assistant versions, connection status, uptime, license.
+
 ## 2026.11.2
 
 - Fix: Wi-Fi updates now show Android's install confirmation (the installer's answer never reached the app on Android 8+).

@@ -217,6 +217,18 @@ object Present {
         else -> false
     }
 
+    /** Libellé du bouton d'action dans le détail d'une pastille (null si l'entité ne se commande pas). */
+    fun quickAction(id: String, e: EntityState?): String? {
+        val s = e?.state ?: return null
+        if (s == "unavailable" || s == "unknown") return null
+        return when (domain(id)) {
+            "light", "switch" -> if (s == "on") tr("Éteindre") else tr("Allumer")
+            "lock" -> if (s == "locked" || s == "locking") tr("Déverrouiller") else tr("Verrouiller")
+            "cover" -> when (s) { "opening", "closing" -> tr("Arrêter"); "open" -> tr("Fermer"); else -> tr("Ouvrir") }
+            else -> null
+        }
+    }
+
     /** Action d'un simple toucher. Retourne false si aucune action directe. */
     fun tap(ha: HaClient, id: String, e: EntityState?): Boolean {
         val d = domain(id)

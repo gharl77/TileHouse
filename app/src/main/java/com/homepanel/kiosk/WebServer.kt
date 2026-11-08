@@ -281,6 +281,7 @@ class WebServer(private val app: App) {
             .put("status", ha.status.name)
             .put("demo", cfg.demo)
             .put("update", updateState())
+            .put("about", About.json(app))
             .put("error", ha.lastError ?: "")
             .put("rooms", cfg.roomsToJson())
             .put("rev", cfg.roomsRev)

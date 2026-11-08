@@ -38,6 +38,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
     private lateinit var roomsBox: Card
     private lateinit var pinEdit: EditText
     private lateinit var versionText: TextView
+    private lateinit var infoCard: Card
     private lateinit var memAppRow: LinearLayout
     private lateinit var memFreeRow: LinearLayout
     private var scroll: ScrollView? = null
@@ -174,36 +175,55 @@ class SettingsActivity : Activity(), HaClient.Listener {
         })
         kc.addRow(settingRow(R.drawable.ic_gear, Ui.GRAY, tr("Ouvrir les paramètres Android"), chevron = true) { startActivity(Intent(Settings.ACTION_SETTINGS)) })
 
-        kiosk.addView(groupLabel(tr("À propos")))
-        val about = Card(this).also { kiosk.addView(it) }
-        about.addRow(LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(14))
-            addView(appLogo(52))
-            versionText = TextView(context).apply { textSize = 13.5f; setTextColor(Ui.MUTE) }
-            addView(LinearLayout(context).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(14), 0, 0, 0)
-                addView(TextView(context).apply { text = getString(R.string.app_name); textSize = 18f; setTextColor(Ui.TEXT); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL) })
-                addView(versionText)
+        // ================= À propos
+        val aboutPage = section()
+        aboutPage.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(0, dp(26), 0, dp(6))
+            addView(appLogo(96))
+            addView(TextView(context).apply {
+                text = getString(R.string.app_name); textSize = 28f; setTextColor(Ui.TEXT); gravity = Gravity.CENTER
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL); setPadding(0, dp(12), 0, 0)
+            })
+            versionText = TextView(context).apply { textSize = 15f; setTextColor(Ui.ACCENT); gravity = Gravity.CENTER; setPadding(0, dp(2), 0, 0) }
+            addView(versionText)
+            addView(TextView(context).apply {
+                text = tr("Tableau de bord Home Assistant façon HomeKit, pour tablettes Android murales.")
+                textSize = 14.5f; setTextColor(Ui.MUTE); gravity = Gravity.CENTER; setPadding(dp(24), dp(8), dp(24), 0)
             })
         })
-        memAppRow = settingRow(R.drawable.ic_chip, Ui.PURPLE, tr("Mémoire utilisée par l'application"), trailing = valueText())
-        memFreeRow = settingRow(R.drawable.ic_chip, Ui.TEAL, tr("Mémoire libre sur la tablette"), trailing = valueText())
+
+        aboutPage.addView(groupLabel(tr("Liens")))
+        val links = Card(this).also { aboutPage.addView(it) }
+        links.addRow(settingRow(R.drawable.ic_link, Ui.GRAY, "GitHub", About.REPO_URL.removePrefix("https://"), chevron = true) { openUrl(About.REPO_URL) })
+        links.addRow(settingRow(R.drawable.ic_star, Ui.ORANGE, tr("Notes de version"), tr("Nouveautés de chaque version"), chevron = true) { openUrl(About.RELEASES_URL) })
+        links.addRow(settingRow(R.drawable.ic_chat, Ui.BLUE, tr("Signaler un problème ou suggérer une idée"), tr("GitHub Issues"), chevron = true) { openUrl(About.ISSUES_URL) })
+
+        aboutPage.addView(groupLabel(tr("Mises à jour")))
+        val upd = Card(this).also { aboutPage.addView(it) }
         updButton = actionButton(tr("Rechercher"), primary = false) {
             if (app.updater.updateAvailable) app.updater.installLatest()
             else { updRow.setSubtitle(tr("Recherche…")); app.updater.check() }
         }
         updRow = settingRow(R.drawable.ic_download, Ui.GREEN, tr("Mises à jour"), "…", updButton)
-        about.addRow(updRow)
-        about.addRow(memAppRow)
-        about.addRow(memFreeRow)
+        upd.addRow(updRow)
+
+        aboutPage.addView(groupLabel(tr("Informations")))
+        infoCard = Card(this).also { aboutPage.addView(it) }
+        memAppRow = settingRow(R.drawable.ic_chip, Ui.PURPLE, tr("Mémoire utilisée par l'application"), trailing = valueText())
+        memFreeRow = settingRow(R.drawable.ic_chip, Ui.TEAL, tr("Mémoire libre sur la tablette"), trailing = valueText())
+        aboutPage.addView(groupLabel(tr("Mémoire")))
+        val mem = Card(this).also { aboutPage.addView(it) }
+        mem.addRow(memAppRow)
+        mem.addRow(memFreeRow)
+        aboutPage.addView(footnote(tr("Logiciel libre sous licence MIT. TileHouse n'est affilié ni à Apple ni à Home Assistant.")))
 
         // --- Assemblage : en-tête et onglets fixes, contenu défilant
-        val all = listOf(rooms, display, conn, kiosk)
-        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Affichage"), tr("Connexion"), tr("Kiosque et sécurité"))) { i ->
+        val all = listOf(rooms, display, conn, kiosk, aboutPage)
+        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Affichage"), tr("Connexion"), tr("Kiosque"), tr("À propos"))) { i ->
             pages.removeAllViews(); pages.addView(all[i])
+            if (i == 4) updateMemory()
             scroll?.scrollTo(0, 0)
         }
         val content = LinearLayout(this).apply {
@@ -222,6 +242,12 @@ class SettingsActivity : Activity(), HaClient.Listener {
         }
         tabs.select(if (cfg.isConfigured) 0 else 2)
         setContentView(root)
+    }
+
+    /** Ouvre un lien dans le navigateur ; sans navigateur, affiche l'adresse. */
+    private fun openUrl(url: String) {
+        try { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        catch (_: Exception) { toast(url) }
     }
 
     private fun valueText() = TextView(this).apply { textSize = 15f; setTextColor(Ui.MUTE) }
@@ -335,8 +361,17 @@ class SettingsActivity : Activity(), HaClient.Listener {
         val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
         val pss = am.getProcessMemoryInfo(intArrayOf(android.os.Process.myPid())).firstOrNull()?.totalPss ?: 0
         val mi = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
-        val ver = packageManager.getPackageInfo(packageName, 0).versionName
-        versionText.text = "Version $ver · " + tr("Tableau de bord Home Assistant")
+        versionText.text = "Version ${About.version(app)}"
+        infoCard.removeAllViews()
+        for (i in About.info(app)) infoCard.addRow(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            minimumHeight = dp(48)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
+            addView(TextView(context).apply { text = i.label; textSize = 15.5f; setTextColor(Ui.TEXT) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(TextView(context).apply { text = i.value; textSize = 15f; setTextColor(Ui.MUTE); gravity = Gravity.END; setTextIsSelectable(true) },
+                LinearLayout.LayoutParams(0, WRAP_CONTENT, 1.6f))
+        })
         (memAppRow.getChildAt(memAppRow.childCount - 1) as TextView).text = "${pss / 1024} Mo"
         (memFreeRow.getChildAt(memFreeRow.childCount - 1) as TextView).text = "${mi.availMem / 1048576} Mo"
     }

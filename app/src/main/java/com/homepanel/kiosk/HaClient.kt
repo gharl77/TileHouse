@@ -41,6 +41,9 @@ class HaClient {
     val states = HashMap<String, EntityState>()
     var status = Status.IDLE
         private set
+    /** Version de Home Assistant annoncée à la connexion. */
+    @Volatile var haVersion: String? = null
+        private set
     var lastError: String? = null
         private set
 
@@ -171,6 +174,7 @@ class HaClient {
         when (msg.optString("type")) {
             "auth_required" -> sock.send(JSONObject().put("type", "auth").put("access_token", token).toString())
             "auth_ok" -> {
+                haVersion = msg.optString("ha_version").ifEmpty { null }
                 retryDelay = 2000
                 lastError = null
                 msgId = 1
