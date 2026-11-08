@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TileHouse : un toit au-dessus de quatre tuiles, dont une allumée. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <group android:translateX="13.7" android:translateY="10.6" android:scaleX="0.62" android:scaleY="0.62">
+        <path android:pathData="M36,46 L65,26 L94,46"
+            android:strokeColor="#FFF2F2F7" android:strokeWidth="5"
+            android:strokeLineCap="round" android:strokeLineJoin="round" />
+        <path android:fillColor="#FFF2F2F7" android:fillAlpha="0.35"
+            android:pathData="M43,56h12a7,7 0 0 1 7,7v12a7,7 0 0 1 -7,7h-12a7,7 0 0 1 -7,-7v-12a7,7 0 0 1 7,-7z" />
+        <path android:fillColor="#FFFFB300"
+            android:pathData="M75,56h12a7,7 0 0 1 7,7v12a7,7 0 0 1 -7,7h-12a7,7 0 0 1 -7,-7v-12a7,7 0 0 1 7,-7z" />
+        <path android:fillColor="#FFF2F2F7" android:fillAlpha="0.35"
+            android:pathData="M43,88h12a7,7 0 0 1 7,7v12a7,7 0 0 1 -7,7h-12a7,7 0 0 1 -7,-7v-12a7,7 0 0 1 7,-7z" />
+        <path android:fillColor="#FFF2F2F7" android:fillAlpha="0.35"
+            android:pathData="M75,88h12a7,7 0 0 1 7,7v12a7,7 0 0 1 -7,7h-12a7,7 0 0 1 -7,-7v-12a7,7 0 0 1 7,-7z" />
+    </group>
+</vector>

@@ -1,0 +1,845 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TileHouse · Configuration</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%20130%20130%22%3E%3Crect%20width%3D%22130%22%20height%3D%22130%22%20rx%3D%2230%22%20fill%3D%22%230F2E4A%22/%3E%3Cpath%20d%3D%22M36%2046%20L65%2026%20L94%2046%22%20fill%3D%22none%22%20stroke%3D%22%23F2F2F7%22%20stroke-width%3D%225%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22/%3E%3Crect%20x%3D%2236%22%20y%3D%2256%22%20width%3D%2226%22%20height%3D%2226%22%20rx%3D%227%22%20fill%3D%22%23F2F2F7%22%20opacity%3D%22.35%22/%3E%3Crect%20x%3D%2268%22%20y%3D%2256%22%20width%3D%2226%22%20height%3D%2226%22%20rx%3D%227%22%20fill%3D%22%23FFB300%22/%3E%3Crect%20x%3D%2236%22%20y%3D%2288%22%20width%3D%2226%22%20height%3D%2226%22%20rx%3D%227%22%20fill%3D%22%23F2F2F7%22%20opacity%3D%22.35%22/%3E%3Crect%20x%3D%2268%22%20y%3D%2288%22%20width%3D%2226%22%20height%3D%2226%22%20rx%3D%227%22%20fill%3D%22%23F2F2F7%22%20opacity%3D%22.35%22/%3E%3C/svg%3E">
+<style>
+:root{--card:rgba(22,28,40,.88);--card2:#1f2735;--text:#f2f2f7;--mute:#8e95a3;--line:#2a3343;--ok:#34c759;--bad:#ff453a;--blue:#0a84ff}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#2b3a55,#141c2b 50%,#080b12) fixed;color:var(--text);min-height:100vh}
+header{padding:28px 32px 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.logo{width:44px;height:44px;flex:none;border-radius:11px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+h1{margin:0;font-size:32px}
+h2{margin:0 0 12px;font-size:18px}
+.saved{color:var(--mute);font-size:13px;margin-left:auto}
+main{padding:12px 32px 48px;display:grid;gap:20px;grid-template-columns:340px minmax(0,1fr);max-width:1500px;align-items:start}
+main.grid2{grid-template-columns:repeat(2,minmax(0,1fr));max-width:1100px}
+main[hidden]{display:none}
+.tabs{display:flex;gap:6px;padding:4px 32px 0;flex-wrap:wrap}
+.tabs button{border-radius:99px;padding:9px 18px;background:transparent;border-color:var(--line)}
+.tabs button.on{background:#f2f2f7;color:#1c1c1e;border-color:transparent;font-weight:600}
+header .badge{align-self:center}
+.side{display:grid;gap:20px;align-content:start}
+@media(max-width:900px){main,main.grid2{grid-template-columns:1fr;padding:8px 16px 40px}header{padding:20px 16px 8px}.tabs{padding:4px 16px 0}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+label.f{display:block;color:var(--mute);font-size:13px;margin:12px 0 4px}
+input,select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 12px;font:inherit}
+input:focus,select:focus{outline:2px solid var(--blue);border-color:transparent}
+button{background:var(--card2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer;white-space:nowrap}
+button:hover{border-color:#4a5568}
+button.primary{background:#f2f2f7;color:#1c1c1e;border-color:transparent;font-weight:600}
+button.danger{color:#ff8a80}
+button.mini{padding:3px 9px;font-size:13px;border-radius:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.badge{display:inline-block;padding:3px 12px;border-radius:99px;font-size:13px;background:var(--card2)}
+.badge.ok{background:rgba(52,199,89,.2);color:#7ee8a6}
+.badge.bad{background:rgba(255,69,58,.2);color:#ff9a90}
+.muted{color:var(--mute);font-size:13px}
+.rooms{list-style:none;margin:0 0 14px;padding:0}
+.rooms li{display:flex;align-items:center;gap:6px;padding:9px 12px;border-radius:12px;cursor:pointer}
+.rooms li:hover{background:var(--card2)}
+.rooms li.sel{background:#f2f2f7;color:#1c1c1e}
+.rooms li.sel button{background:#e5e5ea;color:#1c1c1e;border-color:#d1d1d6}
+.rooms li .n{flex:1;font-weight:500}
+.grip{cursor:grab;touch-action:none;user-select:none;padding:4px 6px;color:var(--mute);font-size:18px;line-height:1}
+.grip:active{cursor:grabbing}
+li.dragging{opacity:.75;outline:2px dashed var(--blue);outline-offset:-2px;background:var(--card2)}
+.rooms li.sel .grip{color:#8e8e93}
+.rooms li .c{font-size:12px;opacity:.6;margin-right:4px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin-top:18px}
+@media(max-width:1200px){.cols{grid-template-columns:1fr}}
+.ents{list-style:none;margin:0;padding:0;max-height:62vh;overflow:auto;border-top:1px solid var(--line)}
+.ents li{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line)}
+.ents.pick li{cursor:pointer}
+.ents.pick li:hover{background:var(--card2)}
+.info{flex:1;min-width:0}
+.info .id{font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.info input{padding:5px 8px}
+.dot{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:15px;background:var(--card2)}
+.add{color:var(--ok);font-size:22px;line-height:1;padding:0 6px}
+.check{display:flex;gap:8px;align-items:center;margin:10px 0;cursor:pointer}
+.check input{width:auto}
+#login{position:fixed;inset:0;background:rgba(0,0,0,.75);display:none;place-items:center;z-index:9}
+#login .card{width:min(340px,90vw)}
+.roomName{font-size:22px;font-weight:600;flex:1;min-width:200px}
+.empty{padding:16px 6px;color:var(--mute)}
+</style>
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 130 130" aria-hidden="true"><rect width="130" height="130" rx="30" fill="#0F2E4A"/><path d="M36 46 L65 26 L94 46" fill="none" stroke="#F2F2F7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="56" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="56" width="26" height="26" rx="7" fill="#FFB300"/><rect x="36" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/></svg>
+  <h1>TileHouse</h1>
+  <span id="status" class="badge">…</span>
+  <span id="saved" class="saved"></span>
+</header>
+<nav class="tabs" id="tabs">
+  <button data-tab="rooms">Pièces</button>
+  <button data-tab="home">Accueil</button>
+  <button data-tab="display">Affichage</button>
+  <button data-tab="conn">Connexion et sécurité</button>
+</nav>
+
+<!-- ============ Pièces ============ -->
+<main class="panel" data-panel="rooms">
+  <section class="card">
+    <h2>Pièces</h2>
+    <p class="muted">Touchez une pièce pour la modifier. Glissez ⠿ pour changer l'ordre.</p>
+    <ul class="rooms" id="rooms"></ul>
+    <div class="row">
+      <button id="addRoom">+ Ajouter une pièce</button>
+      <button id="import">Importer les zones HA</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div id="noRoom" class="empty">Sélectionnez une pièce à gauche, ou créez-en une.</div>
+    <div id="roomEd" hidden>
+      <div class="row">
+        <input id="roomName" class="roomName" aria-label="Nom de la pièce">
+        <button class="danger" id="delRoom">Supprimer la pièce</button>
+      </div>
+      <div class="cols">
+        <div>
+          <h2>Dans la pièce <span class="muted" id="selCount"></span></h2>
+          <p class="muted">Glissez ⠿ pour l'ordre d'affichage. ✎ Le champ renomme l'appareil <b>dans l'app seulement</b> (vide = nom de Home Assistant).</p>
+          <ul class="ents" id="selList"></ul>
+        </div>
+        <div>
+          <h2>Ajouter des appareils</h2>
+          <div class="row">
+            <input id="q" placeholder="Rechercher…" style="flex:2;width:auto;min-width:140px">
+            <select id="fArea" style="flex:1;width:auto"></select>
+            <select id="fType" style="flex:1;width:auto"></select>
+          </div>
+          <label class="check"><input type="checkbox" id="fHidden"> Inclure les entités masquées et de diagnostic</label>
+          <div id="catMsg" class="muted"></div>
+          <ul class="ents pick" id="catList"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ Accueil ============ -->
+<main class="panel grid2" data-panel="home" hidden>
+  <section class="card">
+    <h2>Météo</h2>
+    <label class="f" for="weather">Entité météo</label>
+    <select id="weather"></select>
+    <h2 style="margin-top:24px">Agenda</h2>
+    <label class="f">Calendriers affichés</label>
+    <div id="calList" class="muted">Connexion requise…</div>
+  </section>
+  <section class="card">
+    <h2>Qui est à la maison</h2>
+    <p class="muted">Personnes affichées sous la salutation. Combinez au choix les personnes de HA (app compagnon) et vos capteurs de présence : un capteur indique « à la maison » tant que son état n'est pas une absence (not_home, away…).</p>
+    <div id="personList" class="muted">Connexion requise…</div>
+    <h2 style="margin-top:24px">Paliers</h2>
+    <p class="muted">Les pièces sont regroupées selon les paliers (étages) de Home Assistant. Glissez ⠿ pour changer l'ordre.</p>
+    <ul class="rooms" id="floorList"></ul>
+  </section>
+</main>
+
+<!-- ============ Affichage ============ -->
+<main class="panel grid2" data-panel="display" hidden>
+  <section class="card">
+    <h2>Apparence</h2>
+    <label class="f" for="language">Langue de l'interface</label>
+    <select id="language">
+      <option value="auto">Automatique (langue de la tablette)</option>
+      <option value="fr">Français</option>
+      <option value="en">English</option>
+    </select>
+    <label class="f" for="theme">Thème de saison ou de fête</label>
+    <select id="theme"></select>
+    <p class="muted">Un thème remplace le fond d'écran et adapte la salutation de l'accueil. Choisissez « Aucun » pour revenir au fond habituel.</p>
+    <label class="f" for="wallpaper">Fond d'écran</label>
+    <select id="wallpaper"></select>
+    <label class="check"><input type="checkbox" id="group"> Regrouper les appareils par catégorie (Lumières, Climat…)</label>
+    <label class="check"><input type="checkbox" id="clock"> Afficher l'heure et la date</label>
+  </section>
+  <section class="card">
+    <h2>Mise en veille</h2>
+    <label class="f" for="dim">Assombrir l'écran après</label>
+    <select id="dim">
+      <option value="0">Jamais</option><option value="1">1 min</option><option value="2">2 min</option>
+      <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option>
+      <option value="30">30 min</option><option value="60">60 min</option>
+    </select>
+    <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
+  </section>
+</main>
+
+<!-- ============ Connexion et sécurité ============ -->
+<main class="panel grid2" data-panel="conn" hidden>
+  <section class="card">
+    <h2>Home Assistant</h2>
+    <label class="f" for="url">Adresse</label>
+    <input id="url" placeholder="http://192.168.1.10:8123" autocomplete="off">
+    <label class="f" for="token">Jeton d'accès longue durée</label>
+    <input id="token" type="password" placeholder="Coller le jeton ici" autocomplete="off">
+    <p class="muted">Dans Home Assistant : votre profil (en bas à gauche) → onglet Sécurité → Jetons d'accès longue durée → Créer un jeton.</p>
+    <button class="primary" id="saveConn">Enregistrer et connecter</button>
+    <label class="check" style="margin-top:16px"><input type="checkbox" id="demo"> Mode démo (maison fictive, sans Home Assistant)</label>
+    <p class="muted">Votre configuration est conservée et revient quand vous quittez la démo.</p>
+  </section>
+  <section class="card">
+    <h2>Code PIN</h2>
+    <p class="muted">Protège les réglages de la tablette et cette page.</p>
+    <div class="row">
+      <input id="pin" type="password" inputmode="numeric" placeholder="Nouveau code (chiffres)" style="flex:1;width:auto">
+      <button id="savePin">Changer</button>
+    </div>
+    <p class="muted" id="pinInfo"></p>
+  </section>
+  <section class="card">
+    <h2>Sauvegarde</h2>
+    <p class="muted">Pièces, appareils, noms, ordres et réglages dans un fichier, pour une autre tablette ou après une réinstallation.</p>
+    <label class="check"><input type="checkbox" id="expSecrets"> Inclure le jeton HA, le mot de passe MQTT et le PIN</label>
+    <p class="muted" id="expWarn" hidden>⚠ Le fichier contiendra vos accès en clair : gardez-le en lieu sûr.</p>
+    <div class="row">
+      <button id="exportBtn">Exporter la configuration</button>
+      <button id="importBtn">Restaurer une sauvegarde…</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+  </section>
+  <section class="card">
+    <h2>Mise à jour</h2>
+    <p class="muted" id="updInfo">…</p>
+    <div class="row">
+      <button id="updCheck">Rechercher une mise à jour</button>
+      <button class="primary" id="updInstall" hidden>Installer</button>
+      <button id="updUpload">Envoyer un APK…</button>
+      <input type="file" id="updFile" accept=".apk,application/vnd.android.package-archive" hidden>
+    </div>
+    <p class="muted">Android demande de confirmer l'installation sur la tablette (un toucher). La première fois, autorisez TileHouse à installer des applications.</p>
+  </section>
+  <section class="card">
+    <h2>Tablette dans Home Assistant (MQTT)</h2>
+    <p class="muted">La tablette apparaît comme un appareil de l'intégration MQTT, avec son thème, sa veille, sa luminosité, sa batterie… Le bouton « Visiter » de la fiche appareil ouvre cette page.</p>
+    <span id="mqttStatus" class="badge">…</span>
+    <label class="check"><input type="checkbox" id="mqttEnabled"> Activer MQTT</label>
+    <div class="row">
+      <div style="flex:3"><label class="f" for="mqttHost">Broker</label><input id="mqttHost" placeholder="192.168.1.10"></div>
+      <div style="flex:1"><label class="f" for="mqttPort">Port</label><input id="mqttPort" type="number" placeholder="1883"></div>
+    </div>
+    <label class="f" for="mqttUser">Utilisateur</label>
+    <input id="mqttUser" autocomplete="off">
+    <label class="f" for="mqttPass">Mot de passe</label>
+    <input id="mqttPass" type="password" autocomplete="new-password">
+    <label class="f" for="devName">Nom de l'appareil dans HA</label>
+    <input id="devName" maxlength="60">
+    <p class="muted">Avec l'app Mosquitto de Home Assistant, un compte utilisateur HA fonctionne (idéalement un compte dédié).</p>
+    <button class="primary" id="saveMqtt">Enregistrer et connecter</button>
+  </section>
+</main>
+
+<div id="login">
+  <div class="card">
+    <h2>Code PIN</h2>
+    <p class="muted">Entrez le code PIN défini sur la tablette.</p>
+    <input id="loginPin" type="password" inputmode="numeric">
+    <p id="loginErr" class="muted"></p>
+    <button class="primary" id="loginBtn">Entrer</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+// ---- Traduction : dictionnaire fourni par la tablette (/api/i18n), clé = texte français
+let DICT = {};
+const t = s => DICT[s] || s;
+function translatePage() {
+  const walk = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+    const k = n.nodeValue.trim();
+    if (k && DICT[k]) n.nodeValue = n.nodeValue.replace(k, DICT[k]);
+  }
+  for (const el of document.querySelectorAll("[placeholder],[title],[aria-label]")) {
+    for (const at of ["placeholder", "title", "aria-label"]) {
+      const v = el.getAttribute(at);
+      if (v && DICT[v.trim()]) el.setAttribute(at, DICT[v.trim()]);
+    }
+  }
+}
+async function initI18n() {
+  try {
+    const r = await (await fetch("/api/i18n")).json();
+    if (r.english) { DICT = r.dict || {}; document.documentElement.lang = "en"; document.title = "TileHouse · Settings"; translatePage(); }
+  } catch (e) {}
+}
+
+function showTab(name) {
+  for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === name);
+  for (const p of document.querySelectorAll(".panel")) p.hidden = p.dataset.panel !== name;
+  try { localStorage.setItem("tab", name); } catch (e) {}
+}
+for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
+let savedTab = "rooms";
+try { savedTab = localStorage.getItem("tab") || "rooms"; } catch (e) {}
+// Lien direct vers un onglet : #rooms, #home, #display, #conn (ou #rooms/2 pour la 3e pièce)
+const HASH = location.hash.slice(1).split("/");
+if (["rooms", "home", "display", "conn"].includes(HASH[0])) savedTab = HASH[0];
+showTab(savedTab);
+const TYPES = [
+  [t("Tous les types"), []], [t("Caméras"), ["camera"]], [t("Lumières"), ["light"]], [t("Prises et interrupteurs"), ["switch", "input_boolean"]],
+  [t("Volets et stores"), ["cover"]], [t("Climat et ventilateurs"), ["climate", "fan"]], ["Serrures", ["lock"]],
+  [t("Capteurs"), ["sensor", "binary_sensor"]], [t("Médias"), ["media_player"]],
+  [t("Scènes, scripts, boutons"), ["scene", "script", "button", "input_button", "automation"]]
+];
+const ICON = {light:"💡", switch:"🔌", input_boolean:"⏻", fan:"🌀", cover:"▤", lock:"🔒", climate:"🌡", sensor:"📈",
+  binary_sensor:"◉", camera:"📷", scene:"✨", script:"▶", media_player:"📺", button:"⏺", input_button:"⏺", automation:"⚙"};
+const MAX_ROWS = 300;
+
+let PIN = "";
+try { PIN = sessionStorage.getItem("pin") || ""; } catch (e) {}
+let S = null, rooms = [], cur = null, cat = null, catById = {}, saveTimer = null, loadingCat = false;
+
+function el(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  if (props) for (const k in props) {
+    if (k.startsWith("on")) e.addEventListener(k.slice(2), props[k]);
+    else if (k === "class") e.className = props[k];
+    else if (k in e) e[k] = props[k];
+    else e.setAttribute(k, props[k]);
+  }
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+}
+const domain = id => id.split(".")[0];
+const rid = () => "r" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+
+async function api(method, path, body) {
+  const r = await fetch(path, {
+    method,
+    headers: {"Content-Type": "application/json", "X-Pin": PIN},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const j = await r.json().catch(() => ({}));
+  if (r.status === 401) { showLogin(PIN ? "Code incorrect." : ""); throw new Error("pin"); }
+  if (r.status === 409) { const e = new Error(j.error || "Conflit"); e.conflict = j; throw e; }
+  if (!r.ok) throw new Error(j.error || (t("Erreur") + " " + r.status));
+  return j;
+}
+
+function showLogin(msg) {
+  $("login").style.display = "grid";
+  $("loginErr").textContent = msg || "";
+  $("loginPin").value = "";
+  $("loginPin").focus();
+}
+async function doLogin() {
+  PIN = $("loginPin").value.trim();
+  try { sessionStorage.setItem("pin", PIN); } catch (e) {}
+  $("login").style.display = "none";
+  try { await load(); } catch (e) { if (e.message !== "pin") showLogin(e.message); }
+}
+$("loginBtn").onclick = doLogin;
+$("loginPin").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(); });
+
+function flash(text) { $("saved").textContent = text; }
+
+// ------------------------------------------------------------------ état général
+async function load() {
+  S = await api("GET", "/api/state");
+  rooms = S.rooms;
+  if (!rooms.find(r => r.id === cur)) cur = rooms.length ? rooms[0].id : null;
+  if (HASH[0] === "rooms" && rooms[+HASH[1]]) cur = rooms[+HASH[1]].id;
+  renderConn(); renderSettings(); renderRooms(); renderEditor(); renderUpdate(S.update);
+  if (!S.hasToken && !S.demo) showTab("conn");
+  if (S.status === "CONNECTED") loadCatalog();
+}
+
+function renderConn() {
+  const map = {
+    CONNECTED: [t("● Connecté"), "ok"], CONNECTING: [t("Connexion…"), ""], IDLE: [t("Non configuré"), ""],
+    DISCONNECTED: [t("Injoignable") + (S.error ? " (" + S.error + ")" : ""), "bad"], AUTH_FAILED: [t("Jeton refusé"), "bad"]
+  };
+  const [label, c] = S.demo ? [t("● Mode démo"), "ok"] : (map[S.status] || [S.status, ""]);
+  $("demo").checked = !!S.demo;
+  $("status").textContent = label;
+  $("status").className = "badge " + c;
+  if (document.activeElement !== $("url") && !dirty.has("url")) $("url").value = S.url || "";
+  $("token").placeholder = S.hasToken ? t("•••••••• jeton enregistré (laisser vide pour le garder)") : t("Coller le jeton ici");
+}
+
+// Un champ modifié (pas encore enregistré) n'est jamais écrasé par le rafraîchissement automatique.
+const dirty = new Set();
+for (const id of ["url", "mqttHost", "mqttPort", "mqttUser", "devName"]) $(id).addEventListener("input", () => dirty.add(id));
+
+function renderMqtt() {
+  const m = S.mqtt;
+  if (!m) return;
+  const busy = el => document.activeElement === el || dirty.has(el.id);
+  $("mqttEnabled").checked = m.enabled;
+  if (!busy($("mqttHost"))) $("mqttHost").value = m.host || "";
+  if (!busy($("mqttPort"))) $("mqttPort").value = m.port || 1883;
+  if (!busy($("mqttUser"))) $("mqttUser").value = m.user || "";
+  $("mqttPass").placeholder = m.hasPass ? t("•••••••• enregistré (laisser vide pour le garder)") : "";
+  if (!busy($("devName"))) $("devName").value = m.name || "";
+  $("mqttStatus").textContent = t("MQTT : ") + m.status;
+  $("mqttStatus").className = "badge " + (m.connected ? "ok" : (m.enabled && m.host ? "bad" : ""));
+}
+$("saveMqtt").onclick = async () => {
+  const data = {
+    mqttEnabled: $("mqttEnabled").checked, mqttHost: $("mqttHost").value.trim(),
+    mqttPort: +$("mqttPort").value || 1883, mqttUser: $("mqttUser").value.trim(),
+    deviceName: $("devName").value.trim()
+  };
+  const pw = $("mqttPass").value;
+  if (pw) data.mqttPass = pw;
+  if (data.mqttPass && !data.mqttUser) { alert("Entrez aussi le nom d'utilisateur."); return; }
+  for (const id of ["mqttHost", "mqttPort", "mqttUser", "devName"]) dirty.delete(id);
+  await saveSettings(data);
+  $("mqttPass").value = "";
+  flash("Connexion au broker…");
+};
+$("mqttEnabled").onchange = () => saveSettings({mqttEnabled: $("mqttEnabled").checked});
+
+// ---- Mise à jour
+function renderUpdate(u) {
+  if (!u) return;
+  let txt = t("Version installée : ") + u.installed;
+  if (u.latest) txt += " · " + t("dernière version : ") + u.latest;
+  if (u.status) txt += " — " + u.status;
+  else if (u.latest && !u.available) txt += " — " + t("à jour ✓");
+  $("updInfo").textContent = txt;
+  $("updInstall").hidden = !u.available;
+  $("updInstall").textContent = t("Installer") + (u.latest ? " " + u.latest : "");
+  $("updInstall").disabled = !!u.busy;
+}
+$("updCheck").onclick = async () => {
+  try { renderUpdate(await api("POST", "/api/update/check")); } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+$("updInstall").onclick = async () => {
+  try { renderUpdate(await api("POST", "/api/update/install")); flash(t("Confirmez l'installation sur la tablette.")); }
+  catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+$("updUpload").onclick = () => $("updFile").click();
+$("updFile").onchange = async () => {
+  const f = $("updFile").files[0];
+  $("updFile").value = "";
+  if (!f) return;
+  $("updInfo").textContent = t("Envoi de l'APK…");
+  try {
+    const r = await fetch("/api/update/upload", {method: "POST", headers: {"Content-Type": "application/vnd.android.package-archive", "X-Pin": PIN}, body: f});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || (t("Erreur") + " " + r.status));
+    renderUpdate(j); flash(t("Confirmez l'installation sur la tablette."));
+  } catch (e) { alert(e.message); }
+};
+
+// ---- Sauvegarde / restauration
+$("expSecrets").onchange = () => { $("expWarn").hidden = !$("expSecrets").checked; };
+$("exportBtn").onclick = async () => {
+  try {
+    const cfg = await api("POST", "/api/export", {secrets: $("expSecrets").checked});
+    const blob = new Blob([JSON.stringify(cfg, null, 2)], {type: "application/json"});
+    const a = el("a", {href: URL.createObjectURL(blob), download: "tilehouse-config-" + new Date().toISOString().slice(0, 10) + ".json"});
+    document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    flash("✓ Configuration exportée");
+  } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+$("importBtn").onclick = () => $("importFile").click();
+$("importFile").onchange = async () => {
+  const f = $("importFile").files[0];
+  $("importFile").value = "";
+  if (!f) return;
+  let cfg;
+  try { cfg = JSON.parse(await f.text()); } catch (e) { alert("Fichier illisible."); return; }
+  if (cfg.format !== "homepanel-config") { alert("Ce fichier n'est pas une sauvegarde de l'app."); return; }
+  const n = (cfg.rooms || []).length;
+  if (!confirm(t("Remplacer la configuration actuelle par cette sauvegarde") + " (" + n + ") ?")) return;
+  try {
+    S = await api("POST", "/api/restore", {config: cfg});
+    rooms = S.rooms; cat = null;
+    renderConn(); renderSettings(); renderRooms(); renderEditor(true);
+    flash("✓ Sauvegarde restaurée");
+  } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+
+/**
+ * « Qui est à la maison » : plusieurs sources possibles, combinables.
+ * person.* (app compagnon), capteurs de présence (ESPresense, Bermuda…), appareils suivis.
+ */
+function renderPresence(ex, selected) {
+  const b = $("personList");
+  const persons = ex.person, others = ex.presence;
+  if (!persons && !others) { b.textContent = selected.length ? selected.join(", ") : t("Connexion requise…"); return; }
+  b.replaceChildren();
+  b.className = "";
+  const save = () => saveSettings({persons: [...b.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.id)});
+  const group = (title, list, collapsed) => {
+    if (!list || !list.length) return;
+    const box = collapsed ? el("details") : el("div");
+    box.append(el(collapsed ? "summary" : "div", {class: "muted", style: "margin:10px 0 2px;font-weight:600"}, title));
+    if (collapsed && list.some(it => selected.includes(it.id))) box.open = true;
+    for (const it of list) {
+      const cb = el("input", {type: "checkbox", checked: selected.includes(it.id), onchange: save});
+      cb.dataset.id = it.id;
+      box.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.id})));
+    }
+    b.append(box);
+  };
+  const sensors = (others || []).filter(it => !it.id.startsWith("device_tracker."));
+  const trackers = (others || []).filter(it => it.id.startsWith("device_tracker."));
+  group(t("Personnes (app compagnon)"), persons, false);
+  group(t("Capteurs de présence (ESPresense, Bermuda…)"), sensors, false);
+  group(t("Appareils suivis"), trackers, true);
+}
+
+function renderHome() {
+  const h = S.home;
+  if (!h) return;
+  const ex = (cat && cat.extras) || {};
+  const ws = $("weather");
+  ws.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
+  const weathers = ex.weather || (h.weather ? [{id: h.weather, name: h.weather}] : []);
+  for (const w of weathers) ws.append(el("option", {value: w.id, textContent: w.name}));
+  ws.value = h.weather || "";
+  const checks = (box, list, selected, key) => {
+    const b = $(box);
+    if (!list) { b.textContent = selected.length ? selected.join(", ") : t("Connexion requise…"); return; }
+    b.replaceChildren();
+    b.className = "";
+    for (const it of list) {
+      const cb = el("input", {type: "checkbox", checked: selected.includes(it.id), onchange: () => {
+        const sel = [...b.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.id);
+        saveSettings({[key]: sel});
+      }});
+      cb.dataset.id = it.id;
+      b.append(el("label", {class: "check"}, cb, " " + it.name));
+    }
+  };
+  checks("calList", ex.calendar, h.calendars, "calendars");
+  renderPresence(ex, h.persons);
+  const fl = $("floorList");
+  fl.replaceChildren();
+  const floors = h.floors.slice();
+  if (!floors.length) fl.append(el("li", {class: "muted", style: "cursor:default"}, t("Aucun palier dans Home Assistant.")));
+  floors.forEach((f, i) => {
+    const li = el("li", {style: "cursor:default"});
+    li.dataset.idx = i;
+    li.append(grip(fl, li, floors, i, () => saveSettings({floorOrder: floors.map(x => x.id)})), el("span", {class: "n", textContent: f.name}));
+    fl.append(li);
+  });
+}
+$("weather").onchange = () => saveSettings({weather: $("weather").value});
+
+function renderSettings() {
+  renderMqtt();
+  renderHome();
+  const st = S.settings;
+  const w = $("wallpaper");
+  if (!w.options.length) for (const [k, n] of S.wallpapers) w.append(el("option", {value: k, textContent: n}));
+  w.value = st.wallpaper;
+  const th = $("theme");
+  if (!th.options.length) {
+    th.append(el("option", {value: "", textContent: t("Aucun")}));
+    const groups = {};
+    for (const tm of S.themes || []) {
+      if (!groups[tm.group]) { groups[tm.group] = el("optgroup", {label: tm.group}); th.append(groups[tm.group]); }
+      groups[tm.group].append(el("option", {value: tm.key, textContent: tm.emoji + "  " + tm.name}));
+    }
+  }
+  th.value = st.theme || "";
+  $("language").value = st.language || "auto";
+  w.disabled = !!st.theme;
+  $("dim").value = String(st.dim);
+  $("group").checked = st.group;
+  $("clock").checked = st.clock;
+  $("pinInfo").textContent = st.pinSet ? t("Un code PIN est défini. Laissez vide puis « Changer » pour le retirer.")
+    : t("Aucun code : toute personne sur votre Wi-Fi peut ouvrir cette page. Un code est recommandé.");
+}
+
+$("demo").onchange = async () => {
+  try { await api("POST", "/api/demo", {on: $("demo").checked}); location.reload(); }
+  catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+
+$("saveConn").onclick = async () => {
+  try {
+    S = await api("POST", "/api/connection", {url: $("url").value.trim(), token: $("token").value.trim()});
+    dirty.delete("url");
+    $("token").value = "";
+    cat = null; renderConn(); flash("Connexion en cours…");
+  } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+
+async function saveSettings(data) {
+  try { S = await api("POST", "/api/settings", data); renderSettings(); flash("✓ Enregistré sur la tablette"); }
+  catch (e) { if (e.message !== "pin") flash("⚠ " + e.message); }
+}
+$("wallpaper").onchange = () => saveSettings({wallpaper: $("wallpaper").value});
+$("theme").onchange = () => saveSettings({theme: $("theme").value});
+$("language").onchange = async () => { await saveSettings({language: $("language").value}); location.reload(); };
+$("dim").onchange = () => saveSettings({dim: +$("dim").value});
+$("group").onchange = () => saveSettings({group: $("group").checked});
+$("clock").onchange = () => saveSettings({clock: $("clock").checked});
+$("savePin").onclick = async () => {
+  const p = $("pin").value.trim();
+  if (p && !/^\d{4,12}$/.test(p)) { alert("Le code doit contenir de 4 à 12 chiffres."); return; }
+  await saveSettings({pin: p});
+  PIN = p;
+  try { sessionStorage.setItem("pin", PIN); } catch (e) {}
+  $("pin").value = "";
+};
+
+// ------------------------------------------------------------------ pièces
+function changed(opts) {
+  opts = opts || {};
+  renderRooms();
+  if (!opts.keepEditor) renderEditor();
+  clearTimeout(saveTimer);
+  flash("Modifications…");
+  saveTimer = setTimeout(saveRooms, 500);
+}
+
+let saving = false;
+async function saveRooms() {
+  saveTimer = null;
+  saving = true;
+  try {
+    const s = await api("POST", "/api/rooms", {rooms, rev: S.rev});
+    S.rev = s.rev;
+    flash("✓ Enregistré sur la tablette");
+  } catch (e) {
+    if (e.conflict) adoptRooms(e.conflict, "⚠ " + e.message + " " + t("Refaites votre dernière modification."));
+    else if (e.message !== "pin") flash("⚠ " + e.message);
+  } finally { saving = false; }
+}
+
+/** Reprend la liste des pièces de la tablette (modifiée ailleurs). */
+function adoptRooms(s, msg) {
+  rooms = s.rooms;
+  S.rev = s.rev;
+  if (!rooms.find(r => r.id === cur)) cur = rooms.length ? rooms[0].id : null;
+  renderRooms();
+  if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest("#roomEd")) renderEditor();
+  flash(msg);
+}
+
+/**
+ * Poignée de glisser-déposer : déplace la ligne pendant le geste, puis réordonne le tableau.
+ * Fonctionne à la souris et au doigt (Pointer Events).
+ */
+function grip(ul, li, arr, from, done) {
+  const h = el("span", {class: "grip", textContent: "⠿", title: t("Glisser pour déplacer")});
+  h.addEventListener("click", e => e.stopPropagation());
+  h.addEventListener("pointerdown", e => {
+    if (e.button !== undefined && e.button > 0) return;
+    e.preventDefault(); e.stopPropagation();
+    li.classList.add("dragging");
+    document.body.style.userSelect = "none";
+    const rows = () => [...ul.children].filter(x => x.dataset.idx !== undefined);
+    // Le suivi se fait sur la fenêtre entière : déplacer la ligne dans la page
+    // ne doit pas interrompre le geste (la capture du pointeur serait perdue).
+    const onMove = ev => {
+      ev.preventDefault();
+      const y = ev.clientY;
+      for (const o of rows()) {
+        if (o === li) continue;
+        const r = o.getBoundingClientRect();
+        if (y > r.top && y < r.bottom) {
+          const before = y < r.top + r.height / 2 ? o : o.nextSibling;
+          if (before !== li && before !== li.nextSibling) ul.insertBefore(li, before);
+          break;
+        }
+      }
+      const u = ul.getBoundingClientRect();
+      if (y < u.top + 30) ul.scrollTop -= 12; else if (y > u.bottom - 30) ul.scrollTop += 12;
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.style.userSelect = "";
+      li.classList.remove("dragging");
+      const to = rows().indexOf(li);
+      if (to >= 0 && to !== from) { const [x] = arr.splice(from, 1); arr.splice(to, 0, x); }
+      done();
+    };
+    window.addEventListener("pointermove", onMove, {passive: false});
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  });
+  return h;
+}
+
+function move(arr, i, d) {
+  const j = i + d;
+  if (j < 0 || j >= arr.length) return false;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  return true;
+}
+
+function renderRooms() {
+  const ul = $("rooms");
+  ul.replaceChildren();
+  if (!rooms.length) ul.append(el("li", {class: "muted", style: "cursor:default"}, t("Aucune pièce.")));
+  rooms.forEach((r, i) => {
+    const stop = f => e => { e.stopPropagation(); f(); };
+    const li = el("li", {class: r.id === cur ? "sel" : "", onclick: () => { cur = r.id; renderRooms(); renderEditor(true); }});
+    li.dataset.idx = i;
+    li.append(grip(ul, li, rooms, i, () => changed({keepEditor: true})));
+    ul.append(li);
+    li.append(
+      el("span", {class: "n", textContent: r.name}),
+      el("span", {class: "c", textContent: r.entities.length}),
+      el("button", {class: "mini", title: t("Monter"), textContent: "▲", disabled: i === 0, onclick: stop(() => { move(rooms, i, -1); changed({keepEditor: true}); })}),
+      el("button", {class: "mini", title: t("Descendre"), textContent: "▼", disabled: i === rooms.length - 1, onclick: stop(() => { move(rooms, i, 1); changed({keepEditor: true}); })})
+    );
+  });
+}
+
+$("addRoom").onclick = () => {
+  const n = (prompt(t("Nom de la nouvelle pièce :"), "") || "").trim();
+  if (!n) return;
+  const r = {id: rid(), name: n, entities: []};
+  rooms.push(r); cur = r.id;
+  changed();
+  setAreaFilterFor(r);
+};
+
+$("import").onclick = async () => {
+  if (S.status !== "CONNECTED") { alert("Connectez d'abord la tablette à Home Assistant."); return; }
+  if (!confirm("Créer une pièce pour chaque zone Home Assistant qui n'existe pas encore, avec ses appareils principaux ?")) return;
+  flash("Import en cours…");
+  try {
+    clearTimeout(saveTimer);
+    if (saveTimer) await saveRooms();
+    S = await api("POST", "/api/import");
+    rooms = S.rooms;
+    if (!cur && rooms.length) cur = rooms[0].id;
+    renderRooms(); renderEditor(true);
+    flash(S.imported ? "✓ " + S.imported + " " + t("pièce(s) importée(s)") : t("Aucune nouvelle zone à importer"));
+  } catch (e) { if (e.message !== "pin") flash("⚠ " + e.message); }
+};
+
+$("delRoom").onclick = () => {
+  const r = rooms.find(x => x.id === cur);
+  if (!r || !confirm(t("Supprimer la pièce « %s » ? (Rien n'est modifié dans Home Assistant.)").replace("%s", r.name))) return;
+  rooms = rooms.filter(x => x !== r);
+  cur = rooms.length ? rooms[0].id : null;
+  changed();
+};
+
+$("roomName").addEventListener("input", () => {
+  const r = rooms.find(x => x.id === cur);
+  if (!r) return;
+  r.name = $("roomName").value.trim() || r.name;
+  changed({keepEditor: true});
+});
+
+// ------------------------------------------------------------------ éditeur de pièce
+function setAreaFilterFor(r) {
+  if (!cat) return;
+  $("fArea").value = r && r.area && cat.areas.some(a => a.id === r.area) ? r.area : "*";
+}
+
+function renderEditor(roomSwitched) {
+  const r = rooms.find(x => x.id === cur);
+  $("noRoom").hidden = !!r;
+  $("roomEd").hidden = !r;
+  if (!r) return;
+  if (roomSwitched) setAreaFilterFor(r);
+  if (document.activeElement !== $("roomName")) $("roomName").value = r.name;
+  $("selCount").textContent = "(" + r.entities.length + ")";
+
+  const sel = $("selList");
+  sel.replaceChildren();
+  if (!r.entities.length) sel.append(el("li", {class: "empty"}, t("Aucun appareil. Ajoutez-en depuis la liste de droite.")));
+  r.entities.forEach((e, i) => {
+    const c = catById[e.id];
+    const nameInput = el("input", {value: e.name || "", title: t("Nom affiché dans l'app seulement"), placeholder: "✎ " + (c ? c.name : e.id), oninput: ev => {
+      const v = ev.target.value.trim();
+      if (v) e.name = v; else delete e.name;
+      changed({keepEditor: true});
+    }});
+    const li = el("li");
+    li.dataset.idx = i;
+    sel.append(li);
+    li.append(grip(sel, li, r.entities, i, () => changed()),
+      el("span", {class: "dot", textContent: ICON[domain(e.id)] || "•"}),
+      el("div", {class: "info"}, nameInput, el("div", {class: "id", textContent: e.id + (c ? "" : cat ? "  ⚠ introuvable dans HA" : "")})),
+      el("button", {class: "mini", textContent: "▲", disabled: i === 0, onclick: () => { move(r.entities, i, -1); changed(); }}),
+      el("button", {class: "mini", textContent: "▼", disabled: i === r.entities.length - 1, onclick: () => { move(r.entities, i, 1); changed(); }}),
+      el("button", {class: "mini danger", textContent: t("Retirer"), onclick: () => { r.entities.splice(i, 1); changed(); }})
+    );
+  });
+  renderCatalog();
+}
+
+function renderCatalog() {
+  const r = rooms.find(x => x.id === cur);
+  const ul = $("catList");
+  ul.replaceChildren();
+  if (!r || !cat) return;
+  const inRoom = new Set(r.entities.map(e => e.id));
+  const q = $("q").value.trim().toLowerCase();
+  const area = $("fArea").value;
+  const types = TYPES[+$("fType").value][1];
+  const hidden = $("fHidden").checked;
+  const areaName = {};
+  for (const a of cat.areas) areaName[a.id] = a.name;
+  const list = cat.entities.filter(e =>
+    !inRoom.has(e.id) && (hidden || !e.hidden) &&
+    (!types.length || types.includes(domain(e.id))) &&
+    (area === "*" || (area === "" ? !e.area : e.area === area)) &&
+    (!q || e.name.toLowerCase().includes(q) || e.id.includes(q)));
+  $("catMsg").textContent = list.length + " " + t("appareil(s)") + (list.length > MAX_ROWS ? " — " + t("affinez la recherche pour tout voir") : "") + ". " + t("Cliquez pour ajouter.");
+  for (const e of list.slice(0, MAX_ROWS)) {
+    ul.append(el("li", {onclick: () => { r.entities.push({id: e.id}); changed(); }},
+      el("span", {class: "dot", textContent: ICON[domain(e.id)] || "•"}),
+      el("div", {class: "info"}, el("div", {textContent: e.name}),
+        el("div", {class: "id", textContent: e.id + (e.area && areaName[e.area] ? " · " + areaName[e.area] : "")})),
+      el("span", {class: "add", textContent: "+"})
+    ));
+  }
+}
+
+async function loadCatalog() {
+  if (cat || loadingCat) return;
+  loadingCat = true;
+  $("catMsg").textContent = t("Chargement de la liste des appareils…");
+  try {
+    cat = await api("GET", "/api/catalog");
+    catById = {};
+    for (const e of cat.entities) catById[e.id] = e;
+    const fa = $("fArea");
+    fa.replaceChildren(el("option", {value: "*", textContent: t("Toutes les zones")}), el("option", {value: "", textContent: t("Sans zone")}));
+    for (const a of cat.areas) fa.append(el("option", {value: a.id, textContent: a.name}));
+    setAreaFilterFor(rooms.find(x => x.id === cur));
+    renderEditor();
+    renderHome();
+  } catch (e) {
+    if (e.message !== "pin") $("catMsg").textContent = t("Liste indisponible : ") + e.message;
+  } finally { loadingCat = false; }
+}
+
+for (const [i, [n]] of TYPES.entries()) $("fType").append(el("option", {value: i, textContent: n}));
+$("fArea").append(el("option", {value: "*", textContent: t("Toutes les zones")}));
+for (const id of ["q", "fArea", "fType", "fHidden"]) $(id).addEventListener(id === "q" ? "input" : "change", renderCatalog);
+
+// Suivi de l'état de connexion
+setInterval(async () => {
+  if (!S || $("login").style.display === "grid") return;
+  try {
+    const s = await api("GET", "/api/state");
+    S.status = s.status; S.demo = s.demo; S.error = s.error; S.url = s.url; S.hasToken = s.hasToken; S.mqtt = s.mqtt;
+    // Pièces modifiées ailleurs (tablette, autre navigateur) : on se synchronise si rien n'est en cours ici.
+    if (s.rev !== S.rev && !saveTimer && !saving) adoptRooms(s, t("↻ Pièces mises à jour depuis la tablette"));
+    renderConn(); renderMqtt(); renderUpdate(s.update);
+    if (s.status === "CONNECTED" && !cat) loadCatalog();
+  } catch (e) {}
+}, 4000);
+
+initI18n().then(() => load()).catch(e => { if (e.message !== "pin") flash("⚠ " + e.message); });
+</script>
+</body>
+</html>

@@ -1,0 +1,20 @@
+<resources>
+    <style name="Kiosk" parent="android:Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+
+    <!-- Réglages : mêmes couleurs que l'icône (bleu nuit + ambre). -->
+    <style name="Panel" parent="android:Theme.Material">
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:colorPrimary">@color/icon_bg</item>
+        <item name="android:colorPrimaryDark">@color/bg</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <item name="android:navigationBarColor">@color/bg</item>
+    </style>
+
+    <style name="Panel.NoBar">
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+    </style>
+</resources>
