@@ -55,5 +55,12 @@
         <receiver
             android:name=".UpdateReceiver"
             android:exported="false" />
+        <receiver
+            android:name=".RestartAfterUpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

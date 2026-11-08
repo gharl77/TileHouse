@@ -94,7 +94,7 @@ class Updater(private val app: App) {
                 main.post {
                     lastCheck = System.currentTimeMillis()
                     if (rel == null) status = tr("Vérification impossible")
-                    else { latest = rel; status = "" }
+                    else { latest = rel; if (!busy && status.startsWith(tr("Vérification impossible"))) status = "" } // garde un message d'installation
                     changed(); cb?.invoke()
                 }
             }
@@ -160,7 +160,8 @@ class Updater(private val app: App) {
             val id = pi.createSession(params)
             pi.openSession(id).use { s ->
                 file.inputStream().use { inp -> s.openWrite("tilehouse.apk", 0, file.length()).use { out -> inp.copyTo(out); s.fsync(out) } }
-                val intent = Intent(ACTION_RESULT).setPackage(app.packageName)
+                // Intention explicite (composant nommé) : Android 8+ ne livre pas les diffusions implicites aux récepteurs du manifeste.
+                val intent = Intent(app, UpdateReceiver::class.java).setAction(ACTION_RESULT)
                 val pending = PendingIntent.getBroadcast(app, id, intent, PendingIntent.FLAG_UPDATE_CURRENT)
                 s.commit(pending.intentSender)
             }
@@ -199,6 +200,14 @@ class Updater(private val app: App) {
         .put("release_url", latest?.url?.ifEmpty { null } ?: RELEASES_URL)
         .put("release_summary", (latest?.notes ?: "").take(250))
         .put("in_progress", busy)
+}
+
+/** Après une mise à jour, Android arrête l'app : on rouvre le tableau de bord (kiosque). */
+class RestartAfterUpdateReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
 }
 
 /** Reçoit le résultat de l'installation (déclaré dans le manifeste, non exporté). */
