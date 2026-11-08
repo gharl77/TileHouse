@@ -327,7 +327,13 @@ TileHouse to install apps: turn on **Allow from this source**, go back, and star
 
 **Google Play Protect** may also step in, because TileHouse is not distributed through the Play Store. Choose **Scan app**: the APK is
 checked by Google and the installation continues. Depending on the Play Protect version, *More details → Install anyway* may also be offered.
-If the installation is refused, simply start the update again. TileHouse reopens by itself once the update is installed.
+TileHouse reopens by itself once the update is installed.
+
+> **"Harmful app blocked"?** Play Protect is wary of new apps that are not on the Play Store and that can install updates
+> themselves, so it may block over‑the‑air updates even when installing the same APK by hand works. Two fixes:
+> - install the new APK by hand once (download it from the releases page in the tablet's browser and open it), or
+> - on a dedicated wall tablet, turn off scanning: *Play Store → profile picture → Play Protect → ⚙️ → Scan apps with Play Protect*.
+>   Wi‑Fi updates then install normally. You can turn it back on at any time.
 
 > Updates must be signed with the same key as the installed app. Official releases are all signed with the same release key, so
 > they always install over each other. If you build the app yourself with a different key, uninstall the official app first
