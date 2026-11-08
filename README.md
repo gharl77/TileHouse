@@ -116,7 +116,7 @@ Other useful Android settings for a wall tablet:
 With [ADB](https://developer.android.com/tools/adb) and USB debugging enabled:
 
 ```bash
-adb install TileHouse-2026.11.1.apk
+adb install TileHouse-2026.11.2.apk
 ```
 
 ---
@@ -324,6 +324,10 @@ TileHouse checks GitHub for a new release **every 6 hours**. There are three way
 
 Android always asks for a **confirmation on the tablet** (one tap on *Install*). The very first time, Android also asks you to allow
 TileHouse to install apps: turn on **Allow from this source**, go back, and start the update again.
+
+**Google Play Protect** may also step in, because TileHouse is not distributed through the Play Store. Choose **Scan app**: the APK is
+checked by Google and the installation continues. Depending on the Play Protect version, *More details → Install anyway* may also be offered.
+If the installation is refused, simply start the update again. TileHouse reopens by itself once the update is installed.
 
 > Updates must be signed with the same key as the installed app. Official releases are all signed with the same release key, so
 > they always install over each other. If you build the app yourself with a different key, uninstall the official app first
