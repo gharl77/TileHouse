@@ -42,17 +42,29 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
         app.ha.setExtraEntities(map.keys)
     }
 
+    private val PERSON = setOf("person", "human", "personne", "face", "pet_person")
+
     override fun onHaEntities(ids: Set<String>) {
+        val motionToo = app.config.alertTrigger == "motion"
         for (id in ids) {
             val cam = sensors[id] ?: continue
-            val st = app.ha.states[id]?.state ?: continue
+            val e = app.ha.states[id] ?: continue
+            val st = e.state
             val before = last.put(id, st)
-            // Seulement une vraie transition off → on (pas l'état reçu à la connexion).
-            if (st == "on" && before == "off") trigger(cam)
+            if (before == null) continue // état reçu à la connexion : pas une nouvelle détection
+            if (id.startsWith("event.")) {
+                // Entité event : l'état (horodatage) change à chaque détection ; event_type dit quoi.
+                if (st == before || st == "unknown" || st == "unavailable") continue
+                val type = e.attrs.str("event_type").lowercase()
+                if (type in PERSON) trigger(cam, true) else if (motionToo && type.isNotEmpty()) trigger(cam, false)
+            } else if (st == "on" && before == "off") {
+                val isPerson = id.substringAfter('.').split('_').any { it in PERSON }
+                if (isPerson || motionToo) trigger(cam, isPerson)
+            }
         }
     }
 
-    private fun trigger(camera: String) {
+    private fun trigger(camera: String, person: Boolean = true) {
         val cfg = app.config
         if (!cfg.personAlert || app.ha.demo) return
         val now = SystemClock.elapsedRealtime()
@@ -67,7 +79,8 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             .putExtra(LiveActivity.EXTRA_ID, camera)
             .putExtra(LiveActivity.EXTRA_NAME, name)
-            .putExtra(LiveActivity.EXTRA_ALERT, cfg.alertSeconds))
+            .putExtra(LiveActivity.EXTRA_ALERT, cfg.alertSeconds)
+            .putExtra(LiveActivity.EXTRA_REASON, if (person) "🚶  " + tr("Personne détectée") else "〰  " + tr("Mouvement détecté")))
     }
 
     /** Pour tester depuis la page web. */

@@ -299,10 +299,37 @@ object CameraResolver {
             if (dir != null && (isPtz || t.any { it in setOf("gauche", "droite", "haut", "bas") })) ptz.putIfAbsent(dir, b)
         }
         val switch = related.firstOrNull { it.startsWith("switch.") && ("rtsp" in it || it.endsWith("_stream") || "stream" in it.substringAfter('.').split('_')) }
-        val persons = related.filter { it.startsWith("binary_sensor.") && it.substringAfter('.').split('_').any { t -> t == "person" || t == "personne" || t == "human" } }
-            .ifEmpty { if (related.isEmpty()) listOf("binary_sensor.${obj}_person") else emptyList() }
+        // Détecteurs : binary_sensor « person », et entités event de détection (Eufy : event.<cam>_detection,
+        // dont l'attribut event_type vaut person / motion / vehicle…).
+        val persons = (related.filter { it.startsWith("binary_sensor.") && it.substringAfter('.').split('_').any { t -> t == "person" || t == "personne" || t == "human" } } +
+            related.filter { it.startsWith("event.") && it.substringAfter('.').split('_').any { t -> t == "detection" || t == "motion" || t == "person" } })
+            .ifEmpty { if (related.isEmpty()) listOf("binary_sensor.${obj}_person", "event.${obj}_detection") else emptyList() }
         val info = CameraInfo(images, streams, ptz, platform == "onvif", switch, persons)
         cache[cameraId] = info
         cb(info)
+    }
+}
+
+/**
+ * Interrupteurs de flux allumés par l'app. Eufy rallume parfois l'interrupteur ~20 s après
+ * l'arrêt (fin du flux P2P) : on revérifie et on l'éteint de nouveau si aucun live ne l'utilise.
+ */
+object StreamSwitches {
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+    /** Interrupteurs allumés par l'app (à éteindre même si un nouveau live les trouve déjà allumés). */
+    val owned = HashSet<String>()
+
+    fun turnOn(app: App, sw: String) { owned.add(sw); app.ha.callService("switch", "turn_on", sw) }
+
+    fun release(app: App, sw: String, camera: String, attempt: Int = 0) {
+        if (LiveActivity.showing == camera) return
+        app.ha.callService("switch", "turn_off", sw)
+        if (attempt >= 1) { owned.remove(sw); return }
+        main.postDelayed({
+            if (LiveActivity.showing != camera) app.snapshots.getState(sw) { st ->
+                if (st == "on" && LiveActivity.showing != camera) release(app, sw, camera, attempt + 1)
+                else if (LiveActivity.showing != camera) owned.remove(sw)
+            }
+        }, 25_000)
     }
 }

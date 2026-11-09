@@ -198,6 +198,7 @@ class WebServer(private val app: App) {
                 if (req.has("clock")) cfg.showClock = req.optBoolean("clock")
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
                 if (req.has("alertSeconds")) cfg.alertSeconds = req.optInt("alertSeconds", 20)
+                if (req.has("alertTrigger")) cfg.alertTrigger = req.str("alertTrigger")
                 if (req.has("pin")) cfg.pin = req.str("pin").filter { it.isDigit() }.take(12)
                 // Accueil : météo, calendriers, personnes, ordre des paliers
                 var subs = false
@@ -314,6 +315,7 @@ class WebServer(private val app: App) {
                 .put("clock", cfg.showClock)
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)
+                .put("alertTrigger", cfg.alertTrigger)
                 .put("pinSet", cfg.pin.isNotEmpty()))
     }
 

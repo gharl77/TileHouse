@@ -42,6 +42,7 @@ class LiveActivity : Activity() {
         const val EXTRA_NAME = "name"
         /** Alerte : durée d'affichage en secondes (0 = live normal). */
         const val EXTRA_ALERT = "alert"
+        const val EXTRA_REASON = "reason"
         /** Caméra affichée en ce moment (null si aucune vue live ouverte). */
         @Volatile var showing: String? = null
             private set
@@ -111,7 +112,7 @@ class LiveActivity : Activity() {
             }
             root.addView(alertPill, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(24) })
             alertLeft = alertSeconds
-            alertPill?.text = "🚶  " + tr("Personne détectée")
+            alertPill?.text = alertReason
             // Le compte à rebours part à la première image (une sonnette sur batterie peut mettre 20 s à démarrer).
             handler.postDelayed(startAlertCountdown, 30_000)
         }
@@ -134,12 +135,13 @@ class LiveActivity : Activity() {
     private var alertLeft = 0
     private var alertPill: TextView? = null
     private var alertKept = false
+    private val alertReason by lazy { intent.getStringExtra(EXTRA_REASON) ?: ("🚶  " + tr("Personne détectée")) }
 
     /** Compte à rebours de l'alerte ; un toucher l'annule et garde le live ouvert. */
     private val alertTick = object : Runnable {
         override fun run() {
             if (alertLeft <= 0) { finish(); return }
-            alertPill?.text = "🚶  " + tr("Personne détectée") + "  ·  $alertLeft s"
+            alertPill?.text = alertReason + "  ·  $alertLeft s"
             alertLeft--
             handler.postDelayed(this, 1000)
         }
@@ -155,7 +157,7 @@ class LiveActivity : Activity() {
         alertKept = true
         handler.removeCallbacks(alertTick)
         handler.removeCallbacks(startAlertCountdown)
-        alertPill?.text = "🚶  " + tr("Personne détectée")
+        alertPill?.text = alertReason
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -185,7 +187,7 @@ class LiveActivity : Activity() {
         player = null
         if (showing == entityId) showing = null
         // On rend l'interrupteur de flux dans l'état trouvé (économise la batterie et la bande passante).
-        switchedOn?.let { app.ha.callService("switch", "turn_off", it) }
+        switchedOn?.let { StreamSwitches.release(app, it, entityId) }
         (still.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { still.setImageDrawable(null); it.recycle() }
     }
 
@@ -228,8 +230,8 @@ class LiveActivity : Activity() {
         app.snapshots.getState(sw) { st ->
             if (isFinishing) return@getState
             // Interrupteur éteint : les adresses publiées sont périmées, on attend les nouvelles.
-            if (st != "on") { app.ha.callService("switch", "turn_on", sw); switchedOn = sw; waitForUrl(i, 0, 3000) }
-            else waitForUrl(i, 0, 0)
+            if (st != "on") { StreamSwitches.turnOn(app, sw); switchedOn = sw; waitForUrl(i, 0, 3000) }
+            else { if (sw in StreamSwitches.owned) switchedOn = sw; waitForUrl(i, 0, 0) }
         }
     }
 

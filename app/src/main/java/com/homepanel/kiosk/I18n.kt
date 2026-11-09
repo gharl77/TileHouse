@@ -43,10 +43,11 @@ object I18n {
         "Exceptionnel" to "Exceptional", "à" to "to",
         // --- Pastilles
         "allumée" to "on", "allumées" to "on", "Serrure bloquée" to "Lock jammed", "Déverrouillées" to "Unlocked",
-        "Signaler un problème" to "Report a problem", "Caméras" to "Cameras", "Personne détectée" to "Person detected",
+        "Signaler un problème" to "Report a problem", "Caméras" to "Cameras", "Personne détectée" to "Person detected", "Mouvement détecté" to "Motion detected",
         "Alerte personne détectée" to "Person detected alert", "Alerte personne détectée : live plein écran" to "Person detected alert: full-screen live view",
         "Quand le détecteur de personne d'une caméra des pièces s'active, la tablette affiche son live. Toucher l'écran garde le live ouvert." to "When a room camera's person detector triggers, the tablet shows its live view. Touching the screen keeps it open.",
         "Affiche le live de la caméra en plein écran quand elle détecte une personne" to "Shows the camera's live view full screen when it detects a person",
+        "Déclencher sur" to "Trigger on", "Personne seulement" to "Person only", "Tout mouvement" to "Any motion",
         "Durée de l'alerte" to "Alert duration", "Touchez l'écran pendant l'alerte pour garder le live ouvert" to "Touch the screen during the alert to keep the live view open",
         "Démarrage du flux de la caméra…" to "Starting the camera stream…", "Kiosque" to "Kiosk", "Liens" to "Links", "Notes de version" to "Release notes", "Nouveautés de chaque version" to "What's new in each version",
         "Signaler un problème ou suggérer une idée" to "Report a problem or suggest an idea", "Informations" to "Information", "Mémoire" to "Memory",

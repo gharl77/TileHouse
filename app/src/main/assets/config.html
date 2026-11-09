@@ -183,6 +183,8 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   <section class="card">
     <h2>Caméras</h2>
     <label class="check"><input type="checkbox" id="personAlert"> Alerte personne détectée : live plein écran</label>
+    <label class="f" for="alertTrigger">Déclencher sur</label>
+    <select id="alertTrigger"><option value="person">Personne seulement</option><option value="motion">Tout mouvement</option></select>
     <label class="f" for="alertSeconds">Durée de l'alerte</label>
     <select id="alertSeconds"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
     <p class="muted">Quand le détecteur de personne d'une caméra des pièces s'active, la tablette affiche son live. Toucher l'écran garde le live ouvert.</p>
@@ -608,6 +610,7 @@ function renderSettings() {
   $("clock").checked = st.clock;
   $("personAlert").checked = st.personAlert;
   $("alertSeconds").value = String(st.alertSeconds);
+  $("alertTrigger").value = st.alertTrigger;
   $("pinInfo").textContent = st.pinSet ? t("Un code PIN est défini. Laissez vide puis « Changer » pour le retirer.")
     : t("Aucun code : toute personne sur votre Wi-Fi peut ouvrir cette page. Un code est recommandé.");
 }
@@ -637,6 +640,7 @@ $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
 $("clock").onchange = () => saveSettings({clock: $("clock").checked});
 $("personAlert").onchange = () => saveSettings({personAlert: $("personAlert").checked});
+$("alertTrigger").onchange = () => saveSettings({alertTrigger: $("alertTrigger").value});
 $("alertSeconds").onchange = () => saveSettings({alertSeconds: +$("alertSeconds").value});
 $("savePin").onclick = async () => {
   const p = $("pin").value.trim();

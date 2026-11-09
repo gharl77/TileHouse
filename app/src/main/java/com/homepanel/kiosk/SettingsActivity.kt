@@ -126,6 +126,9 @@ class SettingsActivity : Activity(), HaClient.Listener {
         val alertChoices = listOf(10, 20, 30, 60)
         camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.RED, tr("Alerte personne détectée"),
             tr("Affiche le live de la caméra en plein écran quand elle détecte une personne"), toggle(cfg.personAlert) { cfg.personAlert = it }))
+        val trigKeys = listOf("person", "motion")
+        camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.PURPLE, tr("Déclencher sur"), trailing = choice(
+            listOf(tr("Personne seulement"), tr("Tout mouvement")), trigKeys.indexOf(cfg.alertTrigger).coerceAtLeast(0)) { cfg.alertTrigger = trigKeys[it] }))
         camCard.addRow(settingRow(R.drawable.ic_clock, Ui.ORANGE, tr("Durée de l'alerte"), tr("Touchez l'écran pendant l'alerte pour garder le live ouvert"), choice(
             alertChoices.map { "$it s" }, alertChoices.indexOf(cfg.alertSeconds).coerceAtLeast(1)) { cfg.alertSeconds = alertChoices[it] }))
         display.addView(footnote(tr("La météo, l'agenda, les personnes et l'ordre des paliers de l'accueil se règlent dans la page web (onglet Accueil).")))
