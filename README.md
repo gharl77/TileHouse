@@ -258,6 +258,9 @@ browser), the page reloads it instead of overwriting it. Deep links work too: `h
 
 The same options are available on the tablet itself (⋮ menu → settings), protected by the PIN if you set one.
 
+**Screen saver** (Display): after the idle delay the screen shows either the **time, date and current weather** (moving a little
+every minute so nothing burns in, at a brightness you choose, 1–60 %) or a **black screen**. A touch wakes it.
+
 **Wake on motion** (Display, only on tablets with a front camera, off by default): the front camera watches the room at very low
 resolution (about 2 frames per second) and treats someone passing in front of the tablet like a touch, so the screen doesn't dim,
 or wakes up if it already has. Frames are compared in memory and thrown away; nothing is saved or sent. Android asks for the camera
@@ -293,6 +296,7 @@ Assistant*), and the device appears under *Settings → Devices & services → M
 | Dim after | number (min) | |
 | Theme / Wallpaper | select | e.g. switch to the Christmas theme on December 1st |
 | Group by category, Show clock | switches | |
+| Screen saver, Screen saver brightness | select, number | time and weather or black screen; brightness of the time screen |
 | Back to home | button | |
 | Message | notify | show a notification card in the middle of the screen (`notify.send_message`) |
 | TileHouse | update | installed / latest version, **Install** button |

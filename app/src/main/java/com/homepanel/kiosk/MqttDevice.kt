@@ -119,6 +119,8 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
                 if (i >= 0) { cfg.wallpaper = Wallpapers.keys[i]; configChanged = true }
             }
             "veille" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimMinutes = it.coerceIn(0, 240); configChanged = true }
+            "veille_style" -> { cfg.dimStyle = if (v == tr("Écran noir")) "black" else "clock"; configChanged = true }
+            "veille_luminosite" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimBrightness = it.coerceIn(1, 100); configChanged = true }
             "luminosite" -> v.toDoubleOrNull()?.toInt()?.let { cfg.brightness = it.coerceIn(5, 100); configChanged = true }
             "regrouper" -> { cfg.groupByCategory = v == "ON"; configChanged = true }
             "horloge" -> { cfg.showClock = v == "ON"; configChanged = true }
@@ -140,6 +142,8 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         st("fond", Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
         st("veille", c.dimMinutes.toString())
         st("luminosite", effectiveBrightness().toString())
+        st("veille_style", if (c.dimStyle == "black") tr("Écran noir") else tr("Heure et météo"))
+        st("veille_luminosite", c.dimBrightness.toString())
         st("regrouper", if (c.groupByCategory) "ON" else "OFF")
         st("horloge", if (c.showClock) "ON" else "OFF")
         st("ecran_veille", if (screenOff) "ON" else "OFF")
@@ -246,6 +250,14 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         entity("number", "luminosite", tr("Luminosité de l'écran"), "mdi:brightness-6") {
             put("state_topic", "$base/luminosite"); put("command_topic", "$base/luminosite/set")
             put("min", 5); put("max", 100); put("step", 5); put("unit_of_measurement", "%"); put("mode", "slider")
+        }
+        entity("select", "veille_style", tr("Écran de veille"), "mdi:sleep") {
+            put("state_topic", "$base/veille_style"); put("command_topic", "$base/veille_style/set")
+            put("options", JSONArray(listOf(tr("Heure et météo"), tr("Écran noir"))))
+        }
+        entity("number", "veille_luminosite", tr("Luminosité en veille"), "mdi:brightness-4") {
+            put("state_topic", "$base/veille_luminosite"); put("command_topic", "$base/veille_luminosite/set")
+            put("min", 1); put("max", 60); put("step", 1); put("unit_of_measurement", "%"); put("mode", "slider")
         }
         entity("switch", "regrouper", tr("Regrouper par catégorie"), "mdi:format-list-group") {
             put("state_topic", "$base/regrouper"); put("command_topic", "$base/regrouper/set"); put("entity_category", "config")

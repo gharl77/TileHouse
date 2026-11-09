@@ -61,7 +61,7 @@ class MainActivity : Activity(), HaClient.Listener {
     private lateinit var demoPill: TextView
     private lateinit var emptyBox: LinearLayout
     private lateinit var emptyText: TextView
-    private lateinit var dimView: TextView
+    private lateinit var dimView: DimScreen
 
     private val tiles = HashMap<String, Pair<TileView, RoomEntity>>()
     private val roomTiles = HashMap<Int, TileView>()
@@ -168,12 +168,7 @@ class MainActivity : Activity(), HaClient.Listener {
         emptyBox.addView(demoPill)
         root.addView(emptyBox, FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT, Gravity.CENTER))
 
-        dimView = label(110f, 0x66FFFFFF).apply {
-            typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL)
-            gravity = Gravity.CENTER
-            setBackgroundColor(0xF2000000.toInt())
-            visibility = View.GONE
-        }
+        dimView = DimScreen(this)
         root.addView(dimView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setContentView(root)
     }
@@ -181,7 +176,7 @@ class MainActivity : Activity(), HaClient.Listener {
     /** Appelé quand la configuration change (page web, paliers HA). */
     private val onConfigChanged: () -> Unit = {
         homeDataAt = 0L // météo/calendriers peuvent avoir changé : on recharge
-        if (!dimmed) applyBrightness()
+        if (!dimmed) applyBrightness() else { applyDimBrightness(); updateDimScreen() }
         updateMotion()
         root.background = Themes.background(this, cfg)
         rebuild()
@@ -718,7 +713,7 @@ class MainActivity : Activity(), HaClient.Listener {
         val t = timeFmt.format(now)
         clockView.text = t
         dateView.text = dateFmt.format(now).replaceFirstChar { it.uppercase() }
-        if (dimmed) dimView.text = t
+        if (dimmed) updateDimScreen()
         if (roomIndex == HOME) titleView.text = Themes.greeting(cfg, Calendar.getInstance().get(Calendar.HOUR_OF_DAY))
     }
 
@@ -730,11 +725,23 @@ class MainActivity : Activity(), HaClient.Listener {
 
     private fun dim() {
         dimmed = true
-        window.attributes = window.attributes.apply { screenBrightness = 0.01f }
         dimView.visibility = View.VISIBLE
+        dimView.bringToFront()
+        applyDimBrightness()
+        updateDimScreen()
         motion?.rebaseline() // l'écran qui s'assombrit change l'éclairage de la pièce
         updateClock()
         app.mqtt.setScreenOff(true)
+    }
+
+    /** Écran de veille : noir (luminosité minimale) ou heure + météo (luminosité choisie). */
+    private fun applyDimBrightness() {
+        val clock = cfg.dimStyle == "clock"
+        window.attributes = window.attributes.apply { screenBrightness = if (clock) cfg.dimBrightness / 100f else 0.01f }
+    }
+
+    private fun updateDimScreen() {
+        dimView.update(cfg.dimStyle == "clock", app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() })
     }
 
     /** Luminosité normale : réglage de l'app (HA / page web), sinon celle du système. */

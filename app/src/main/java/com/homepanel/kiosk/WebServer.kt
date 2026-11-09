@@ -200,6 +200,8 @@ class WebServer(private val app: App) {
                 if (req.has("theme")) cfg.theme = req.str("theme").let { k -> if (Themes.get(k) != null) k else "" }
                 if (req.has("dim")) cfg.dimMinutes = req.optInt("dim", 0).coerceIn(0, 240)
                 if (req.has("motionWake")) cfg.motionWake = req.optBoolean("motionWake")
+                if (req.has("dimStyle")) cfg.dimStyle = req.str("dimStyle")
+                if (req.has("dimBrightness")) cfg.dimBrightness = req.optInt("dimBrightness", 10)
                 if (req.has("group")) cfg.groupByCategory = req.optBoolean("group")
                 if (req.has("clock")) cfg.showClock = req.optBoolean("clock")
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
@@ -319,6 +321,8 @@ class WebServer(private val app: App) {
                 .put("language", cfg.language)
                 .put("dim", cfg.dimMinutes)
                 .put("motionWake", cfg.motionWake)
+                .put("dimStyle", cfg.dimStyle)
+                .put("dimBrightness", cfg.dimBrightness)
                 .put("frontCamera", MotionWake.hasFrontCamera(app))
                 .put("cameraPermission", MotionWake.hasPermission(app))
                 .put("group", cfg.groupByCategory)

@@ -178,6 +178,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option>
       <option value="30">30 min</option><option value="60">60 min</option>
     </select>
+    <label class="f" for="dimStyle">Écran de veille</label>
+    <select id="dimStyle"><option value="clock">Heure et météo</option><option value="black">Écran noir</option></select>
+    <div id="dimBrightRow">
+      <label class="f" for="dimBrightness">Luminosité en veille : <span id="dimBrightVal"></span> %</label>
+      <input type="range" id="dimBrightness" min="1" max="60" step="1">
+    </div>
     <label class="check" id="motionWakeRow"><input type="checkbox" id="motionWake"> Réveil par mouvement (caméra avant de la tablette)</label>
     <p class="muted" id="motionWakeInfo" hidden></p>
     <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
@@ -612,6 +618,10 @@ function renderSettings() {
   $("group").checked = st.group;
   $("clock").checked = st.clock;
   $("motionWakeRow").hidden = !st.frontCamera;
+  $("dimStyle").value = st.dimStyle;
+  $("dimBrightness").value = st.dimBrightness;
+  $("dimBrightVal").textContent = st.dimBrightness;
+  $("dimBrightRow").hidden = st.dimStyle !== "clock";
   $("motionWake").checked = st.motionWake;
   $("motionWakeInfo").hidden = !(st.motionWake && !st.cameraPermission);
   $("motionWakeInfo").textContent = t("Autorisez la caméra sur la tablette : Réglages de TileHouse → Affichage → Réveil par mouvement.");
@@ -647,6 +657,9 @@ $("language").onchange = async () => { await saveSettings({language: $("language
 $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
 $("clock").onchange = () => saveSettings({clock: $("clock").checked});
+$("dimStyle").onchange = () => { $("dimBrightRow").hidden = $("dimStyle").value !== "clock"; saveSettings({dimStyle: $("dimStyle").value}); };
+$("dimBrightness").oninput = () => { $("dimBrightVal").textContent = $("dimBrightness").value; };
+$("dimBrightness").onchange = () => saveSettings({dimBrightness: +$("dimBrightness").value});
 $("motionWake").onchange = () => saveSettings({motionWake: $("motionWake").checked});
 $("personAlert").onchange = () => saveSettings({personAlert: $("personAlert").checked});
 $("doorbellAlert").onchange = () => saveSettings({doorbellAlert: $("doorbellAlert").checked});

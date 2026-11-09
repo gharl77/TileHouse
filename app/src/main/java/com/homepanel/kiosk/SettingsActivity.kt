@@ -121,6 +121,16 @@ class SettingsActivity : Activity(), HaClient.Listener {
             dimChoices.map { if (it == 0) tr("Jamais") else "$it min" }, dimChoices.indexOf(cfg.dimMinutes).coerceAtLeast(0)) {
             cfg.dimMinutes = dimChoices[it]; app.notifyConfigChanged()
         }))
+        val styleKeys = listOf("clock", "black")
+        board.addRow(settingRow(R.drawable.ic_clock, Ui.BLUE, tr("Écran de veille"), trailing = choice(
+            listOf(tr("Heure et météo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
+            cfg.dimStyle = styleKeys[it]; app.notifyConfigChanged()
+        }))
+        val dimLevels = listOf(1, 3, 5, 10, 15, 20, 30, 40, 50)
+        board.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Luminosité en veille"), tr("Pour l'écran « Heure et météo »"), choice(
+            dimLevels.map { "$it %" }, dimLevels.indexOf(cfg.dimBrightness).let { if (it < 0) 3 else it }) {
+            cfg.dimBrightness = dimLevels[it]; app.notifyConfigChanged()
+        }))
         if (MotionWake.hasFrontCamera(this)) {
             motionToggle = toggle(cfg.motionWake) { on ->
                 if (on && !MotionWake.hasPermission(this)) requestPermissions(arrayOf(android.Manifest.permission.CAMERA), REQ_CAMERA)

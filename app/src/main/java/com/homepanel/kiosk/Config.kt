@@ -59,6 +59,14 @@ class ConfigStore(ctx: Context) {
     var dimMinutes: Int
         get() = p.getInt("dim", 0)
         set(v) = p.edit().putInt("dim", v).apply()
+    /** Écran de veille : "black" (noir) ou "clock" (heure + météo). */
+    var dimStyle: String
+        get() = p.getString("dimStyle", "clock") ?: "clock"
+        set(v) = p.edit().putString("dimStyle", if (v == "black") "black" else "clock").apply()
+    /** Luminosité de l'écran de veille « heure + météo », en %. */
+    var dimBrightness: Int
+        get() = p.getInt("dimBrightness", 10)
+        set(v) = p.edit().putInt("dimBrightness", v.coerceIn(1, 100)).apply()
     /** Réveil par mouvement devant la caméra avant (désactivé par défaut). */
     var motionWake: Boolean
         get() = p.getBoolean("motionWake", false)
@@ -259,7 +267,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake)
+                .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
@@ -283,6 +291,8 @@ class ConfigStore(ctx: Context) {
             if (d.has("wallpaper")) wallpaper = d.str("wallpaper")
             if (d.has("dim")) dimMinutes = d.optInt("dim")
             if (d.has("motionWake")) motionWake = d.optBoolean("motionWake")
+            if (d.has("dimStyle")) dimStyle = d.str("dimStyle")
+            if (d.has("dimBrightness")) dimBrightness = d.optInt("dimBrightness", 10)
             if (d.has("group")) groupByCategory = d.optBoolean("group")
             if (d.has("clock")) showClock = d.optBoolean("clock")
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)

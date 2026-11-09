@@ -13,6 +13,8 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
 - Notifications from Home Assistant (`notify.send_message` on the tablet's notify entity) now appear in a card centred over the dashboard: optional title, emoji icon, accent colour, camera snapshot, sound and duration (JSON message), countdown bar, OK button. A message received while another screen is open is shown on return.
 
+- Screen saver choice: a black screen, or the time (no seconds), date and current weather, drifting slightly every minute to avoid burn-in. Adjustable brightness for the time-and-weather screen (1–60 %). Available in the tablet settings, on the web page and as Home Assistant entities (select "Screen saver", number "Screen saver brightness").
+
 ## 2026.11.3
 
 - Home screen: the summary chips only show what needs attention (lights on, unlocked locks, open doors and windows).
