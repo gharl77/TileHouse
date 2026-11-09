@@ -253,6 +253,8 @@ class CameraInfo(
     val streamSwitch: String? = null,
     /** Détecteurs « personne » de l'appareil (Eufy : binary_sensor.<cam>_person). */
     val personSensors: List<String> = emptyList(),
+    /** Sonnette : event.<cam>_doorbell (event_type ring) ou binary_sensor.<cam>_ringing. */
+    val ringSensors: List<String> = emptyList(),
 ) {
     val hasPtz get() = onvif || ptzButtons.isNotEmpty()
 }
@@ -304,7 +306,10 @@ object CameraResolver {
         val persons = (related.filter { it.startsWith("binary_sensor.") && it.substringAfter('.').split('_').any { t -> t == "person" || t == "personne" || t == "human" } } +
             related.filter { it.startsWith("event.") && it.substringAfter('.').split('_').any { t -> t == "detection" || t == "motion" || t == "person" } })
             .ifEmpty { if (related.isEmpty()) listOf("binary_sensor.${obj}_person", "event.${obj}_detection") else emptyList() }
-        val info = CameraInfo(images, streams, ptz, platform == "onvif", switch, persons)
+        val rings = related.filter { (it.startsWith("event.") || it.startsWith("binary_sensor.")) &&
+            it.substringAfter('.').split('_').any { t -> t == "doorbell" || t == "ring" || t == "ringing" || t == "sonnette" && it.startsWith("event.") && "detection" !in it } }
+            .filter { "detection" !in it && "volume" !in it }
+        val info = CameraInfo(images, streams, ptz, platform == "onvif", switch, persons, rings)
         cache[cameraId] = info
         cb(info)
     }

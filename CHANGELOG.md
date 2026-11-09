@@ -7,6 +7,8 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Eufy cameras: the live view now turns on the camera's RTSP stream switch itself, waits for the stream address, and turns it back off when closed (the switches reset to off whenever the integration restarts).
 - New camera alert: when a room camera detects a person (Eufy `event.<camera>_detection` with event_type person, or a `binary_sensor` person detector), its live view opens full screen for 20 s (10–60 s, setting in Display → Cameras and on the web page). The countdown starts with the first video frame; touching the screen keeps the live view open. Option "Trigger on: person only / any motion"; the banner says "Person detected" or "Motion detected".
 
+- Doorbell alert: when someone rings a doorbell camera (`event.<camera>_doorbell` ring, or `binary_sensor.<camera>_ringing`), its live view opens with a "Someone is at the door" banner, whatever the person/motion setting. Can be turned off separately.
+
 ## 2026.11.3
 
 - Home screen: the summary chips only show what needs attention (lights on, unlocked locks, open doors and windows).

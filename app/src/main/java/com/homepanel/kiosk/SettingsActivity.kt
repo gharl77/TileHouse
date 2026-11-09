@@ -126,6 +126,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
         val alertChoices = listOf(10, 20, 30, 60)
         camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.RED, tr("Alerte personne détectée"),
             tr("Affiche le live de la caméra en plein écran quand elle détecte une personne"), toggle(cfg.personAlert) { cfg.personAlert = it }))
+        camCard.addRow(settingRow(R.drawable.ic_door, Ui.BLUE, tr("Alerte sonnette"),
+            tr("Affiche le live de la sonnette quand quelqu'un sonne"), toggle(cfg.doorbellAlert) { cfg.doorbellAlert = it }))
         val trigKeys = listOf("person", "motion")
         camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.PURPLE, tr("Déclencher sur"), trailing = choice(
             listOf(tr("Personne seulement"), tr("Tout mouvement")), trigKeys.indexOf(cfg.alertTrigger).coerceAtLeast(0)) { cfg.alertTrigger = trigKeys[it] }))

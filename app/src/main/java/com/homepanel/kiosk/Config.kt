@@ -69,6 +69,10 @@ class ConfigStore(ctx: Context) {
     var personAlert: Boolean
         get() = p.getBoolean("personAlert", true)
         set(v) = p.edit().putBoolean("personAlert", v).apply()
+    /** Alerte quand quelqu'un sonne à une sonnette-caméra. */
+    var doorbellAlert: Boolean
+        get() = p.getBoolean("doorbellAlert", true)
+        set(v) = p.edit().putBoolean("doorbellAlert", v).apply()
     /** Déclencheur de l'alerte : "person" (personne seulement) ou "motion" (tout mouvement). */
     var alertTrigger: String
         get() = p.getString("alertTrigger", "person") ?: "person"
@@ -253,7 +257,7 @@ class ConfigStore(ctx: Context) {
             .put("display", JSONObject()
                 .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes)
                 .put("group", groupByCategory).put("clock", showClock).put("brightness", brightness)
-                .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger))
+                .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("floorOrder", JSONArray(floors.map { it.id })))
@@ -281,6 +285,7 @@ class ConfigStore(ctx: Context) {
             if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")
             if (d.has("alertSeconds")) alertSeconds = d.optInt("alertSeconds", 20)
             if (d.has("alertTrigger")) alertTrigger = d.str("alertTrigger")
+            if (d.has("doorbellAlert")) doorbellAlert = d.optBoolean("doorbellAlert")
         }
         o.optJSONObject("home")?.let { h ->
             if (h.has("weather")) weatherEntity = h.str("weather")

@@ -12,8 +12,11 @@ import android.os.SystemClock
 class PersonAlerts(private val app: App) : HaClient.Listener {
     /** Détecteur → caméra. */
     private var sensors: Map<String, String> = emptyMap()
+    /** Sonnettes : entités de coup de sonnette → caméra. */
+    private var rings: Map<String, String> = emptyMap()
     private val last = HashMap<String, String>()
     private val lastAlert = HashMap<String, Long>()
+    private val lastRing = HashMap<String, Long>()
     private var scanning = false
 
     init { app.ha.addListener(this) }
@@ -26,20 +29,23 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
     fun rescan() {
         if (app.ha.demo || scanning) return
         val cams = app.config.rooms.flatMap { r -> r.entities.map { it.id } }.filter { it.startsWith("camera.") }.distinct()
-        if (cams.isEmpty()) { apply(emptyMap()); return }
+        if (cams.isEmpty()) { apply(emptyMap(), emptyMap()); return }
         scanning = true
         val found = HashMap<String, String>()
+        val ring = HashMap<String, String>()
         var left = cams.size
         for (c in cams) CameraResolver.resolve(app, c) { info ->
             for (s in info.personSensors) found.putIfAbsent(s, c)
-            if (--left == 0) { scanning = false; apply(found) }
+            for (s in info.ringSensors) ring.putIfAbsent(s, c)
+            if (--left == 0) { scanning = false; apply(found, ring) }
         }
     }
 
-    private fun apply(map: Map<String, String>) {
+    private fun apply(map: Map<String, String>, ring: Map<String, String>) {
         sensors = map
-        last.keys.retainAll(map.keys)
-        app.ha.setExtraEntities(map.keys)
+        rings = ring
+        last.keys.retainAll(map.keys + ring.keys)
+        app.ha.setExtraEntities(map.keys + ring.keys)
     }
 
     private val PERSON = setOf("person", "human", "personne", "face", "pet_person")
@@ -47,6 +53,7 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
     override fun onHaEntities(ids: Set<String>) {
         val motionToo = app.config.alertTrigger == "motion"
         for (id in ids) {
+            rings[id]?.let { cam -> checkRing(id, cam); return@let }
             val cam = sensors[id] ?: continue
             val e = app.ha.states[id] ?: continue
             val st = e.state
@@ -64,6 +71,22 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
         }
     }
 
+    /** Coup de sonnette : event (event_type ring) ou binary_sensor qui passe à « on ». */
+    private fun checkRing(id: String, cam: String) {
+        val e = app.ha.states[id] ?: return
+        val st = e.state
+        val before = last.put(id, st) ?: return
+        val rang = if (id.startsWith("event.")) st != before && st != "unknown" && st != "unavailable" &&
+            e.attrs.str("event_type").lowercase().let { it.isEmpty() || it == "ring" || it == "press" || it == "doorbell" }
+        else st == "on" && before == "off"
+        if (!rang || !app.config.doorbellAlert) return
+        // L'event et le binary_sensor d'une même sonnette arrivent ensemble : une seule alerte.
+        val now = SystemClock.elapsedRealtime()
+        if (now - (lastRing[cam] ?: -60_000L) < 15_000L) return
+        lastRing[cam] = now
+        launch(cam, "🔔  " + tr("On sonne à la porte"))
+    }
+
     private fun trigger(camera: String, person: Boolean = true) {
         val cfg = app.config
         if (!cfg.personAlert || app.ha.demo) return
@@ -71,6 +94,14 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
         // Une alerte par caméra au plus toutes les 30 s ; jamais par-dessus un live déjà ouvert.
         if (now - (lastAlert[camera] ?: -60_000L) < 30_000L) return
         if (LiveActivity.showing != null) return
+        lastAlert[camera] = now
+        launch(camera, if (person) "🚶  " + tr("Personne détectée") else "〰  " + tr("Mouvement détecté"))
+    }
+
+    private fun launch(camera: String, reason: String) {
+        val cfg = app.config
+        if (app.ha.demo || LiveActivity.showing == camera) return
+        val now = SystemClock.elapsedRealtime()
         lastAlert[camera] = now
         val room = cfg.rooms.firstOrNull { r -> r.find(camera) != null }
         val re = room?.find(camera)
@@ -80,9 +111,12 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
             .putExtra(LiveActivity.EXTRA_ID, camera)
             .putExtra(LiveActivity.EXTRA_NAME, name)
             .putExtra(LiveActivity.EXTRA_ALERT, cfg.alertSeconds)
-            .putExtra(LiveActivity.EXTRA_REASON, if (person) "🚶  " + tr("Personne détectée") else "〰  " + tr("Mouvement détecté")))
+            .putExtra(LiveActivity.EXTRA_REASON, reason))
     }
 
     /** Pour tester depuis la page web. */
-    fun test(camera: String) { lastAlert.remove(camera); trigger(camera) }
+    fun test(camera: String, ring: Boolean = false) {
+        lastAlert.remove(camera)
+        if (ring) launch(camera, "🔔  " + tr("On sonne à la porte")) else trigger(camera)
+    }
 }

@@ -170,7 +170,7 @@ class WebServer(private val app: App) {
                 ok(onMain { updateState() })
             }
             "POST /api/update/install" -> ok(onMain { app.updater.installLatest(); updateState() })
-            "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera")); JSONObject().put("ok", true) })
+            "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera"), req.optBoolean("ring")); JSONObject().put("ok", true) })
             "POST /api/demo" -> ok(onMain { app.setDemo(req.optBoolean("on")); state() })
             "POST /api/rooms" -> {
                 val cfg = app.config
@@ -199,6 +199,7 @@ class WebServer(private val app: App) {
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
                 if (req.has("alertSeconds")) cfg.alertSeconds = req.optInt("alertSeconds", 20)
                 if (req.has("alertTrigger")) cfg.alertTrigger = req.str("alertTrigger")
+                if (req.has("doorbellAlert")) cfg.doorbellAlert = req.optBoolean("doorbellAlert")
                 if (req.has("pin")) cfg.pin = req.str("pin").filter { it.isDigit() }.take(12)
                 // Accueil : météo, calendriers, personnes, ordre des paliers
                 var subs = false
@@ -316,6 +317,7 @@ class WebServer(private val app: App) {
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)
                 .put("alertTrigger", cfg.alertTrigger)
+                .put("doorbellAlert", cfg.doorbellAlert)
                 .put("pinSet", cfg.pin.isNotEmpty()))
     }
 
