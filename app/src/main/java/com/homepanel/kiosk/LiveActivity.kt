@@ -40,6 +40,11 @@ class LiveActivity : Activity() {
     companion object {
         const val EXTRA_ID = "id"
         const val EXTRA_NAME = "name"
+        /** Alerte : durée d'affichage en secondes (0 = live normal). */
+        const val EXTRA_ALERT = "alert"
+        /** Caméra affichée en ce moment (null si aucune vue live ouverte). */
+        @Volatile var showing: String? = null
+            private set
         private const val MAX_LIVE_MS = 5 * 60_000L // économise la batterie des caméras
     }
 
@@ -60,6 +65,10 @@ class LiveActivity : Activity() {
         super.onCreate(savedInstanceState)
         entityId = intent.getStringExtra(EXTRA_ID) ?: run { finish(); return }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        alertSeconds = intent.getIntExtra(EXTRA_ALERT, 0)
+        @Suppress("DEPRECATION")
+        if (alertSeconds > 0) window.addFlags(WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED)
+        showing = entityId
 
         root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         surface = SurfaceView(this)
@@ -95,6 +104,17 @@ class LiveActivity : Activity() {
         root.addView(roundIcon(R.drawable.ic_close, 52, 0x99000000.toInt(), Color.WHITE) { finish() }.apply {
             layoutParams = FrameLayout.LayoutParams(dp(52), dp(52), Gravity.TOP or Gravity.END).apply { setMargins(0, dp(20), dp(24), 0) }
         })
+        if (alertSeconds > 0) {
+            alertPill = label(17f, Color.WHITE, true).apply {
+                setPadding(dp(18), dp(8), dp(18), dp(8))
+                background = roundRect(0xE6FF3B30.toInt(), dpf(22))
+            }
+            root.addView(alertPill, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(24) })
+            alertLeft = alertSeconds
+            alertPill?.text = "🚶  " + tr("Personne détectée")
+            // Le compte à rebours part à la première image (une sonnette sur batterie peut mettre 20 s à démarrer).
+            handler.postDelayed(startAlertCountdown, 30_000)
+        }
         setContentView(root)
 
         // Dernier snapshot affiché en attendant le flux
@@ -106,6 +126,41 @@ class LiveActivity : Activity() {
             if (entityId == "camera.driveway") showPtzHint()
         } else startStreams()
         handler.postDelayed({ finish() }, MAX_LIVE_MS)
+    }
+
+    // ------------------------------------------------------------ alerte
+
+    private var alertSeconds = 0
+    private var alertLeft = 0
+    private var alertPill: TextView? = null
+    private var alertKept = false
+
+    /** Compte à rebours de l'alerte ; un toucher l'annule et garde le live ouvert. */
+    private val alertTick = object : Runnable {
+        override fun run() {
+            if (alertLeft <= 0) { finish(); return }
+            alertPill?.text = "🚶  " + tr("Personne détectée") + "  ·  $alertLeft s"
+            alertLeft--
+            handler.postDelayed(this, 1000)
+        }
+    }
+
+    private val startAlertCountdown = Runnable {
+        if (!alertKept && !alertStarted) { alertStarted = true; handler.post(alertTick) }
+    }
+    private var alertStarted = false
+
+    private fun keepOpen() {
+        if (alertPill == null || alertKept) return
+        alertKept = true
+        handler.removeCallbacks(alertTick)
+        handler.removeCallbacks(startAlertCountdown)
+        alertPill?.text = "🚶  " + tr("Personne détectée")
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) keepOpen()
+        return super.dispatchTouchEvent(ev)
     }
 
     @Suppress("DEPRECATION")
@@ -128,6 +183,9 @@ class LiveActivity : Activity() {
         handler.removeCallbacksAndMessages(null)
         player?.release()
         player = null
+        if (showing == entityId) showing = null
+        // On rend l'interrupteur de flux dans l'état trouvé (économise la batterie et la bande passante).
+        switchedOn?.let { app.ha.callService("switch", "turn_off", it) }
         (still.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.let { still.setImageDrawable(null); it.recycle() }
     }
 
@@ -145,12 +203,47 @@ class LiveActivity : Activity() {
             if (isFinishing) return@resolve
             info = i
             if (i.hasPtz) showPtzHint()
+            val sw = i.streamSwitch
+            if (sw != null) { enableStream(i, sw); return@resolve }
             collectRtsp(i) {
                 triedRtsp = true
                 val first = rtspQueue.removeFirstOrNull()
                 if (first != null) playRtsp(first) else requestStream()
             }
         }
+    }
+
+    /** Interrupteur de flux allumé par cette vue (à éteindre en sortant). */
+    private var switchedOn: String? = null
+    /** Flux qui vient d'être démarré : le serveur peut répondre 404 quelques secondes. */
+    private var streamFresh = false
+
+    /**
+     * Eufy : sans flux actif, les capteurs d'URL sont « unknown ». On allume l'interrupteur
+     * RTSP de la caméra, puis on attend que l'adresse du flux soit publiée (jusqu'à ~30 s).
+     */
+    private fun enableStream(i: CameraInfo, sw: String) {
+        status.text = tr("Démarrage du flux de la caméra…")
+        status.visibility = View.VISIBLE
+        app.snapshots.getState(sw) { st ->
+            if (isFinishing) return@getState
+            // Interrupteur éteint : les adresses publiées sont périmées, on attend les nouvelles.
+            if (st != "on") { app.ha.callService("switch", "turn_on", sw); switchedOn = sw; waitForUrl(i, 0, 3000) }
+            else waitForUrl(i, 0, 0)
+        }
+    }
+
+    private fun waitForUrl(i: CameraInfo, n: Int, delay: Long = 2000) {
+        handler.postDelayed({
+            if (!isFinishing) collectRtsp(i) {
+                val first = rtspQueue.removeFirstOrNull()
+                when {
+                    first != null -> { triedRtsp = true; streamFresh = switchedOn != null; playRtsp(first) }
+                    n < 14 -> waitForUrl(i, n + 1)
+                    else -> requestStream()
+                }
+            }
+        }, 2000)
     }
 
     /** Lit les capteurs d'URL RTSP de l'appareil (les adresses internes de HA OS sont réécrites). */
@@ -216,6 +309,7 @@ class LiveActivity : Activity() {
     private var rtspTried = 0
 
     private fun showFailure(reason: String) {
+        if (alertPill != null) { handler.removeCallbacks(startAlertCountdown); startAlertCountdown.run() }
         status.text = if (rtspTried == 0)
             "$reason " + tr("Live indisponible : activez le flux RTSP ou « stream » de la caméra dans son intégration.")
         else
@@ -275,6 +369,7 @@ class LiveActivity : Activity() {
 
             override fun onRenderedFirstFrame() {
                 still.visibility = View.GONE
+                if (alertPill != null) { handler.removeCallbacks(startAlertCountdown); startAlertCountdown.run() }
                 handler.removeCallbacks(hlsTimeout)
             }
 
@@ -291,9 +386,9 @@ class LiveActivity : Activity() {
                 }
                 status.visibility = View.VISIBLE
                 still.visibility = View.VISIBLE
-                if (retries++ < 1) {
+                if (retries++ < (if (streamFresh) 5 else 1)) {
                     status.text = tr("Nouvelle tentative…")
-                    handler.postDelayed({ player?.let { it.prepare(); it.playWhenReady = true } }, 2000)
+                    handler.postDelayed({ player?.let { it.prepare(); it.playWhenReady = true } }, if (streamFresh) 3000 else 2000)
                 } else fallbackRtsp(tr("Flux interrompu") + " (${error.errorCodeName}).")
             }
         })

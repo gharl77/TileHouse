@@ -31,6 +31,7 @@ class App : Application() {
         updateWebServer()
         mqtt = MqttDevice(this)
         updater = Updater(this)
+        alerts = PersonAlerts(this)
         mqtt.start()
         updater.start()
         // À chaque (re)connexion à HA, on renvoie l'état de la tablette.
@@ -40,6 +41,10 @@ class App : Application() {
             }
         })
     }
+
+    /** Alertes « personne détectée » des caméras. */
+    lateinit var alerts: PersonAlerts
+        private set
 
     /** Mises à jour par Wi-Fi (GitHub ou APK envoyé par la page web). */
     lateinit var updater: Updater
@@ -99,6 +104,7 @@ class App : Application() {
         if (wasEnglish != I18n.english && ::mqtt.isInitialized) mqtt.restart()
         if (wasEnglish != I18n.english && config.demo) { config.resetDemo(); catalog = null; ha.configureDemo() }
         for (l in configListeners.toList()) l()
+        if (::alerts.isInitialized) alerts.rescan()
         mqtt.publishAll()
     }
 

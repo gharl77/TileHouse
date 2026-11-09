@@ -249,6 +249,10 @@ class CameraInfo(
     val streamSensors: List<String>,
     val ptzButtons: Map<String, String>,
     val onvif: Boolean,
+    /** Interrupteur qui démarre le flux RTSP (Eufy : switch.<cam>_rtsp_stream), éteint par défaut. */
+    val streamSwitch: String? = null,
+    /** Détecteurs « personne » de l'appareil (Eufy : binary_sensor.<cam>_person). */
+    val personSensors: List<String> = emptyList(),
 ) {
     val hasPtz get() = onvif || ptzButtons.isNotEmpty()
 }
@@ -294,7 +298,10 @@ object CameraResolver {
             }
             if (dir != null && (isPtz || t.any { it in setOf("gauche", "droite", "haut", "bas") })) ptz.putIfAbsent(dir, b)
         }
-        val info = CameraInfo(images, streams, ptz, platform == "onvif")
+        val switch = related.firstOrNull { it.startsWith("switch.") && ("rtsp" in it || it.endsWith("_stream") || "stream" in it.substringAfter('.').split('_')) }
+        val persons = related.filter { it.startsWith("binary_sensor.") && it.substringAfter('.').split('_').any { t -> t == "person" || t == "personne" || t == "human" } }
+            .ifEmpty { if (related.isEmpty()) listOf("binary_sensor.${obj}_person") else emptyList() }
+        val info = CameraInfo(images, streams, ptz, platform == "onvif", switch, persons)
         cache[cameraId] = info
         cb(info)
     }

@@ -65,6 +65,14 @@ class ConfigStore(ctx: Context) {
     var showClock: Boolean
         get() = p.getBoolean("clock", true)
         set(v) = p.edit().putBoolean("clock", v).apply()
+    /** Alerte : live plein écran quand une caméra détecte une personne. */
+    var personAlert: Boolean
+        get() = p.getBoolean("personAlert", true)
+        set(v) = p.edit().putBoolean("personAlert", v).apply()
+    /** Durée de l'alerte, en secondes. */
+    var alertSeconds: Int
+        get() = p.getInt("alertSeconds", 20)
+        set(v) = p.edit().putInt("alertSeconds", v.coerceIn(5, 120)).apply()
     var lastRoom: Int
         get() = p.getInt("lastRoom", 0)
         set(v) = p.edit().putInt("lastRoom", v).apply()
@@ -241,7 +249,7 @@ class ConfigStore(ctx: Context) {
             .put("display", JSONObject()
                 .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes)
                 .put("group", groupByCategory).put("clock", showClock).put("brightness", brightness)
-                .put("language", language))
+                .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("floorOrder", JSONArray(floors.map { it.id })))
@@ -266,6 +274,8 @@ class ConfigStore(ctx: Context) {
             if (d.has("clock")) showClock = d.optBoolean("clock")
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)
             if (d.has("language")) language = d.str("language")
+            if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")
+            if (d.has("alertSeconds")) alertSeconds = d.optInt("alertSeconds", 20)
         }
         o.optJSONObject("home")?.let { h ->
             if (h.has("weather")) weatherEntity = h.str("weather")

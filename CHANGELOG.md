@@ -2,6 +2,11 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.4 (in progress)
+
+- Eufy cameras: the live view now turns on the camera's RTSP stream switch itself, waits for the stream address, and turns it back off when closed (the switches reset to off whenever the integration restarts).
+- New person alert: when a room camera's person detector triggers, its live view opens full screen for 20 s (10–60 s, setting in Display → Cameras and on the web page). The countdown starts with the first video frame; touching the screen keeps the live view open.
+
 ## 2026.11.3
 
 - Home screen: the summary chips only show what needs attention (lights on, unlocked locks, open doors and windows).

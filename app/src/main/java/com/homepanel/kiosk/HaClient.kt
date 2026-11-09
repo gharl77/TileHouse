@@ -100,9 +100,19 @@ class HaClient {
         }
     }
 
-    fun setEntities(ids: Set<String>) {
-        if (ids == entityIds) return
-        entityIds = HashSet(ids)
+    private var requestedIds: Set<String> = emptySet()
+    private var extraIds: Set<String> = emptySet()
+
+    /** Entités affichées par l'écran courant. */
+    fun setEntities(ids: Set<String>) { requestedIds = HashSet(ids); resubscribe() }
+
+    /** Entités suivies en permanence en plus de l'écran (ex. détecteurs de personne des caméras). */
+    fun setExtraEntities(ids: Set<String>) { extraIds = HashSet(ids); resubscribe() }
+
+    private fun resubscribe() {
+        val all = requestedIds + extraIds
+        if (all == entityIds) return
+        entityIds = all
         if (status == Status.CONNECTED && !demo) subscribe()
     }
 

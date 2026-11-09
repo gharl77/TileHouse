@@ -121,6 +121,13 @@ class SettingsActivity : Activity(), HaClient.Listener {
             dimChoices.map { if (it == 0) tr("Jamais") else "$it min" }, dimChoices.indexOf(cfg.dimMinutes).coerceAtLeast(0)) {
             cfg.dimMinutes = dimChoices[it]; app.notifyConfigChanged()
         }))
+        display.addView(groupLabel(tr("Caméras")))
+        val camCard = Card(this).also { display.addView(it) }
+        val alertChoices = listOf(10, 20, 30, 60)
+        camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.RED, tr("Alerte personne détectée"),
+            tr("Affiche le live de la caméra en plein écran quand elle détecte une personne"), toggle(cfg.personAlert) { cfg.personAlert = it }))
+        camCard.addRow(settingRow(R.drawable.ic_clock, Ui.ORANGE, tr("Durée de l'alerte"), tr("Touchez l'écran pendant l'alerte pour garder le live ouvert"), choice(
+            alertChoices.map { "$it s" }, alertChoices.indexOf(cfg.alertSeconds).coerceAtLeast(1)) { cfg.alertSeconds = alertChoices[it] }))
         display.addView(footnote(tr("La météo, l'agenda, les personnes et l'ordre des paliers de l'accueil se règlent dans la page web (onglet Accueil).")))
 
         // ================= Connexion
