@@ -297,7 +297,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
     }
 
     private fun updateWebText() {
-        val url = app.web.url()
+        // Mode démo (captures d'écran) : adresse d'exemple plutôt que celle du réseau réel.
+        val url = if (cfg.demo && app.web.url() != null) "http://192.168.1.42:8080" else app.web.url()
         webRow.setSubtitle(when {
             !cfg.webEnabled -> tr("Page désactivée.")
             url == null -> tr("Page active, mais la tablette n'a pas d'adresse sur le réseau (Wi-Fi coupé ?).")
@@ -314,7 +315,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         updRow.setSubtitle(when {
             u.status.isNotEmpty() -> u.status
             u.updateAvailable -> tr("Nouvelle version disponible :") + " $latest"
-            latest != null -> tr("TileHouse est à jour") + " ($latest)"
+            latest != null -> tr("TileHouse est à jour") + " (${u.installed})"
             else -> tr("Vérification automatique toutes les 6 heures (GitHub)")
         })
         (updButton.getChildAt(updButton.childCount - 1) as TextView).text =

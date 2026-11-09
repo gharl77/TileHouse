@@ -60,7 +60,11 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - **HomeKit‑style tiles** for lights, switches, plugs, fans, covers, locks, thermostats, media players, scenes, scripts, buttons and sensors.
 - **Home screen** with greeting, weather and 5‑day forecast, calendar, who's home, and rooms grouped by Home Assistant floors.
 - **Cameras** with periodic snapshots and a full‑screen **live view** (HLS or RTSP), including **PTZ by swiping**.
-- **Header chips** summarising temperature, humidity, motion, doors, windows, leaks and locks, tap for the details.
+- **Camera alerts**: the live view pops up when a camera sees a person or when someone rings the doorbell.
+- **Notifications from Home Assistant** in a card in the middle of the screen, with title, icon, colour and camera snapshot.
+- **Screen saver** with the time and weather (or a black screen), and optional **wake on motion** with the tablet's front camera.
+- **Robot vacuums**: state, battery, start / pause / stop / return to base.
+- **Header chips** summarising temperature, humidity, motion, doors, windows, leaks and locks, tap for the details and quick actions.
 - **Web configuration page** served by the tablet itself: set everything up comfortably from a computer or phone.
 - **MQTT discovery**: the tablet shows up in Home Assistant as a device (battery, charging, screen, brightness, theme, notifications, updates…).
 - **18 themes** for seasons and holidays, plus 5 wallpapers.
@@ -102,7 +106,7 @@ The first screen offers two choices: **Open settings** to connect your Home Assi
 
 ### 4. Make it a kiosk (recommended)
 
-In TileHouse: *Settings → Kiosk & security → Set as home app*, choose **TileHouse** and **Always**.
+In TileHouse: *Settings → Kiosk → Set as home app*, choose **TileHouse** and **Always**.
 TileHouse now starts with the tablet, and the Home button always brings you back to it.
 
 Other useful Android settings for a wall tablet:
@@ -147,12 +151,17 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Weather card**: current condition, temperature, humidity and wind, plus a **5‑day forecast**
   (any `weather.*` entity, via `weather.get_forecasts`).
 - **Calendar card**: upcoming events from the calendars you choose (today and the next few days), colour‑coded by calendar.
-- **Header summary** for the whole house: lights on, unlocked locks, open doors, open windows. Tap a chip to see which devices.
+- **Header summary** for the whole house, showing only what needs attention: lights on, unlocked locks, open doors, open windows
+  (nothing at all when everything is off, locked and closed). Tap a chip to see which devices, with a **Turn off** / **Lock** button
+  on each one that can be controlled.
 - **Rooms by floor**: rooms are grouped using your Home Assistant floors, in the order you choose. Rooms without a floor appear under *Other rooms*.
-- **Clock and date** (optional) in the top‑right corner.
+- **Clock and date** (optional) in the top‑right corner, with the **tablet's battery** next to the time (optional; green with a bolt
+  while charging, red under 20 %).
 - After 3 minutes in a room, the tablet returns to the home screen by itself.
 
 <img src="docs/screenshots/home-floors.png" width="860" alt="Rooms grouped by floor">
+
+<img src="docs/screenshots/chip-detail.png" width="860" alt="Lights that are on, with a Turn off button on each">
 
 **Who's home** accepts several kinds of entities, so it works with any presence setup:
 
@@ -172,6 +181,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Tap** a tile to toggle it (light, switch, cover, lock, scene, media play/pause…). Active tiles turn white with a coloured icon,
   just like Apple Home; coloured lights use their real colour.
 - **Long‑press** a tile for detailed controls.
+- Long names wrap onto two lines instead of being cut.
 - Names are shortened automatically: *Living Room Ceiling Light* becomes *Ceiling Light* inside the Living Room. You can also give any
   device a custom name **for the tablet only** (Home Assistant is never modified).
 
@@ -190,6 +200,8 @@ Long‑press a tile to open its control panel:
 - **Thermostats**: − / + buttons (step taken from the entity), current temperature and action, and HVAC mode pills.
 - **Media players**: volume slider, previous / play‑pause / next and power.
 - **Robot vacuums**: the tile shows the state and battery; tap it for Start / Resume, Pause, Stop and Return to base.
+
+<img src="docs/screenshots/vacuum-dialog.png" width="860" alt="Robot vacuum controls">
 
 ### Cameras
 
@@ -245,15 +257,22 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
   **Import HA areas** creates rooms from your areas automatically.
 - **Home**: weather entity, calendars, people and presence sensors, and the **order of floors**.
-- **Display**: language, theme, wallpaper, category grouping, clock, screen dimming.
-- **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, updates, and MQTT.
+- **Display**: language, theme, wallpaper, category grouping, clock and battery, screen saver and its brightness, wake on motion,
+  and camera alerts.
+- **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.
+- **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
+  Hover a device in the room editor to see its full name and ID.
 
 | Home | Connection & security |
 |---|---|
 | <img src="docs/screenshots/web-home.png" alt="Web page — home"> | <img src="docs/screenshots/web-connection.png" alt="Web page — connection"> |
 
+| Display | About |
+|---|---|
+| <img src="docs/screenshots/web-display.png" alt="Web page — display"> | <img src="docs/screenshots/web-about.png" alt="Web page — about"> |
+
 Changes are applied to the tablet instantly. If the configuration was changed elsewhere in the meantime (on the tablet or in another
-browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#home`, `#display`, `#conn`.
+browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#home`, `#display`, `#conn`, `#about`.
 
 ### Tablet settings
 
@@ -261,6 +280,8 @@ The same options are available on the tablet itself (⋮ menu → settings), pro
 
 **Screen saver** (Display): after the idle delay the screen shows either the **time, date and current weather** (moving a little
 every minute so nothing burns in, at a brightness you choose, 1–60 %) or a **black screen**. A touch wakes it.
+
+<img src="docs/screenshots/screensaver.png" width="860" alt="Screen saver with the time and weather">
 
 **Wake on motion** (Display, only on tablets with a front camera, off by default): the front camera watches the room at very low
 resolution (about 2 frames per second) and treats someone passing in front of the tablet like a touch, so the screen doesn't dim,
@@ -274,9 +295,13 @@ Home Assistant version and connection, and memory use.
 |---|---|
 | <img src="docs/screenshots/settings-rooms.png" alt="Settings — rooms"> | <img src="docs/screenshots/settings-display.png" alt="Settings — display"> |
 
-| Connection | Kiosk & security |
+| Connection | Kiosk |
 |---|---|
 | <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> | <img src="docs/screenshots/settings-kiosk.png" alt="Settings — kiosk"> |
+
+| About | |
+|---|---|
+| <img src="docs/screenshots/settings-about.png" alt="Settings — about"> | |
 
 ### The tablet as a Home Assistant device (MQTT)
 
@@ -336,6 +361,8 @@ data:
 | `image` | a camera or image entity whose snapshot is shown in the card |
 | `sound` | `true` plays the tablet's notification sound |
 
+<img src="docs/screenshots/notification.png" width="860" alt="A notification card with a camera snapshot">
+
 The device stays the same even if you reinstall the app or move your configuration to another tablet (its ID is kept in backups).
 
 ### Demo mode
@@ -363,8 +390,8 @@ tablet's language; you can force one in *Display → Language*.
 TileHouse checks GitHub for a new release **every 6 hours**. There are three ways to install it:
 
 1. **From Home Assistant**: the **TileHouse** update entity shows the new version. Click **Install**.
-2. **From the tablet**: *Settings → Kiosk & security → About → Updates → Install*.
-3. **From the web page**: *Connection & security → Update*. Use **Check for updates** / **Install**, or **Upload an APK…** to send an
+2. **From the tablet**: *Settings → About → Updates → Install*.
+3. **From the web page**: *About → Update*. Use **Check for updates** / **Install**, or **Upload an APK…** to send an
    APK file directly from your computer (useful for test builds or without internet access).
 
 Android always asks for a **confirmation on the tablet** (one tap on *Install*). The very first time, Android also asks you to allow
@@ -391,6 +418,8 @@ TileHouse reopens by itself once the update is installed.
 - TileHouse talks **only** to your Home Assistant, your MQTT broker, and GitHub (to check for updates). No analytics, no accounts, no cloud.
 - The Home Assistant token, the MQTT password and the PIN are **encrypted at rest** with a key kept in the Android Keystore.
   They are never displayed again once saved, and never included in a backup unless you ask for it.
+- **Wake on motion** is off by default. When you turn it on, the front camera's frames are compared in memory at very low resolution
+  and thrown away: nothing is recorded, saved or sent.
 - The web page requires the **PIN** when one is set (5 wrong attempts lock it for a while). Use a PIN on any shared network.
 - The web page only accepts JSON requests from itself (basic CSRF protection) and can only be embedded in a frame by Home Assistant.
 - Traffic to Home Assistant uses whatever you configure: use `https://` if your instance supports it.

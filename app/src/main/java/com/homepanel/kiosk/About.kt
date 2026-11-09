@@ -56,7 +56,8 @@ object About {
             Info("Android", "${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"),
             Info("Home Assistant", haText),
             Info("MQTT", if (!app.config.mqttEnabled) tr("Désactivé") else if (app.mqtt.client.connected) tr("Connecté") else tr("Non connecté")),
-            Info(tr("Page web"), app.web.url() ?: tr("Désactivée")),
+            // Mode démo (captures d'écran) : adresse d'exemple plutôt que celle du réseau réel.
+            Info(tr("Page web"), if (app.config.demo) "http://192.168.1.42:8080" else app.web.url() ?: tr("Désactivée")),
             Info(tr("En marche depuis"), duration(System.currentTimeMillis() - started)),
             Info(tr("Licence"), "$LICENSE · © 2026 $AUTHOR"),
         )

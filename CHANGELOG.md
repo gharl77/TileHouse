@@ -2,23 +2,19 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
-## 2026.11.4 (in progress)
+## 2026.11.4
 
 - Eufy cameras: the live view now turns on the camera's RTSP stream switch itself, waits for the stream address, and turns it back off when closed (the switches reset to off whenever the integration restarts).
 - New camera alert: when a room camera detects a person (Eufy `event.<camera>_detection` with event_type person, or a `binary_sensor` person detector), its live view opens full screen for 20 s (10–60 s, setting in Display → Cameras and on the web page). The countdown starts with the first video frame; touching the screen keeps the live view open. Option "Trigger on: person only / any motion"; the banner says "Person detected" or "Motion detected".
-
 - Doorbell alert: when someone rings a doorbell camera (`event.<camera>_doorbell` ring, or `binary_sensor.<camera>_ringing`), its live view opens with a "Someone is at the door" banner, whatever the person/motion setting. Can be turned off separately.
-
 - Wake on motion (optional, off by default, only on tablets with a front camera): the front camera watches for someone in front of the tablet at very low resolution and prevents or ends dimming. Frames are analysed in memory and never saved or sent. Needs the camera permission, asked on the tablet.
-
 - Notifications from Home Assistant (`notify.send_message` on the tablet's notify entity) now appear in a card centred over the dashboard: optional title, emoji icon, accent colour, camera snapshot, sound and duration (JSON message), countdown bar, OK button. A message received while another screen is open is shown on return.
-
 - Screen saver choice: a black screen, or the time (no seconds), date and current weather, drifting slightly every minute to avoid burn-in. Adjustable brightness for the time-and-weather screen (1–60 %). Available in the tablet settings, on the web page and as Home Assistant entities (select "Screen saver", number "Screen saver brightness").
-
 - Robot vacuums (`vacuum.*`): tile with state and battery (e.g. "Docked · 100 %"), new "Cleaning" category, and a control window with Start/Resume, Pause, Stop and Return to base; the current action is highlighted.
 - Long device names wrap onto two lines on the tiles instead of being cut; on the web page, hovering a device shows its full name and ID.
-
 - Tablet battery next to the time: percentage and a small battery icon (green with a bolt while charging, red under 20 %). Can be hidden in the settings, on the web page or from Home Assistant (switch "Show battery").
+- Updates now live in the About tab (tablet and web page); the tablet settings tabs are Rooms, Display, Connection, Kiosk and About.
+- Help page (README) updated with new screenshots: notifications, screen saver, vacuum controls, chip quick actions, About tab.
 
 ## 2026.11.3
 

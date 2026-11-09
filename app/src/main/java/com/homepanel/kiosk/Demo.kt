@@ -57,7 +57,7 @@ object Demo {
             "sensor.living_room_temperature", "sensor.living_room_humidity", "binary_sensor.living_room_motion", "binary_sensor.living_room_window"),
         "kitchen" to listOf("light.kitchen_ceiling", "light.under_cabinet", "switch.coffee_maker", "media_player.kitchen_display",
             "sensor.kitchen_temperature", "binary_sensor.kitchen_leak", "binary_sensor.fridge_door", "binary_sensor.kitchen_window"),
-        "dining_room" to listOf("light.chandelier", "cover.patio_shade", "binary_sensor.patio_door", "sensor.dining_room_temperature"),
+        "dining_room" to listOf("vacuum.robbie", "light.chandelier", "cover.patio_shade", "binary_sensor.patio_door", "sensor.dining_room_temperature"),
         "entrance" to listOf("camera.front_door", "lock.front_door", "light.porch", "light.hallway",
             "binary_sensor.front_door", "binary_sensor.entrance_motion"),
         "master_bedroom" to listOf("light.bedside_left", "light.bedside_right", "light.bedroom_ceiling", "fan.ceiling_fan",
@@ -137,6 +137,7 @@ object Demo {
         st("binary_sensor.front_door", "off", n("Porte d'entrée", "Front Door"), "device_class" to "door"),
         st("binary_sensor.entrance_motion", "off", n("Mouvement entrée", "Entrance Motion"), "device_class" to "motion"),
         // Chambre principale
+        st("vacuum.robbie", "cleaning", "Robbie", "battery_level" to 64, "fan_speed" to "standard"),
         st("light.bedside_left", "off", n("Chevet gauche", "Bedside Left"), DIM),
         st("light.bedside_right", "on", n("Chevet droit", "Bedside Right"), DIM, bri(20)),
         st("light.bedroom_ceiling", "off", n("Plafonnier chambre", "Bedroom Ceiling"), DIM),
@@ -224,6 +225,10 @@ object Demo {
             "open_cover" -> { e.state = "open"; if (a.has("current_position")) a.put("current_position", 100) }
             "close_cover" -> { e.state = "closed"; if (a.has("current_position")) a.put("current_position", 0) }
             "set_cover_position" -> { val p = data?.optInt("position") ?: 0; a.put("current_position", p); e.state = if (p > 0) "open" else "closed" }
+            "start" -> e.state = "cleaning"
+            "pause" -> e.state = "paused"
+            "stop" -> e.state = "idle"
+            "return_to_base" -> e.state = "returning"
             "lock" -> e.state = "locked"
             "unlock" -> e.state = "unlocked"
             "set_temperature" -> {
