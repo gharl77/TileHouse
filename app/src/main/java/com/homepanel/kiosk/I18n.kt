@@ -28,7 +28,9 @@ object I18n {
         // --- Catégories et états
         "Caméras" to "Cameras", "Scènes" to "Scenes", "Lumières" to "Lights", "Climat" to "Climate",
         "Volets et stores" to "Blinds & shades", "Prises et interrupteurs" to "Plugs & switches",
-        "Sécurité" to "Security", "Médias" to "Media", "Capteurs" to "Sensors",
+        "Sécurité" to "Security", "Médias" to "Media", "Ménage" to "Cleaning", "En charge" to "Charging", "Sur sa base" to "Docked",
+        "Nettoyage" to "Cleaning", "Retour à la base" to "Returning to base", "En pause" to "Paused", "Arrêté" to "Stopped", "Erreur" to "Error",
+        "Démarrer" to "Start", "Reprendre" to "Resume", "Pause" to "Pause", "Base" to "Dock", "Aspirateurs" to "Vacuums", "Capteurs" to "Sensors",
         "Non disponible" to "Unavailable", "Allumé" to "On", "Éteint" to "Off", "Activé" to "On", "Désactivé" to "Off",
         "Ouvert" to "Open", "Fermé" to "Closed", "Ouvert à" to "Open", "Ouverture…" to "Opening…", "Fermeture…" to "Closing…",
         "Verrouillé" to "Locked", "Déverrouillé" to "Unlocked", "Verrouillage…" to "Locking…", "Déverrouillage…" to "Unlocking…",

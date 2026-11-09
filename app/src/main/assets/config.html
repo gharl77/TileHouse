@@ -55,6 +55,7 @@ li.dragging{opacity:.75;outline:2px dashed var(--blue);outline-offset:-2px;backg
 .ents.pick li{cursor:pointer}
 .ents.pick li:hover{background:var(--card2)}
 .info{flex:1;min-width:0}
+.info>div:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .info .id{font-size:12px;color:var(--mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .info input{padding:5px 8px}
 .dot{width:32px;height:32px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:15px;background:var(--card2)}
@@ -338,11 +339,11 @@ showTab(savedTab);
 const TYPES = [
   [t("Tous les types"), []], [t("Caméras"), ["camera"]], [t("Lumières"), ["light"]], [t("Prises et interrupteurs"), ["switch", "input_boolean"]],
   [t("Volets et stores"), ["cover"]], [t("Climat et ventilateurs"), ["climate", "fan"]], ["Serrures", ["lock"]],
-  [t("Capteurs"), ["sensor", "binary_sensor"]], [t("Médias"), ["media_player"]],
+  [t("Capteurs"), ["sensor", "binary_sensor"]], [t("Médias"), ["media_player"]], [t("Aspirateurs"), ["vacuum"]],
   [t("Scènes, scripts, boutons"), ["scene", "script", "button", "input_button", "automation"]]
 ];
 const ICON = {light:"💡", switch:"🔌", input_boolean:"⏻", fan:"🌀", cover:"▤", lock:"🔒", climate:"🌡", sensor:"📈",
-  binary_sensor:"◉", camera:"📷", scene:"✨", script:"▶", media_player:"📺", button:"⏺", input_button:"⏺", automation:"⚙"};
+  binary_sensor:"◉", camera:"📷", scene:"✨", script:"▶", media_player:"📺", vacuum:"🧹", button:"⏺", input_button:"⏺", automation:"⚙"};
 const MAX_ROWS = 300;
 
 let PIN = "";
@@ -840,12 +841,13 @@ function renderEditor(roomSwitched) {
   if (!r.entities.length) sel.append(el("li", {class: "empty"}, t("Aucun appareil. Ajoutez-en depuis la liste de droite.")));
   r.entities.forEach((e, i) => {
     const c = catById[e.id];
-    const nameInput = el("input", {value: e.name || "", title: t("Nom affiché dans l'app seulement"), placeholder: "✎ " + (c ? c.name : e.id), oninput: ev => {
+    const nameInput = el("input", {value: e.name || "", title: (c ? c.name + "\n" : "") + t("Nom affiché dans l'app seulement"), placeholder: "✎ " + (c ? c.name : e.id), oninput: ev => {
       const v = ev.target.value.trim();
       if (v) e.name = v; else delete e.name;
       changed({keepEditor: true});
     }});
     const li = el("li");
+    li.title = [e.name, c && c.name, e.id].filter(Boolean).filter((v, k, a) => a.indexOf(v) === k).join("\n");
     li.dataset.idx = i;
     sel.append(li);
     li.append(grip(sel, li, r.entities, i, () => changed()),
@@ -878,7 +880,7 @@ function renderCatalog() {
     (!q || e.name.toLowerCase().includes(q) || e.id.includes(q)));
   $("catMsg").textContent = list.length + " " + t("appareil(s)") + (list.length > MAX_ROWS ? " — " + t("affinez la recherche pour tout voir") : "") + ". " + t("Cliquez pour ajouter.");
   for (const e of list.slice(0, MAX_ROWS)) {
-    ul.append(el("li", {onclick: () => { r.entities.push({id: e.id}); changed(); }},
+    ul.append(el("li", {title: e.name + "\n" + e.id, onclick: () => { r.entities.push({id: e.id}); changed(); }},
       el("span", {class: "dot", textContent: ICON[domain(e.id)] || "•"}),
       el("div", {class: "info"}, el("div", {textContent: e.name}),
         el("div", {class: "id", textContent: e.id + (e.area && areaName[e.area] ? " · " + areaName[e.area] : "")})),

@@ -189,6 +189,7 @@ Long‑press a tile to open its control panel:
 - **Fans**: speed slider. **Covers**: position slider plus open / stop / close.
 - **Thermostats**: − / + buttons (step taken from the entity), current temperature and action, and HVAC mode pills.
 - **Media players**: volume slider, previous / play‑pause / next and power.
+- **Robot vacuums**: the tile shows the state and battery; tap it for Start / Resume, Pause, Stop and Return to base.
 
 ### Cameras
 

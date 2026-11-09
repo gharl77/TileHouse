@@ -28,6 +28,10 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
     private var volume: VerticalSlider? = null
     private var targetView: TextView? = null
     private val modePills = ArrayList<Pair<String, TextView>>()
+    /** Boutons d'aspirateur : (vue ronde, service) pour mettre en évidence l'action en cours. */
+    private val vacButtons = ArrayList<Pair<ImageView, String>>()
+    private var vacStart: ImageView? = null
+    private var vacStartLabel: TextView? = null
     private var pendingTarget: Double? = null
     private val handler = Handler(Looper.getMainLooper())
     private val sendTarget = Runnable {
@@ -53,6 +57,7 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
             "cover" -> buildSlider(box, e?.attrs?.has("current_position") == true)
             "climate" -> buildClimate(box, e)
             "media_player" -> buildMedia(box, e)
+            "vacuum" -> buildVacuum(box)
         }
         setContentView(box)
         window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -178,6 +183,33 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
         box.addView(r)
     }
 
+    private fun buildVacuum(box: LinearLayout) {
+        val r = row()
+        fun button(icon: Int, label: String, service: String): Pair<ImageView, TextView> {
+            val col = LinearLayout(act).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(act.dp(10), 0, act.dp(10), 0)
+            }
+            val b = act.roundIcon(icon, 76, GLASS_LIGHT, Color.WHITE) {
+                val e = ha.states[id]
+                // « Démarrer » reprend le nettoyage s'il est en pause.
+                ha.callService("vacuum", if (service == "start" && e?.state == "paused") "start" else service, id)
+            }
+            col.addView(b)
+            val t = act.label(15f, 0xCCFFFFFF.toInt(), text = label).apply { gravity = Gravity.CENTER; setPadding(0, act.dp(8), 0, 0) }
+            col.addView(t)
+            r.addView(col)
+            vacButtons.add(b to service)
+            return b to t
+        }
+        val (s, sl) = button(R.drawable.ic_play, tr("Démarrer"), "start")
+        vacStart = s; vacStartLabel = sl
+        button(R.drawable.ic_pause, tr("Pause"), "pause")
+        button(R.drawable.ic_stop, tr("Arrêter"), "stop")
+        button(R.drawable.ic_home, tr("Base"), "return_to_base")
+        box.addView(r)
+    }
+
     private fun refresh() {
         val e = ha.states[id]
         statusView.text = Present.status(e)
@@ -197,5 +229,14 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
             targetView?.text = e?.attrs?.dbl("temperature")?.let { Present.num(it) + "°" } ?: "—"
         }
         for ((m, p) in modePills) stylePill(p, e?.state == m)
+        if (vacButtons.isNotEmpty()) {
+            val st = e?.state
+            val on = when (st) { "cleaning" -> "start"; "paused" -> "pause"; "idle" -> "stop"; "returning", "docked" -> "return_to_base"; else -> "" }
+            for ((b, svc) in vacButtons) {
+                val sel = svc == on
+                b.background = oval(if (sel) Present.accent(e) else GLASS_LIGHT)
+            }
+            vacStartLabel?.text = if (st == "paused") tr("Reprendre") else tr("Démarrer")
+        }
     }
 }

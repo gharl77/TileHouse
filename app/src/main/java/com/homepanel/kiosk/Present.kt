@@ -13,10 +13,10 @@ fun JSONObject.int(k: String): Int? = dbl(k)?.let { Math.round(it).toInt() }
 object Present {
     val SUPPORTED = setOf(
         "light", "switch", "input_boolean", "fan", "cover", "lock", "climate", "sensor",
-        "binary_sensor", "scene", "script", "media_player", "button", "input_button", "automation", "camera",
+        "binary_sensor", "scene", "script", "media_player", "button", "input_button", "automation", "camera", "vacuum",
     )
 
-    val CATEGORIES get() = listOf(tr("Caméras"), tr("Scènes"), tr("Lumières"), tr("Climat"), tr("Volets et stores"), tr("Prises et interrupteurs"), tr("Sécurité"), tr("Médias"), tr("Capteurs"))
+    val CATEGORIES get() = listOf(tr("Caméras"), tr("Scènes"), tr("Lumières"), tr("Climat"), tr("Volets et stores"), tr("Prises et interrupteurs"), tr("Sécurité"), tr("Médias"), tr("Ménage"), tr("Capteurs"))
 
     private const val YELLOW = 0xFFFFB300.toInt()
     private val nf get() = NumberFormat.getNumberInstance(I18n.locale).apply { maximumFractionDigits = 1 }
@@ -35,6 +35,7 @@ object Present {
             "lock" -> s == "unlocked" || s == "unlocking" || s == "open" || s == "opening" || s == "jammed"
             "climate" -> s != "off" && s != "unavailable" && s != "unknown"
             "media_player" -> s == "playing" || s == "paused" || s == "on" || s == "buffering" || s == "idle"
+            "vacuum" -> s == "cleaning" || s == "returning" || s == "error"
             else -> false
         }
     }
@@ -61,6 +62,7 @@ object Present {
             "light" -> if (s == "on") brightnessPct(e)?.let { "${tr("Allumé")} · $it %" } ?: tr("Allumé") else tr("Éteint")
             "switch", "input_boolean", "automation" -> if (s == "on") tr("Activé") else tr("Désactivé")
             "fan" -> if (s == "on") a.int("percentage")?.let { "${tr("Activé")} · $it %" } ?: tr("Activé") else tr("Désactivé")
+            "vacuum" -> vacuumStatus(e)
             "cover" -> when (s) {
                 "open" -> a.int("current_position")?.let { if (it in 1..99) "${tr("Ouvert à")} $it %" else tr("Ouvert") } ?: tr("Ouvert")
                 "closed" -> tr("Fermé")
@@ -142,6 +144,22 @@ object Present {
         return listOfNotNull(cur, main).joinToString(" · ")
     }
 
+    /** Aspirateur robot : état + batterie (ex. « Sur sa base · 100 % »). */
+    fun vacuumStatus(e: EntityState): String {
+        val a = e.attrs
+        val st = when (e.state) {
+            "docked" -> if (a.optBoolean("charging")) tr("En charge") else tr("Sur sa base")
+            "cleaning" -> tr("Nettoyage")
+            "returning" -> tr("Retour à la base")
+            "paused" -> tr("En pause")
+            "idle" -> tr("Arrêté")
+            "error" -> tr("Erreur") + a.str("error").takeIf { it.isNotEmpty() && it != "No error" }?.let { " : $it" }.orEmpty()
+            else -> e.state
+        }
+        val bat = a.int("battery_level") ?: a.int("battery")
+        return if (bat != null) "$st · $bat %" else st
+    }
+
     fun icon(id: String, e: EntityState?): Int {
         val dc = e?.attrs?.str("device_class") ?: ""
         return when (domain(id)) {
@@ -170,6 +188,7 @@ object Present {
             "script", "button", "input_button", "automation" -> R.drawable.ic_play
             "media_player" -> R.drawable.ic_tv
             "camera" -> R.drawable.ic_camera
+            "vacuum" -> R.drawable.ic_vacuum
             else -> R.drawable.ic_sensor
         }
     }
@@ -187,6 +206,7 @@ object Present {
                 else -> 0xFF34C759.toInt()
             }
             "media_player" -> 0xFFAF52DE.toInt()
+            "vacuum" -> if (e.state == "error") 0xFFFF453A.toInt() else 0xFF30B0C7.toInt()
             else -> 0xFFFF9F0A.toInt()
         }
     }
@@ -208,12 +228,13 @@ object Present {
         "switch", "input_boolean" -> 5
         "lock" -> 6
         "media_player" -> 7
-        else -> 8
+        "vacuum" -> 8
+        else -> 9
     }
 
     fun hasDetail(id: String, e: EntityState?): Boolean = when (domain(id)) {
         "light" -> supportsBrightness(e)
-        "fan", "cover", "climate", "media_player" -> true
+        "fan", "cover", "climate", "media_player", "vacuum" -> true
         else -> false
     }
 

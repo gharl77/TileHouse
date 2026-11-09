@@ -105,6 +105,7 @@ class TileView(ctx: Context) : View(ctx) {
 
     fun bind(name: String, status: String, active: Boolean, unavailable: Boolean, accent: Int, iconRes: Int) {
         this.name = name; this.status = status; this.active = active; this.accent = accent
+        tooltipText = name // nom complet au survol (souris) 
         if (iconRes != this.iconRes) {
             this.iconRes = iconRes
             icon = context.getDrawable(iconRes)?.mutate()
@@ -147,6 +148,16 @@ class TileView(ctx: Context) : View(ctx) {
         val n = TextUtils.ellipsize(name, namePaint, avail, TextUtils.TruncateAt.END).toString()
         val s = TextUtils.ellipsize(status, statusPaint, avail, TextUtils.TruncateAt.END).toString()
         val nh = -namePaint.ascent()
+        // Nom trop long : on l'écrit sur deux lignes plutôt que de le couper.
+        if (n != name && avail > 0) {
+            val lay = android.text.StaticLayout.Builder.obtain(name, 0, name.length, namePaint, avail.toInt())
+                .setMaxLines(2).setEllipsize(TextUtils.TruncateAt.END).setIncludePad(false).setLineSpacing(0f, 0.92f).build()
+            val sh = if (s.isEmpty()) 0f else -statusPaint.ascent() + textGap
+            val top = cy - (lay.height + sh) / 2f
+            c.save(); c.translate(tx, top); lay.draw(c); c.restore()
+            if (s.isNotEmpty()) c.drawText(s, tx, top + lay.height + sh, statusPaint)
+            return
+        }
         if (s.isEmpty()) {
             // Une seule ligne (ex. tuile de pièce) : nom centré verticalement
             c.drawText(n, tx, cy + (nh - namePaint.descent()) / 2f, namePaint)
