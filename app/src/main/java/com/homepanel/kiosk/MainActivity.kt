@@ -198,6 +198,7 @@ class MainActivity : Activity(), HaClient.Listener {
         app.mqtt.onScreenOff = { off -> if (off && !dimmed) dim() else if (!off && dimmed) undim() }
         app.mqtt.onHome = { goHome() }
         app.mqtt.onMessage = { showMessage(it) }
+        app.mqtt.pendingMessage?.let { app.mqtt.pendingMessage = null; handler.post { showMessage(it) } }
         app.ha.ensureConnected()
         lastTouch = SystemClock.uptimeMillis()
         undim()
@@ -756,27 +757,18 @@ class MainActivity : Activity(), HaClient.Listener {
 
     // ------------------------------------------------------------ messages de HA
 
-    private var messageView: TextView? = null
-    private val hideMessage = Runnable { messageView?.visibility = View.GONE }
+    private var notice: NotificationCard? = null
 
-    /** Affiche un message envoyé par HA (entité notify) pendant 30 s, ou jusqu'à un toucher. */
+    /** Notification envoyée par HA (entité notify) : encadré centré par-dessus le tableau de bord. */
     private fun showMessage(text: String) {
         if (dimmed) undim()
         lastTouch = SystemClock.uptimeMillis()
-        val v = messageView ?: label(22f, Color.WHITE).apply {
-            setPadding(dp(28), dp(18), dp(28), dp(18))
-            background = roundRect(0xF21C1C1E.toInt(), dpf(20))
-            elevation = dpf(12)
-            gravity = Gravity.CENTER
-            setOnClickListener { visibility = View.GONE }
-            root.addView(this, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(24) })
-            messageView = this
+        val card = notice ?: NotificationCard(this).also {
+            root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            it.onClosed = { lastTouch = SystemClock.uptimeMillis() }
+            notice = it
         }
-        v.text = "💬  $text"
-        v.visibility = View.VISIBLE
-        v.bringToFront()
-        handler.removeCallbacks(hideMessage)
-        handler.postDelayed(hideMessage, 30_000)
+        card.show(Notice.parse(text))
     }
 
     // ------------------------------------------------------------ réglages

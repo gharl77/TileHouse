@@ -200,6 +200,14 @@ Long‑press a tile to open its control panel:
 - **PTZ cameras**: **swipe** on the live view to pan or tilt. TileHouse finds the camera's PTZ buttons
   (e.g. `button.<camera>_pan_left`) or uses the **ONVIF** `onvif.ptz` service.
 - The live view closes itself after 5 minutes so a stream is never left running.
+- **Eufy**: when a camera's `switch.<camera>_rtsp_stream` is off, TileHouse turns it on for the live view, waits for the stream
+  address, and turns it off again afterwards.
+- **Person alert** (Display → Cameras): when a room camera detects a person, its live view opens full screen for 20 seconds
+  (10–60 s) with a red "Person detected" banner. Detections come from `event.<camera>_detection` entities (`event_type: person`)
+  or `binary_sensor` person detectors. Option: *Trigger on person only / any motion*. The countdown starts with the first video
+  frame; touching the screen keeps the live view open.
+- **Doorbell alert**: when someone rings a doorbell camera (`event.<camera>_doorbell` ring, or `binary_sensor.<camera>_ringing`),
+  its live view opens with a "Someone is at the door" banner.
 
 <img src="docs/screenshots/camera-live.png" width="860" alt="Full-screen camera view">
 
@@ -250,6 +258,14 @@ browser), the page reloads it instead of overwriting it. Deep links work too: `h
 
 The same options are available on the tablet itself (⋮ menu → settings), protected by the PIN if you set one.
 
+**Wake on motion** (Display, only on tablets with a front camera, off by default): the front camera watches the room at very low
+resolution (about 2 frames per second) and treats someone passing in front of the tablet like a touch, so the screen doesn't dim,
+or wakes up if it already has. Frames are compared in memory and thrown away; nothing is saved or sent. Android asks for the camera
+permission when you turn it on.
+
+The **About** tab shows the version, GitHub links (repository, release notes, issues), the tablet and Android version, the
+Home Assistant version and connection, and memory use.
+
 | Rooms | Display |
 |---|---|
 | <img src="docs/screenshots/settings-rooms.png" alt="Settings — rooms"> | <img src="docs/screenshots/settings-display.png" alt="Settings — display"> |
@@ -278,7 +294,7 @@ Assistant*), and the device appears under *Settings → Devices & services → M
 | Theme / Wallpaper | select | e.g. switch to the Christmas theme on December 1st |
 | Group by category, Show clock | switches | |
 | Back to home | button | |
-| Message | notify | show a banner on the tablet (`notify.send_message`) |
+| Message | notify | show a notification card in the middle of the screen (`notify.send_message`) |
 | TileHouse | update | installed / latest version, **Install** button |
 
 Example: show a message on the tablet.
@@ -290,6 +306,30 @@ target:
 data:
   message: "Dinner is ready! 🍝"
 ```
+
+The message appears in a card centred over the dashboard (it wakes a dimmed screen) and closes after 30 seconds or with **OK**.
+For more, send a JSON object as the message (Home Assistant's MQTT notify entity only passes the message text, so the title
+goes inside it):
+
+```yaml
+action: notify.send_message
+target:
+  entity_id: notify.kitchen_tablet_message
+data:
+  message: >-
+    {"title": "Laundry done", "message": "The washer finished its cycle.", "icon": "🧺",
+     "color": "green", "duration": 45, "image": "camera.front_door", "sound": true}
+```
+
+| Key | Meaning |
+|---|---|
+| `title` | bold title |
+| `message` | text |
+| `icon` | an emoji, shown in a coloured circle (default 💬) |
+| `color` | accent colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `amber` or `#RRGGBB` |
+| `duration` | seconds before it closes (default 30, `0` = until **OK** is tapped) |
+| `image` | a camera or image entity whose snapshot is shown in the card |
+| `sound` | `true` plays the tablet's notification sound |
 
 The device stays the same even if you reinstall the app or move your configuration to another tablet (its ID is kept in backups).
 

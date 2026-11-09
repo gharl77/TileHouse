@@ -170,6 +170,11 @@ class WebServer(private val app: App) {
                 ok(onMain { updateState() })
             }
             "POST /api/update/install" -> ok(onMain { app.updater.installLatest(); updateState() })
+            "POST /api/notify" -> ok(onMain {
+                val m = req.optString("message")
+                if (m.isNotEmpty()) app.mqtt.onMessage?.invoke(m) ?: run { app.mqtt.pendingMessage = m }
+                JSONObject().put("ok", true)
+            })
             "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera"), req.optBoolean("ring")); JSONObject().put("ok", true) })
             "POST /api/demo" -> ok(onMain { app.setDemo(req.optBoolean("on")); state() })
             "POST /api/rooms" -> {

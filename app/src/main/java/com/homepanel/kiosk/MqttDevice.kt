@@ -43,6 +43,8 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     var onScreenOff: ((Boolean) -> Unit)? = null
     var onHome: (() -> Unit)? = null
     var onMessage: ((String) -> Unit)? = null
+    /** Message reçu pendant qu'un autre écran (réglages, live) était affiché. */
+    @Volatile var pendingMessage: String? = null
 
     // État publié
     var screenOff = false
@@ -122,7 +124,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             "horloge" -> { cfg.showClock = v == "ON"; configChanged = true }
             "ecran_veille" -> onScreenOff?.invoke(v == "ON")
             "accueil" -> onHome?.invoke()
-            "message" -> if (v.isNotEmpty()) onMessage?.invoke(v)
+            "message" -> if (v.isNotEmpty()) onMessage?.invoke(v) ?: run { pendingMessage = v } // affiché au retour sur le tableau de bord
             "update" -> if (v == "install") app.updater.installLatest()
         }
         if (configChanged) app.notifyConfigChanged() else publishAll()

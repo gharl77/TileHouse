@@ -11,6 +11,8 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
 - Wake on motion (optional, off by default, only on tablets with a front camera): the front camera watches for someone in front of the tablet at very low resolution and prevents or ends dimming. Frames are analysed in memory and never saved or sent. Needs the camera permission, asked on the tablet.
 
+- Notifications from Home Assistant (`notify.send_message` on the tablet's notify entity) now appear in a card centred over the dashboard: optional title, emoji icon, accent colour, camera snapshot, sound and duration (JSON message), countdown bar, OK button. A message received while another screen is open is shown on return.
+
 ## 2026.11.3
 
 - Home screen: the summary chips only show what needs attention (lights on, unlocked locks, open doors and windows).
