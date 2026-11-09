@@ -178,6 +178,8 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option>
       <option value="30">30 min</option><option value="60">60 min</option>
     </select>
+    <label class="check" id="motionWakeRow"><input type="checkbox" id="motionWake"> Réveil par mouvement (caméra avant de la tablette)</label>
+    <p class="muted" id="motionWakeInfo" hidden></p>
     <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
   </section>
   <section class="card">
@@ -609,6 +611,10 @@ function renderSettings() {
   $("dim").value = String(st.dim);
   $("group").checked = st.group;
   $("clock").checked = st.clock;
+  $("motionWakeRow").hidden = !st.frontCamera;
+  $("motionWake").checked = st.motionWake;
+  $("motionWakeInfo").hidden = !(st.motionWake && !st.cameraPermission);
+  $("motionWakeInfo").textContent = t("Autorisez la caméra sur la tablette : Réglages de TileHouse → Affichage → Réveil par mouvement.");
   $("personAlert").checked = st.personAlert;
   $("alertSeconds").value = String(st.alertSeconds);
   $("alertTrigger").value = st.alertTrigger;
@@ -641,6 +647,7 @@ $("language").onchange = async () => { await saveSettings({language: $("language
 $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
 $("clock").onchange = () => saveSettings({clock: $("clock").checked});
+$("motionWake").onchange = () => saveSettings({motionWake: $("motionWake").checked});
 $("personAlert").onchange = () => saveSettings({personAlert: $("personAlert").checked});
 $("doorbellAlert").onchange = () => saveSettings({doorbellAlert: $("doorbellAlert").checked});
 $("alertTrigger").onchange = () => saveSettings({alertTrigger: $("alertTrigger").value});

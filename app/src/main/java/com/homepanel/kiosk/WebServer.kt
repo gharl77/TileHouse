@@ -194,6 +194,7 @@ class WebServer(private val app: App) {
                 if (req.has("language")) cfg.language = req.str("language").let { if (it in setOf("auto", "fr", "en")) it else "auto" }
                 if (req.has("theme")) cfg.theme = req.str("theme").let { k -> if (Themes.get(k) != null) k else "" }
                 if (req.has("dim")) cfg.dimMinutes = req.optInt("dim", 0).coerceIn(0, 240)
+                if (req.has("motionWake")) cfg.motionWake = req.optBoolean("motionWake")
                 if (req.has("group")) cfg.groupByCategory = req.optBoolean("group")
                 if (req.has("clock")) cfg.showClock = req.optBoolean("clock")
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
@@ -312,6 +313,9 @@ class WebServer(private val app: App) {
                 .put("theme", cfg.theme)
                 .put("language", cfg.language)
                 .put("dim", cfg.dimMinutes)
+                .put("motionWake", cfg.motionWake)
+                .put("frontCamera", MotionWake.hasFrontCamera(app))
+                .put("cameraPermission", MotionWake.hasPermission(app))
                 .put("group", cfg.groupByCategory)
                 .put("clock", cfg.showClock)
                 .put("personAlert", cfg.personAlert)

@@ -182,6 +182,7 @@ class MainActivity : Activity(), HaClient.Listener {
     private val onConfigChanged: () -> Unit = {
         homeDataAt = 0L // météo/calendriers peuvent avoir changé : on recharge
         if (!dimmed) applyBrightness()
+        updateMotion()
         root.background = Themes.background(this, cfg)
         rebuild()
         updateStatus(app.ha.status)
@@ -204,10 +205,28 @@ class MainActivity : Activity(), HaClient.Listener {
         updateStatus(app.ha.status)
         handler.removeCallbacks(tick)
         handler.post(tick)
+        updateMotion()
+    }
+
+    // ------------------------------------------------------------ réveil par mouvement
+
+    private var motion: MotionWake? = null
+
+    /** Démarre ou arrête la caméra avant selon le réglage (et l'autorisation). */
+    private fun updateMotion() {
+        val want = cfg.motionWake && MotionWake.hasFrontCamera(this) && MotionWake.hasPermission(this) && !app.ha.demo
+        if (want && motion == null) motion = MotionWake(this) { onMotion() }.also { it.start() }
+        else if (!want) { motion?.stop(); motion = null }
+    }
+
+    private fun onMotion() {
+        lastTouch = SystemClock.uptimeMillis()
+        if (dimmed) undim()
     }
 
     override fun onPause() {
         super.onPause()
+        motion?.stop(); motion = null
         app.ha.removeListener(this)
         app.configListeners.remove(onConfigChanged)
         app.mqtt.onScreenOff = null
@@ -712,6 +731,7 @@ class MainActivity : Activity(), HaClient.Listener {
         dimmed = true
         window.attributes = window.attributes.apply { screenBrightness = 0.01f }
         dimView.visibility = View.VISIBLE
+        motion?.rebaseline() // l'écran qui s'assombrit change l'éclairage de la pièce
         updateClock()
         app.mqtt.setScreenOff(true)
     }
@@ -730,6 +750,7 @@ class MainActivity : Activity(), HaClient.Listener {
         applyBrightness()
         if (was) app.mqtt.setScreenOff(false)
         dimView.visibility = View.GONE
+        if (was) motion?.rebaseline()
         if (cameraTiles.isNotEmpty()) refreshSnapshots()
     }
 

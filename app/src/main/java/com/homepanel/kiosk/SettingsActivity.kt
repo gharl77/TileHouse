@@ -121,6 +121,14 @@ class SettingsActivity : Activity(), HaClient.Listener {
             dimChoices.map { if (it == 0) tr("Jamais") else "$it min" }, dimChoices.indexOf(cfg.dimMinutes).coerceAtLeast(0)) {
             cfg.dimMinutes = dimChoices[it]; app.notifyConfigChanged()
         }))
+        if (MotionWake.hasFrontCamera(this)) {
+            motionToggle = toggle(cfg.motionWake) { on ->
+                if (on && !MotionWake.hasPermission(this)) requestPermissions(arrayOf(android.Manifest.permission.CAMERA), REQ_CAMERA)
+                else { cfg.motionWake = on; app.notifyConfigChanged() }
+            }
+            board.addRow(settingRow(R.drawable.ic_walk, Ui.GREEN, tr("Réveil par mouvement"),
+                tr("La caméra avant détecte quelqu'un devant la tablette et empêche ou annule la mise en veille. Les images ne sont ni enregistrées ni envoyées."), motionToggle))
+        }
         display.addView(groupLabel(tr("Caméras")))
         val camCard = Card(this).also { display.addView(it) }
         val alertChoices = listOf(10, 20, 30, 60)
@@ -306,6 +314,18 @@ class SettingsActivity : Activity(), HaClient.Listener {
     private fun updateMqtt() {
         val st = app.mqtt.status
         mqttRow.setSubtitle(cfg.deviceName + " · " + st)
+    }
+
+    private var motionToggle: android.widget.Switch? = null
+    private val REQ_CAMERA = 41
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode != REQ_CAMERA) return
+        val ok = grantResults.firstOrNull() == android.content.pm.PackageManager.PERMISSION_GRANTED
+        cfg.motionWake = ok
+        if (!ok) { motionToggle?.isChecked = false; toast(tr("Autorisation caméra refusée.")) }
+        app.notifyConfigChanged()
     }
 
     override fun onPause() {
