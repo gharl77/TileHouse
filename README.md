@@ -296,7 +296,7 @@ Assistant*), and the device appears under *Settings → Devices & services → M
 | Screen brightness | number (5–100 %) | |
 | Dim after | number (min) | |
 | Theme / Wallpaper | select | e.g. switch to the Christmas theme on December 1st |
-| Group by category, Show clock | switches | |
+| Group by category, Show clock, Show battery | switches | |
 | Screen saver, Screen saver brightness | select, number | time and weather or black screen; brightness of the time screen |
 | Back to home | button | |
 | Message | notify | show a notification card in the middle of the screen (`notify.send_message`) |

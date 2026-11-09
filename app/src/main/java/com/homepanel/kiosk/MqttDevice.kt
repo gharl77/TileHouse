@@ -124,6 +124,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             "luminosite" -> v.toDoubleOrNull()?.toInt()?.let { cfg.brightness = it.coerceIn(5, 100); configChanged = true }
             "regrouper" -> { cfg.groupByCategory = v == "ON"; configChanged = true }
             "horloge" -> { cfg.showClock = v == "ON"; configChanged = true }
+            "afficher_batterie" -> { cfg.showBattery = v == "ON"; configChanged = true }
             "ecran_veille" -> onScreenOff?.invoke(v == "ON")
             "accueil" -> onHome?.invoke()
             "message" -> if (v.isNotEmpty()) onMessage?.invoke(v) ?: run { pendingMessage = v } // affiché au retour sur le tableau de bord
@@ -146,6 +147,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         st("veille_luminosite", c.dimBrightness.toString())
         st("regrouper", if (c.groupByCategory) "ON" else "OFF")
         st("horloge", if (c.showClock) "ON" else "OFF")
+        st("afficher_batterie", if (c.showBattery) "ON" else "OFF")
         st("ecran_veille", if (screenOff) "ON" else "OFF")
         st("ecran", currentScreen)
         publishBattery()
@@ -264,6 +266,9 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         }
         entity("switch", "horloge", tr("Afficher l'heure"), "mdi:clock-outline") {
             put("state_topic", "$base/horloge"); put("command_topic", "$base/horloge/set"); put("entity_category", "config")
+        }
+        entity("switch", "afficher_batterie", tr("Afficher la batterie"), "mdi:battery-outline") {
+            put("state_topic", "$base/afficher_batterie"); put("command_topic", "$base/afficher_batterie/set"); put("entity_category", "config")
         }
         // Commandes
         entity("switch", "ecran_veille", tr("Écran en veille"), "mdi:monitor-off") {

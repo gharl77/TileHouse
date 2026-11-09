@@ -18,6 +18,8 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Robot vacuums (`vacuum.*`): tile with state and battery (e.g. "Docked · 100 %"), new "Cleaning" category, and a control window with Start/Resume, Pause, Stop and Return to base; the current action is highlighted.
 - Long device names wrap onto two lines on the tiles instead of being cut; on the web page, hovering a device shows its full name and ID.
 
+- Tablet battery next to the time: percentage and a small battery icon (green with a bolt while charging, red under 20 %). Can be hidden in the settings, on the web page or from Home Assistant (switch "Show battery").
+
 ## 2026.11.3
 
 - Home screen: the summary chips only show what needs attention (lights on, unlocked locks, open doors and windows).

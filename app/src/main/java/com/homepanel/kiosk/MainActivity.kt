@@ -55,6 +55,17 @@ class MainActivity : Activity(), HaClient.Listener {
     private var lastChips: List<Present.Chip> = emptyList()
     private lateinit var clockView: TextView
     private lateinit var dateView: TextView
+    private lateinit var batteryView: BatteryView
+    private val batteryReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(c: android.content.Context, i: android.content.Intent) = onBattery(i)
+    }
+
+    private fun onBattery(i: android.content.Intent) {
+        val scale = i.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+        val lvl = i.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / scale
+        val st = i.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
+        batteryView.set(lvl, st == android.os.BatteryManager.BATTERY_STATUS_CHARGING || st == android.os.BatteryManager.BATTERY_STATUS_FULL)
+    }
     private lateinit var statusView: TextView
     private lateinit var scroll: ScrollView
     private lateinit var content: LinearLayout
@@ -130,8 +141,13 @@ class MainActivity : Activity(), HaClient.Listener {
 
         val clockBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
         clockView = label(30f, Color.WHITE).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
-        dateView = label(14f, 0xB3FFFFFF.toInt())
-        clockBox.addView(clockView)
+        dateView = label(14f, 0xB3FFFFFF.toInt()).apply { gravity = Gravity.END }
+        // Heure, avec la batterie de la tablette à sa gauche (selon les réglages)
+        batteryView = BatteryView(this)
+        val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        timeRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
+        timeRow.addView(clockView)
+        clockBox.addView(timeRow)
         clockBox.addView(dateView)
         header.addView(clockBox)
 
@@ -202,6 +218,7 @@ class MainActivity : Activity(), HaClient.Listener {
         handler.removeCallbacks(tick)
         handler.post(tick)
         updateMotion()
+        registerReceiver(batteryReceiver, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED))?.let { onBattery(it) }
     }
 
     // ------------------------------------------------------------ réveil par mouvement
@@ -223,6 +240,7 @@ class MainActivity : Activity(), HaClient.Listener {
     override fun onPause() {
         super.onPause()
         motion?.stop(); motion = null
+        try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
         app.ha.removeListener(this)
         app.configListeners.remove(onConfigChanged)
         app.mqtt.onScreenOff = null
@@ -260,6 +278,7 @@ class MainActivity : Activity(), HaClient.Listener {
     private fun rebuild() {
         clockView.visibility = if (cfg.showClock) View.VISIBLE else View.GONE
         dateView.visibility = clockView.visibility
+        batteryView.visibility = if (cfg.showBattery) View.VISIBLE else View.GONE
         if (!cfg.isConfigured || cfg.rooms.isEmpty()) {
             emptyBox.visibility = View.VISIBLE
             demoPill.visibility = if (cfg.isConfigured) View.GONE else View.VISIBLE

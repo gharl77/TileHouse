@@ -117,6 +117,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
         board.addRow(settingRow(R.drawable.ic_grid, Ui.TEAL, tr("Regrouper par catégorie"), tr("Lumières, Climat, Médias…"),
             toggle(cfg.groupByCategory) { cfg.groupByCategory = it }))
         board.addRow(settingRow(R.drawable.ic_clock, Ui.INDIGO, tr("Afficher l'heure et la date"), trailing = toggle(cfg.showClock) { cfg.showClock = it }))
+        board.addRow(settingRow(R.drawable.ic_bolt, Ui.GREEN, tr("Afficher la batterie"), tr("Niveau de la batterie de la tablette, à côté de l'heure"),
+            toggle(cfg.showBattery) { cfg.showBattery = it; app.notifyConfigChanged() }))
         board.addRow(settingRow(R.drawable.ic_moon, Ui.GRAY, tr("Mise en veille"), tr("Assombrir après une période d'inactivité ; un toucher réveille l'écran"), choice(
             dimChoices.map { if (it == 0) tr("Jamais") else "$it min" }, dimChoices.indexOf(cfg.dimMinutes).coerceAtLeast(0)) {
             cfg.dimMinutes = dimChoices[it]; app.notifyConfigChanged()

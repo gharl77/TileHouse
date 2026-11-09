@@ -93,6 +93,10 @@ class ConfigStore(ctx: Context) {
     var alertSeconds: Int
         get() = p.getInt("alertSeconds", 20)
         set(v) = p.edit().putInt("alertSeconds", v.coerceIn(5, 120)).apply()
+    /** Batterie de la tablette affichée à côté de l'heure. */
+    var showBattery: Boolean
+        get() = p.getBoolean("showBattery", true)
+        set(v) = p.edit().putBoolean("showBattery", v).apply()
     var lastRoom: Int
         get() = p.getInt("lastRoom", 0)
         set(v) = p.edit().putInt("lastRoom", v).apply()
@@ -268,7 +272,7 @@ class ConfigStore(ctx: Context) {
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
                 .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
-                .put("group", groupByCategory).put("clock", showClock).put("brightness", brightness)
+                .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
@@ -295,6 +299,7 @@ class ConfigStore(ctx: Context) {
             if (d.has("dimBrightness")) dimBrightness = d.optInt("dimBrightness", 10)
             if (d.has("group")) groupByCategory = d.optBoolean("group")
             if (d.has("clock")) showClock = d.optBoolean("clock")
+            if (d.has("battery")) showBattery = d.optBoolean("battery")
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)
             if (d.has("language")) language = d.str("language")
             if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")

@@ -170,6 +170,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <select id="wallpaper"></select>
     <label class="check"><input type="checkbox" id="group"> Regrouper les appareils par catégorie (Lumières, Climat…)</label>
     <label class="check"><input type="checkbox" id="clock"> Afficher l'heure et la date</label>
+    <label class="check"><input type="checkbox" id="battery"> Afficher la batterie de la tablette à côté de l'heure</label>
   </section>
   <section class="card">
     <h2>Mise en veille</h2>
@@ -618,6 +619,7 @@ function renderSettings() {
   $("dim").value = String(st.dim);
   $("group").checked = st.group;
   $("clock").checked = st.clock;
+  $("battery").checked = st.battery;
   $("motionWakeRow").hidden = !st.frontCamera;
   $("dimStyle").value = st.dimStyle;
   $("dimBrightness").value = st.dimBrightness;
@@ -658,6 +660,7 @@ $("language").onchange = async () => { await saveSettings({language: $("language
 $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
 $("clock").onchange = () => saveSettings({clock: $("clock").checked});
+$("battery").onchange = () => saveSettings({battery: $("battery").checked});
 $("dimStyle").onchange = () => { $("dimBrightRow").hidden = $("dimStyle").value !== "clock"; saveSettings({dimStyle: $("dimStyle").value}); };
 $("dimBrightness").oninput = () => { $("dimBrightVal").textContent = $("dimBrightness").value; };
 $("dimBrightness").onchange = () => saveSettings({dimBrightness: +$("dimBrightness").value});
