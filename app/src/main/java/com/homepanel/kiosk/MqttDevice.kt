@@ -89,10 +89,12 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     // ------------------------------------------------------------ MqttClient.Listener
 
     override fun onMqttConnected() {
+        // États d'abord, puis la découverte : quand HA s'abonne au sujet d'une liste, la valeur
+        // conservée est déjà dans la bonne langue.
+        publishAll()
         publishDiscovery()
         client.publish("$base/status", "online", retain = true)
         client.subscribe("$base/+/set")
-        publishAll()
         main.removeCallbacks(periodic)
         main.postDelayed(periodic, 5 * 60_000L)
         app.notifyStatusChanged()
@@ -140,11 +142,11 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     fun publishAll() {
         if (!client.connected) return
         val c = cfg
-        st("theme", Themes.get(c.theme)?.name ?: tr("Aucun"))
-        st("fond", Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
+        st(sel("theme"), Themes.get(c.theme)?.name ?: tr("Aucun"))
+        st(sel("fond"), Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
         st("veille", c.dimMinutes.toString())
         st("luminosite", effectiveBrightness().toString())
-        st("veille_style", when (c.dimStyle) { "black" -> tr("Écran noir"); "photos" -> tr("Cadre photo"); else -> tr("Heure et météo") })
+        st(sel("veille_style"), when (c.dimStyle) { "black" -> tr("Écran noir"); "photos" -> tr("Cadre photo"); else -> tr("Heure et météo") })
         st("heures_calmes", if (c.quietEnabled) "ON" else "OFF")
         st("sons", if (c.soundsEnabled) "ON" else "OFF")
         st("veille_luminosite", c.dimBrightness.toString())
@@ -174,6 +176,13 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     fun setCurrentScreen(name: String) { currentScreen = name; st("ecran", name) }
 
     private fun st(key: String, value: String) = client.publish("$base/$key", value, retain = true)
+
+    /**
+     * Sujet d'état d'une liste (select) dont les options sont traduites : un sujet par langue.
+     * Sinon, au changement de langue, HA relit la valeur conservée dans l'ancienne langue (« Automne »)
+     * face aux nouvelles options (« Autumn ») et journalise « option invalide ».
+     */
+    private fun sel(key: String) = if (I18n.english) "${key}_en" else key
 
     /** Luminosité appliquée : réglage de l'app, sinon celle du système. */
     fun effectiveBrightness(): Int {
@@ -246,11 +255,11 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     private fun publishDiscovery() {
         // Réglages
         entity("select", "theme", tr("Thème"), "mdi:palette") {
-            put("state_topic", "$base/theme"); put("command_topic", "$base/theme/set")
+            put("state_topic", "$base/${sel("theme")}"); put("command_topic", "$base/theme/set")
             put("options", JSONArray(listOf(tr("Aucun")) + Themes.all.map { it.name }))
         }
         entity("select", "fond", tr("Fond d'écran"), "mdi:image-filter-hdr") {
-            put("state_topic", "$base/fond"); put("command_topic", "$base/fond/set")
+            put("state_topic", "$base/${sel("fond")}"); put("command_topic", "$base/fond/set")
             put("options", JSONArray(Wallpapers.names))
         }
         entity("number", "veille", tr("Veille après"), "mdi:timer-sand") {
@@ -262,7 +271,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             put("min", 5); put("max", 100); put("step", 5); put("unit_of_measurement", "%"); put("mode", "slider")
         }
         entity("select", "veille_style", tr("Écran de veille"), "mdi:sleep") {
-            put("state_topic", "$base/veille_style"); put("command_topic", "$base/veille_style/set")
+            put("state_topic", "$base/${sel("veille_style")}"); put("command_topic", "$base/veille_style/set")
             put("options", JSONArray(listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir"))))
         }
         entity("switch", "sons", tr("Sons des notifications"), "mdi:volume-high") {

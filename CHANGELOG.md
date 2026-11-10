@@ -2,6 +2,10 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.6 (in progress)
+
+- Fix: changing the tablet's language no longer logs "Invalid option" errors in Home Assistant for the Theme, Wallpaper and Screen saver selects. Each language now has its own MQTT state topic for these lists, and the value is published before the list, so Home Assistant never reads a value in the other language.
+
 ## 2026.11.5
 
 - Notification center: every notification shows for at most 30 s (configurable, 10 s–5 min; shorter if the automation asks). One not confirmed with **OK** stays unread: a bell with a red counter appears next to the time. Tapping the bell opens the list of unread notifications (newest first, with icon, title, message and time). Open one to read it (it is then marked as read), select several (or long-press) and mark them as read, or mark all as read. Unread notifications survive restarts and updates (50 at most).
