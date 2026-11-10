@@ -165,6 +165,17 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Collection reminders**: "Recycling tomorrow" (blue bin) or "Garbage today" (green bin) chips. On the web page
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
   (case and accents ignored; empty = every event of that calendar). Both can use the same calendar.
+- **Electricity peaks** (e.g. Hydro-Québec): "Peak tomorrow 06:00–09:00" the day before and the same day, then a red "Peak now ·
+  ends 09:00" during the peak, from the calendar you pick (*Home → Electricity and weather*). An optional reminder (30 min to 3 h
+  before) goes to the notification center.
+- **Weather alerts**: pick the sensors that count the alerts in effect (Environment Canada: warnings, watches, advisories); a chip
+  appears when one is above 0 (red for a warning), tap it for details.
+- **Custom chips**: show a chip when an entity is in a given state, e.g. "🧺 Washer to empty" when the washer status is *To empty*
+  (entity, states, text and colour on the web page).
+- **Shortcuts**: large buttons for the scripts, scenes and buttons you choose.
+- **Morning card**: during a time range (default 05:00–10:00), a card with the sources you choose: a text from any entity state or
+  attribute (Markdown, e.g. the sections of a generated morning summary) or a news feed (headlines of a feed sensor's `entries`).
+  The web page suggests the summaries and feeds it finds, and you can add any other entity. Tap the card to read everything.
 - **Kitchen timers** (⏱ next to the time) and the **notification bell** with the number of unread notifications — see
   [Kitchen timers](#kitchen-timers) and [Notifications](#notifications).
 - **Clock and date** (optional) in the top‑right corner, with the **tablet's battery** next to the time (optional; green with a bolt
@@ -275,6 +286,7 @@ data:
 | `image` | a camera or image entity whose snapshot is shown in the card |
 | `sound` | `true` plays the tablet's notification sound (not during quiet hours, except red alerts) |
 | `tag` | replaces an older notification with the same tag; with the message `clear_notification`, removes it |
+| `actions` | up to 3 buttons next to **OK**: `[{"title": "Lock", "service": "lock.lock", "entity_id": "lock.front_door"}]` (optional `data`). Tapping one calls the service and marks the notification read |
 
 <img src="docs/screenshots/notification.png" width="860" alt="A notification card with a camera snapshot">
 
@@ -316,6 +328,7 @@ fields:
   duration: {default: 30, selector: {number: {min: 0, max: 3600}}}
   sound: {default: false, selector: {boolean: {}}}
   tag: {selector: {text: null}}
+  actions: {selector: {object: {}}}
 sequence:
   - action: notify.send_message
     target:
@@ -324,7 +337,8 @@ sequence:
       message: >-
         {{ {'title': title | default(''), 'message': message, 'icon': icon | default('💬', true),
             'color': color | default('amber', true), 'duration': duration | default(30) | int(30),
-            'sound': sound | default(false) | bool, 'tag': tag | default('')} | to_json }}
+            'sound': sound | default(false) | bool, 'tag': tag | default(''),
+            'actions': actions | default([], true)} | to_json }}
 ```
 
 Then, in any automation:
@@ -337,6 +351,22 @@ Then, in any automation:
     message: The washer finished its cycle.
     icon: 🧺
     color: green
+```
+
+With a button:
+
+```yaml
+- action: script.notify_the_tablet
+  continue_on_error: true
+  data:
+    title: Front door
+    message: Could not lock after 5 tries.
+    icon: 🔒
+    color: red
+    actions:
+      - title: Lock
+        service: lock.lock
+        entity_id: lock.front_door
 ```
 
 ### Kitchen timers
@@ -406,7 +436,8 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
   **Import HA areas** creates rooms from your areas automatically.
-- **Home**: weather entity, calendars, collection reminders (calendar + keyword), people and presence sensors, and the **order of floors**.
+- **Home**: weather entity, calendars, collection reminders (calendar + keyword), people and presence sensors, the **order of floors**,
+  electricity peaks, weather alerts, shortcuts, custom chips and the morning card sources.
 - **Display**: language, theme, wallpaper, dashboard options, sleep and screen saver (including the Immich photo frame), sounds and
   quiet hours, notifications, and camera alerts.
 - **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.

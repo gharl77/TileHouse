@@ -4,6 +4,12 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
 ## 2026.11.6 (in progress)
 
+- Electricity peaks (e.g. Hydro-Québec): chip "Peak tomorrow / today" then red "Peak now · ends HH:MM", from a chosen calendar, with an optional reminder (30 min–3 h before) in the notification center.
+- Weather alerts: chips from the alert-count sensors you pick (Environment Canada warnings, watches, advisories), with details on tap.
+- Custom chips: entity + states + text + colour (e.g. "🧺 Washer to empty").
+- Shortcuts: large buttons for chosen scripts, scenes and buttons on the home screen.
+- Morning card: during a chosen time range, a card with the sources you choose (any entity state/attribute as Markdown text, or a news feed's headlines); the web page suggests summaries and feeds it finds; tap to read everything.
+- Notification action buttons: up to 3 buttons (`actions`: title, service, entity_id, data) that call a Home Assistant service and mark the notification read.
 - Fix: changing the tablet's language no longer logs "Invalid option" errors in Home Assistant for the Theme, Wallpaper and Screen saver selects. Each language now has its own MQTT state topic for these lists, and the value is published before the list, so Home Assistant never reads a value in the other language.
 
 ## 2026.11.5
