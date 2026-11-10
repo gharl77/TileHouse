@@ -403,6 +403,11 @@ notification, newest first:
 `clear_notification` with that tag removes it from the tablet, like the companion app does on phones (e.g. when the vacuum is back
 on its base). With the script below, use the field *tag* / *étiquette*.
 
+**Camera alerts** (person detected, doorbell, motion) are kept in the notification center too, like Home Assistant's camera
+notifications but without a description: the camera name, the time and a **thumbnail** captured a few seconds after the
+detection. Open one to see the capture large. There is at most one entry per camera and type per minute, and the capture is
+deleted from the tablet once the alert is read.
+
 Unread notifications are kept across restarts and updates (50 at most). The sensor *Unread notifications* gives their number to
 Home Assistant, e.g. to light a lamp while messages are waiting. Emoji newer than the tablet supports are shown as 💬.
 

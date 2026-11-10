@@ -31,6 +31,8 @@ class Notice(
     val color: Int, val image: String?, val sound: Boolean,
     /** Étiquette : une nouvelle notification de même étiquette remplace l'ancienne ; « clear_notification » l'efface. */
     val tag: String = "",
+    /** Image enregistrée sur la tablette (alertes caméra : capture prise au moment de la détection). */
+    val imageFile: String? = null,
 ) {
     /** Demande d'effacement (comme sur les téléphones) plutôt qu'une notification à afficher. */
     val isClear get() = message.trim().equals("clear_notification", ignoreCase = true)
@@ -38,7 +40,7 @@ class Notice(
     val isUrgent get() = color == 0xFFFF453A.toInt() || color == 0xFFFF3B30.toInt()
 
     /** Même notification, sans le son (réouverture depuis le centre de notifications). */
-    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false, tag)
+    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false, tag, imageFile)
 
     companion object {
         private val NAMED = mapOf(
@@ -66,6 +68,7 @@ class Notice(
                 image = o.optString("image").takeIf { it.contains('.') && !it.contains("://") },
                 sound = o.optBoolean("sound", false),
                 tag = o.optString("tag").trim(),
+                imageFile = o.optString("imageFile").takeIf { it.isNotEmpty() },
             )
         }
     }
@@ -131,7 +134,19 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
             gravity = Gravity.CENTER
             setLineSpacing(0f, 1.15f)
         })
-        if (n.image != null) {
+        if (n.imageFile != null) {
+            // Capture enregistrée (alerte caméra).
+            val bmp = decodeFile(n.imageFile, ctx.dp(560))
+            if (bmp != null) {
+                bitmap = bmp
+                card.addView(ImageView(ctx).apply {
+                    scaleType = ImageView.ScaleType.CENTER_CROP
+                    background = roundRect(0xFF000000.toInt(), ctx.dpf(16))
+                    clipToOutline = true
+                    setImageBitmap(bmp)
+                }, LinearLayout.LayoutParams(MATCH_PARENT, ctx.dp(320)).apply { topMargin = ctx.dp(14) })
+            }
+        } else if (n.image != null) {
             val img = ImageView(ctx).apply {
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 background = roundRect(0xFF000000.toInt(), ctx.dpf(16))
@@ -202,3 +217,12 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         bitmap?.recycle(); bitmap = null
     }
 }
+
+/** Lit une image enregistrée en la réduisant à environ [w] pixels de large. */
+fun decodeFile(path: String, w: Int): Bitmap? = try {
+    val o = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    android.graphics.BitmapFactory.decodeFile(path, o)
+    var s = 1
+    while (o.outWidth / (s * 2) >= w) s *= 2
+    android.graphics.BitmapFactory.decodeFile(path, android.graphics.BitmapFactory.Options().apply { inSampleSize = s })
+} catch (_: Throwable) { null }

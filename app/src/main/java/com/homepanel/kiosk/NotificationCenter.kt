@@ -76,6 +76,7 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         }
     }
     private var selecting = false
+    private val thumbs = ArrayList<android.graphics.Bitmap>()
     private val selected = HashSet<Long>()
     private val onStore: () -> Unit = { if (showing) render() }
 
@@ -137,7 +138,11 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
     fun hide() {
         if (!showing) return
         store.listeners.remove(onStore)
-        animate().alpha(0f).setDuration(150).withEndAction { visibility = View.GONE; list.removeAllViews() }.start()
+        animate().alpha(0f).setDuration(150).withEndAction {
+            visibility = View.GONE; list.removeAllViews()
+            for (b in thumbs) b.recycle()
+            thumbs.clear()
+        }.start()
     }
 
     private fun render() {
@@ -156,6 +161,8 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         markSel.background = roundRect(if (selected.isEmpty()) 0x33FFB300 else Ui.ACCENT, act.dpf(14))
 
         list.removeAllViews()
+        for (b in thumbs) b.recycle()
+        thumbs.clear()
         if (items.isEmpty()) {
             // Tout est lu : le centre se ferme de lui-même un instant après.
             postDelayed({ if (showing && store.count == 0) hide() }, 1200)
@@ -205,6 +212,16 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
             maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, act.dp(3), 0, 0)
         })
         r.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        // Alerte caméra : vignette de la capture prise au moment de la détection.
+        n.imageFile?.let { decodeFile(it, act.dp(150)) }?.let { bmp ->
+            thumbs.add(bmp)
+            r.addView(ImageView(act).apply {
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = roundRect(0xFF000000.toInt(), act.dpf(12))
+                clipToOutline = true
+                setImageBitmap(bmp)
+            }, LinearLayout.LayoutParams(act.dp(128), act.dp(80)).apply { marginStart = act.dp(12) })
+        }
         return LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(0, act.dp(5), 0, act.dp(5))

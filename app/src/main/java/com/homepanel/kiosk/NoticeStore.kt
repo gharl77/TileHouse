@@ -38,19 +38,25 @@ class NoticeStore(ctx: Context) {
         val n = StoredNotice(maxOf(now, (items.maxOfOrNull { it.id } ?: 0) + 1), now, raw)
         // Même étiquette : la nouvelle remplace l'ancienne (une seule « Léon est coincé » à la fois).
         val tag = n.notice.tag
-        if (tag.isNotEmpty()) items.removeAll { it.notice.tag == tag }
+        if (tag.isNotEmpty()) discard(items.filter { it.notice.tag == tag })
         items.add(n)
-        while (items.size > MAX) items.remove(items.minBy { it.time })
+        while (items.size > MAX) discard(listOf(items.minBy { it.time }))
         changed()
         return n
     }
 
-    fun markRead(ids: Collection<Long>) { if (items.removeAll { it.id in ids }) changed() }
+    fun markRead(ids: Collection<Long>) { val gone = items.filter { it.id in ids }; if (gone.isNotEmpty()) { discard(gone); changed() } }
     fun markRead(id: Long) = markRead(listOf(id))
     /** Efface les notifications portant cette étiquette (le problème est réglé). */
-    fun clearTag(tag: String) { if (tag.isNotEmpty() && items.removeAll { it.notice.tag == tag }) changed() }
+    fun clearTag(tag: String) { val gone = items.filter { tag.isNotEmpty() && it.notice.tag == tag }; if (gone.isNotEmpty()) { discard(gone); changed() } }
 
-    fun markAllRead() { if (items.isNotEmpty()) { items.clear(); changed() } }
+    fun markAllRead() { if (items.isNotEmpty()) { discard(items.toList()); changed() } }
+
+    /** Retire ces notifications et supprime leurs captures d'écran enregistrées. */
+    private fun discard(list: List<StoredNotice>) {
+        items.removeAll(list.toSet())
+        for (n in list) n.notice.imageFile?.let { try { java.io.File(it).delete() } catch (_: Exception) {} }
+    }
 
     private fun changed() {
         val a = JSONArray()

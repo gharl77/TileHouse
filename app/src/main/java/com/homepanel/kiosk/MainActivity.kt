@@ -936,9 +936,10 @@ class MainActivity : Activity(), HaClient.Listener {
 
     /** Ouverte depuis le centre de notifications : elle devient lue tout de suite. */
     private fun openNotice(s: StoredNotice) {
-        app.notices.markRead(s.id)
         lastTouch = SystemClock.uptimeMillis()
+        // Afficher d'abord : marquer comme lue supprime la capture enregistrée de l'alerte caméra.
         noticeCard().show(s.notice.copyNoSound(), cfg.noticeSeconds)
+        app.notices.markRead(s.id)
     }
 
     private fun openCenter() {

@@ -63,10 +63,11 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
                 // Entité event : l'état (horodatage) change à chaque détection ; event_type dit quoi.
                 if (st == before || st == "unknown" || st == "unavailable") continue
                 val type = e.attrs.str("event_type").lowercase()
-                if (type in PERSON) trigger(cam, true) else if (motionToo && type.isNotEmpty()) trigger(cam, false)
+                if (type in PERSON) { record(cam, "person"); trigger(cam, true) }
+                else if (motionToo && type.isNotEmpty()) { record(cam, "motion"); trigger(cam, false) }
             } else if (st == "on" && before == "off") {
                 val isPerson = id.substringAfter('.').split('_').any { it in PERSON }
-                if (isPerson || motionToo) trigger(cam, isPerson)
+                if (isPerson || motionToo) { record(cam, if (isPerson) "person" else "motion"); trigger(cam, isPerson) }
             }
         }
     }
@@ -84,6 +85,7 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
         val now = SystemClock.elapsedRealtime()
         if (now - (lastRing[cam] ?: -60_000L) < 15_000L) return
         lastRing[cam] = now
+        record(cam, "ring")
         launch(cam, "🔔  " + tr("On sonne à la porte"))
     }
 
@@ -114,9 +116,50 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
             .putExtra(LiveActivity.EXTRA_REASON, reason))
     }
 
+    private val lastRecord = HashMap<String, Long>()
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
+
+    /**
+     * Garde l'alerte dans le centre de notifications : titre, heure et capture de la caméra
+     * (prise quelques secondes après la détection, le temps que l'image de l'événement soit à jour).
+     * Pas d'encadré ni de son : la vue live s'en charge.
+     */
+    fun record(camera: String, kind: String) {
+        val cfg = app.config
+        if (app.ha.demo) return
+        if (kind == "ring" && !cfg.doorbellAlert) return
+        if (kind != "ring" && !cfg.personAlert) return
+        val now = SystemClock.elapsedRealtime()
+        val key = "$camera/$kind"
+        if (now - (lastRecord[key] ?: -120_000L) < 60_000L) return // une entrée par minute et par caméra
+        lastRecord[key] = now
+        val room = cfg.rooms.firstOrNull { r -> r.find(camera) != null }
+        val re = room?.find(camera)
+        val name = if (re != null) Present.displayName(re, app.ha.states[camera], room.name) else camera.substringAfter('.')
+        val (title, icon, color) = when (kind) {
+            "ring" -> Triple(tr("On sonne à la porte"), "🔔", "blue")
+            "person" -> Triple(tr("Personne détectée"), "🚶", "orange")
+            else -> Triple(tr("Mouvement détecté"), "〰", "amber")
+        }
+        main.postDelayed({
+            app.snapshots.load(camera, 640) { bmp ->
+                var path = ""
+                if (bmp != null) try {
+                    val dir = java.io.File(app.filesDir, "notices").apply { mkdirs() }
+                    val f = java.io.File(dir, "cam_${System.currentTimeMillis()}.jpg")
+                    f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, it) }
+                    path = f.path
+                } catch (_: Exception) {} finally { bmp.recycle() }
+                app.notices.add(org.json.JSONObject()
+                    .put("title", "$title · $name").put("message", "").put("icon", icon).put("color", color)
+                    .put("kind", "camera").put("camera", camera).put("imageFile", path).toString())
+            }
+        }, 5000)
+    }
+
     /** Pour tester depuis la page web. */
     fun test(camera: String, ring: Boolean = false) {
-        lastAlert.remove(camera)
-        if (ring) launch(camera, "🔔  " + tr("On sonne à la porte")) else trigger(camera)
+        lastAlert.remove(camera); lastRecord.clear()
+        if (ring) { record(camera, "ring"); launch(camera, "🔔  " + tr("On sonne à la porte")) } else { record(camera, "person"); trigger(camera) }
     }
 }
