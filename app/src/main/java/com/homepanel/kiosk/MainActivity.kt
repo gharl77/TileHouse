@@ -145,6 +145,8 @@ class MainActivity : Activity(), HaClient.Listener {
         // Heure, avec la batterie de la tablette à sa gauche (selon les réglages)
         batteryView = BatteryView(this)
         val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        bellView = BellView(this).apply { setOnClickListener { openCenter() } }
+        timeRow.addView(bellView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
         timeRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
         timeRow.addView(clockView)
         clockBox.addView(timeRow)
@@ -208,8 +210,10 @@ class MainActivity : Activity(), HaClient.Listener {
         app.configListeners.add(onConfigChanged)
         app.mqtt.onScreenOff = { off -> if (off && !dimmed) dim() else if (!off && dimmed) undim() }
         app.mqtt.onHome = { goHome() }
-        app.mqtt.onMessage = { showMessage(it) }
-        app.mqtt.pendingMessage?.let { app.mqtt.pendingMessage = null; handler.post { showMessage(it) } }
+        app.onNotice = { showNotice(it) }
+        if (onNoticesChanged !in app.notices.listeners) app.notices.listeners.add(onNoticesChanged)
+        onNoticesChanged()
+        app.pendingNotice?.let { id -> app.pendingNotice = null; app.notices.find(id)?.let { n -> handler.post { showNotice(n) } } }
         app.ha.ensureConnected()
         lastTouch = SystemClock.uptimeMillis()
         undim()
@@ -245,7 +249,8 @@ class MainActivity : Activity(), HaClient.Listener {
         app.configListeners.remove(onConfigChanged)
         app.mqtt.onScreenOff = null
         app.mqtt.onHome = null
-        app.mqtt.onMessage = null
+        app.onNotice = null
+        app.notices.listeners.remove(onNoticesChanged)
         handler.removeCallbacks(tick)
         handler.removeCallbacks(snapshotTick)
         dialog?.dismiss()
@@ -784,17 +789,41 @@ class MainActivity : Activity(), HaClient.Listener {
     // ------------------------------------------------------------ messages de HA
 
     private var notice: NotificationCard? = null
+    private var center: NotificationCenter? = null
+    private lateinit var bellView: BellView
+    private val onNoticesChanged: () -> Unit = { bellView.setCount(app.notices.count) }
 
-    /** Notification envoyée par HA (entité notify) : encadré centré par-dessus le tableau de bord. */
-    private fun showMessage(text: String) {
+    private fun noticeCard(): NotificationCard = notice ?: NotificationCard(this).also {
+        root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        it.onClosed = { lastTouch = SystemClock.uptimeMillis() }
+        notice = it
+    }
+
+    /**
+     * Nouvelle notification de HA : encadré centré au plus [Config.noticeSeconds] secondes
+     * (moins si l'automatisation le demande). OK = lue ; sinon elle reste dans la clochette.
+     */
+    private fun showNotice(s: StoredNotice) {
         if (dimmed) undim()
         lastTouch = SystemClock.uptimeMillis()
-        val card = notice ?: NotificationCard(this).also {
+        val max = cfg.noticeSeconds
+        val d = s.notice.duration
+        noticeCard().show(s.notice, if (d in 1 until max) d else max) { app.notices.markRead(s.id) }
+    }
+
+    /** Ouverte depuis le centre de notifications : elle devient lue tout de suite. */
+    private fun openNotice(s: StoredNotice) {
+        app.notices.markRead(s.id)
+        lastTouch = SystemClock.uptimeMillis()
+        noticeCard().show(s.notice.copyNoSound(), cfg.noticeSeconds)
+    }
+
+    private fun openCenter() {
+        val c = center ?: NotificationCenter(this, app.notices) { openNotice(it) }.also {
             root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-            it.onClosed = { lastTouch = SystemClock.uptimeMillis() }
-            notice = it
+            center = it
         }
-        card.show(Notice.parse(text))
+        c.show()
     }
 
     // ------------------------------------------------------------ réglages

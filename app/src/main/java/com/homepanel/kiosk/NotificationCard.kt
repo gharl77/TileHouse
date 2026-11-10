@@ -30,6 +30,9 @@ class Notice(
     val title: String, val message: String, val icon: String, val duration: Int,
     val color: Int, val image: String?, val sound: Boolean,
 ) {
+    /** Même notification, sans le son (réouverture depuis le centre de notifications). */
+    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false)
+
     companion object {
         private val NAMED = mapOf(
             "red" to 0xFFFF453A.toInt(), "rouge" to 0xFFFF453A.toInt(),
@@ -49,7 +52,8 @@ class Notice(
             return Notice(
                 title = o.optString("title"),
                 message = o.optString("message", o.optString("text")),
-                icon = o.optString("icon").ifEmpty { "💬" },
+                // Émoji trop récent pour la tablette (Android 8 = Emoji 5) : bulle par défaut plutôt qu'un carré.
+                icon = o.optString("icon").takeIf { it.isNotEmpty() && android.graphics.Paint().hasGlyph(it) } ?: "💬",
                 duration = o.optInt("duration", 30).coerceIn(0, 3600),
                 color = color,
                 image = o.optString("image").takeIf { it.contains('.') && !it.contains("://") },
@@ -65,6 +69,8 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
     private var timer: ValueAnimator? = null
     private var bitmap: Bitmap? = null
     var onClosed: (() -> Unit)? = null
+    /** Appelé quand on touche OK (la notification est alors lue). */
+    private var onOk: (() -> Unit)? = null
 
     init {
         setBackgroundColor(0x99000000.toInt())
@@ -76,8 +82,13 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
 
     val showing get() = visibility == View.VISIBLE
 
-    fun show(n: Notice) {
+    /**
+     * Affiche [n] pendant [seconds] (0 = sans fermeture automatique). [onOk] est appelé si on touche OK ;
+     * une fermeture automatique ou un toucher à côté laisse la notification non lue.
+     */
+    fun show(n: Notice, seconds: Int, onOk: (() -> Unit)? = null) {
         clear()
+        this.onOk = onOk
         val ctx = act
         // Encadré arrondi : contenu (avec marges) puis barre de temps sur toute la largeur.
         val frame = LinearLayout(ctx).apply {
@@ -125,10 +136,10 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
             gravity = Gravity.CENTER
             background = roundRect(n.color, ctx.dpf(14))
             setPadding(ctx.dp(48), ctx.dp(12), ctx.dp(48), ctx.dp(12))
-            setOnClickListener { close() }
+            setOnClickListener { this@NotificationCard.onOk?.invoke(); this@NotificationCard.onOk = null; close() }
         }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = ctx.dp(24); bottomMargin = ctx.dp(24) })
         // Barre de temps restant, collée au bas de l'encadré
-        if (n.duration > 0) {
+        if (seconds > 0) {
             val track = FrameLayout(ctx).apply { setBackgroundColor(0x1AFFFFFF) }
             val b = View(ctx).apply { setBackgroundColor(n.color); pivotX = 0f }
             track.addView(b, LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -149,8 +160,8 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
             RingtoneManager.getRingtone(ctx, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.play()
         } catch (_: Exception) {}
 
-        if (n.duration > 0) timer = ValueAnimator.ofFloat(1f, 0f).apply {
-            duration = n.duration * 1000L
+        if (seconds > 0) timer = ValueAnimator.ofFloat(1f, 0f).apply {
+            duration = seconds * 1000L
             interpolator = LinearInterpolator()
             addUpdateListener { bar?.scaleX = it.animatedValue as Float }
             addListener(object : android.animation.AnimatorListenerAdapter() {
@@ -164,6 +175,7 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
 
     fun close() {
         if (!showing) return
+        onOk = null
         timer?.cancel(); timer = null
         animate().alpha(0f).setDuration(180).withEndAction { clear(); visibility = View.GONE; onClosed?.invoke() }.start()
     }

@@ -172,7 +172,7 @@ class WebServer(private val app: App) {
             "POST /api/update/install" -> ok(onMain { app.updater.installLatest(); updateState() })
             "POST /api/notify" -> ok(onMain {
                 val m = req.optString("message")
-                if (m.isNotEmpty()) app.mqtt.onMessage?.invoke(m) ?: run { app.mqtt.pendingMessage = m }
+                app.receiveNotice(m)
                 JSONObject().put("ok", true)
             })
             "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera"), req.optBoolean("ring")); JSONObject().put("ok", true) })
@@ -205,6 +205,7 @@ class WebServer(private val app: App) {
                 if (req.has("group")) cfg.groupByCategory = req.optBoolean("group")
                 if (req.has("clock")) cfg.showClock = req.optBoolean("clock")
                 if (req.has("battery")) cfg.showBattery = req.optBoolean("battery")
+                if (req.has("noticeSeconds")) cfg.noticeSeconds = req.optInt("noticeSeconds", 30)
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
                 if (req.has("alertSeconds")) cfg.alertSeconds = req.optInt("alertSeconds", 20)
                 if (req.has("alertTrigger")) cfg.alertTrigger = req.str("alertTrigger")
@@ -329,6 +330,8 @@ class WebServer(private val app: App) {
                 .put("group", cfg.groupByCategory)
                 .put("clock", cfg.showClock)
                 .put("battery", cfg.showBattery)
+                .put("noticeSeconds", cfg.noticeSeconds)
+                .put("unreadNotices", app.notices.count)
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)
                 .put("alertTrigger", cfg.alertTrigger)

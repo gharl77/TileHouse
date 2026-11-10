@@ -61,7 +61,8 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - **Home screen** with greeting, weather and 5‑day forecast, calendar, who's home, and rooms grouped by Home Assistant floors.
 - **Cameras** with periodic snapshots and a full‑screen **live view** (HLS or RTSP), including **PTZ by swiping**.
 - **Camera alerts**: the live view pops up when a camera sees a person or when someone rings the doorbell.
-- **Notifications from Home Assistant** in a card in the middle of the screen, with title, icon, colour and camera snapshot.
+- **Notifications from Home Assistant** in a card in the middle of the screen, with title, icon, colour and camera snapshot, and a
+  **notification center** (bell with an unread counter) for the ones nobody confirmed.
 - **Screen saver** with the time and weather (or a black screen), and optional **wake on motion** with the tablet's front camera.
 - **Robot vacuums**: state, battery, start / pause / stop / return to base.
 - **Header chips** summarising temperature, humidity, motion, doors, windows, leaks and locks, tap for the details and quick actions.
@@ -323,6 +324,7 @@ Assistant*), and the device appears under *Settings → Devices & services → M
 | Theme / Wallpaper | select | e.g. switch to the Christmas theme on December 1st |
 | Group by category, Show clock, Show battery | switches | |
 | Screen saver, Screen saver brightness | select, number | time and weather or black screen; brightness of the time screen |
+| Unread notifications, Notification duration | sensor, number | number of unread notifications; how long a notification stays on screen |
 | Back to home | button | |
 | Message | notify | show a notification card in the middle of the screen (`notify.send_message`) |
 | TileHouse | update | installed / latest version, **Install** button |
@@ -357,11 +359,23 @@ data:
 | `message` | text |
 | `icon` | an emoji, shown in a coloured circle (default 💬) |
 | `color` | accent colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `amber` or `#RRGGBB` |
-| `duration` | seconds before it closes (default 30, `0` = until **OK** is tapped) |
+| `duration` | seconds before it closes (default and maximum: the tablet's notification duration, 30 s unless changed) |
 | `image` | a camera or image entity whose snapshot is shown in the card |
 | `sound` | `true` plays the tablet's notification sound |
 
 <img src="docs/screenshots/notification.png" width="860" alt="A notification card with a camera snapshot">
+
+**Notification center.** A notification stays on screen for at most **30 seconds** (configurable in *Display → Notifications*,
+on the web page, or with the number entity *Notification duration*; a shorter `duration` from the automation wins). If nobody taps
+**OK**, it stays **unread** and a **bell** with a red counter appears next to the time. Tap the bell to see every unread
+notification, newest first:
+
+- tap one to open it again (it becomes read and leaves the list);
+- **Select** (or long‑press a notification), tick several, then **Mark as read**;
+- **Mark all as read**.
+
+Unread notifications are kept across restarts and updates (50 at most). The sensor *Unread notifications* gives their number to
+Home Assistant, e.g. to light a lamp while messages are waiting. Emoji newer than the tablet supports are shown as 💬.
 
 The device stays the same even if you reinstall the app or move your configuration to another tablet (its ID is kept in backups).
 

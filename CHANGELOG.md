@@ -2,6 +2,12 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.5 (in progress)
+
+- Notification center: every notification shows for at most 30 s (configurable, 10 s–5 min; shorter if the automation asks). One not confirmed with **OK** stays unread: a bell with a red counter appears next to the time. Tapping the bell opens the list of unread notifications (newest first, with icon, title, message and time). Open one to read it (it is then marked as read), select several (or long-press) and mark them as read, or mark all as read. Unread notifications survive restarts and updates (50 at most).
+- New Home Assistant entities: sensor "Unread notifications" and number "Notification duration".
+- An emoji the tablet cannot draw (too recent for Android 8) is replaced by 💬 instead of an empty box.
+
 ## 2026.11.4
 
 - Eufy cameras: the live view now turns on the camera's RTSP stream switch itself, waits for the stream address, and turns it back off when closed (the switches reset to off whenever the integration restarts).

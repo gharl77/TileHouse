@@ -42,9 +42,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     // Commandes reçues de HA, traitées par l'écran principal
     var onScreenOff: ((Boolean) -> Unit)? = null
     var onHome: (() -> Unit)? = null
-    var onMessage: ((String) -> Unit)? = null
-    /** Message reçu pendant qu'un autre écran (réglages, live) était affiché. */
-    @Volatile var pendingMessage: String? = null
+
 
     // État publié
     var screenOff = false
@@ -127,7 +125,8 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             "afficher_batterie" -> { cfg.showBattery = v == "ON"; configChanged = true }
             "ecran_veille" -> onScreenOff?.invoke(v == "ON")
             "accueil" -> onHome?.invoke()
-            "message" -> if (v.isNotEmpty()) onMessage?.invoke(v) ?: run { pendingMessage = v } // affiché au retour sur le tableau de bord
+            "message" -> app.receiveNotice(v)
+            "duree_notifications" -> v.toDoubleOrNull()?.toInt()?.let { cfg.noticeSeconds = it; configChanged = true }
             "update" -> if (v == "install") app.updater.installLatest()
         }
         if (configChanged) app.notifyConfigChanged() else publishAll()
@@ -148,6 +147,8 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         st("regrouper", if (c.groupByCategory) "ON" else "OFF")
         st("horloge", if (c.showClock) "ON" else "OFF")
         st("afficher_batterie", if (c.showBattery) "ON" else "OFF")
+        st("duree_notifications", c.noticeSeconds.toString())
+        publishNotices()
         st("ecran_veille", if (screenOff) "ON" else "OFF")
         st("ecran", currentScreen)
         publishBattery()
@@ -161,6 +162,9 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         if (!client.connected) return
         client.publish("$base/update", u.mqttState().toString(), retain = true)
     }
+
+    /** Nombre de notifications non lues, pour Home Assistant. */
+    fun publishNotices() { if (client.connected) st("notifications_non_lues", app.notices.count.toString()) }
 
     fun setScreenOff(off: Boolean) { screenOff = off; st("ecran_veille", if (off) "ON" else "OFF") }
     fun setCurrentScreen(name: String) { currentScreen = name; st("ecran", name) }
@@ -266,6 +270,13 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         }
         entity("switch", "horloge", tr("Afficher l'heure"), "mdi:clock-outline") {
             put("state_topic", "$base/horloge"); put("command_topic", "$base/horloge/set"); put("entity_category", "config")
+        }
+        entity("sensor", "notifications_non_lues", tr("Notifications non lues"), "mdi:bell-badge") {
+            put("state_topic", "$base/notifications_non_lues"); put("state_class", "measurement")
+        }
+        entity("number", "duree_notifications", tr("Durée des notifications"), "mdi:timer-outline") {
+            put("state_topic", "$base/duree_notifications"); put("command_topic", "$base/duree_notifications/set")
+            put("min", 5); put("max", 300); put("step", 5); put("unit_of_measurement", "s"); put("mode", "box"); put("entity_category", "config")
         }
         entity("switch", "afficher_batterie", tr("Afficher la batterie"), "mdi:battery-outline") {
             put("state_topic", "$base/afficher_batterie"); put("command_topic", "$base/afficher_batterie/set"); put("entity_category", "config")

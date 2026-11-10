@@ -141,6 +141,14 @@ class SettingsActivity : Activity(), HaClient.Listener {
             board.addRow(settingRow(R.drawable.ic_walk, Ui.GREEN, tr("Réveil par mouvement"),
                 tr("La caméra avant détecte quelqu'un devant la tablette et empêche ou annule la mise en veille. Les images ne sont ni enregistrées ni envoyées."), motionToggle))
         }
+        display.addView(groupLabel(tr("Notifications")))
+        val notCard = Card(this).also { display.addView(it) }
+        val noticeChoices = listOf(10, 15, 20, 30, 45, 60, 120, 300)
+        notCard.addRow(settingRow(R.drawable.ic_bell, Ui.RED, tr("Durée des notifications"),
+            tr("Temps d'affichage maximal. Sans OK, la notification reste non lue dans la clochette."), choice(
+            noticeChoices.map { if (it < 60) "$it s" else "${it / 60} min" }, noticeChoices.indexOf(cfg.noticeSeconds).let { if (it < 0) 3 else it }) {
+            cfg.noticeSeconds = noticeChoices[it]; app.notifyConfigChanged()
+        }))
         display.addView(groupLabel(tr("Caméras")))
         val camCard = Card(this).also { display.addView(it) }
         val alertChoices = listOf(10, 20, 30, 60)

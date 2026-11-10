@@ -51,6 +51,20 @@ class App : Application() {
         private set
     val updaterOrNull get() = if (::updater.isInitialized) updater else null
 
+    /** Notifications non lues (centre de notifications), conservées entre les redémarrages. */
+    val notices by lazy { NoticeStore(this).also { it.listeners.add { if (::mqtt.isInitialized) mqtt.publishNotices() } } }
+    /** Affichage d'une nouvelle notification (tableau de bord) ; null quand il n'est pas à l'écran. */
+    var onNotice: ((StoredNotice) -> Unit)? = null
+    /** Notification arrivée pendant qu'un autre écran était affiché : montrée au retour. */
+    var pendingNotice: Long? = null
+
+    /** Point d'entrée de toutes les notifications (entité notify de HA, page web). */
+    fun receiveNotice(raw: String) {
+        if (raw.isBlank()) return
+        val n = notices.add(raw)
+        onNotice?.invoke(n) ?: run { pendingNotice = n.id }
+    }
+
     /** La tablette comme appareil Home Assistant (MQTT). */
     lateinit var mqtt: MqttDevice
         private set
