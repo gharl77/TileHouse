@@ -357,7 +357,8 @@ class WebServer(private val app: App) {
                 .put("quietEnabled", cfg.quietEnabled).put("quietStart", cfg.quietStart).put("quietEnd", cfg.quietEnd)
                 .put("soundsEnabled", cfg.soundsEnabled)
                 .put("photoSource", cfg.photoSource).put("photoSourceName", cfg.photoSourceName).put("photoSeconds", cfg.photoSeconds)
-                .put("immichUrl", cfg.immichUrl).put("hasImmichKey", cfg.immichKey.isNotEmpty())
+                // Mode démo (captures d'écran) : l'adresse réelle du serveur Immich n'est pas montrée.
+                .put("immichUrl", if (cfg.demo) "" else cfg.immichUrl).put("hasImmichKey", cfg.immichKey.isNotEmpty())
                 .put("unreadNotices", app.notices.count)
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)

@@ -197,6 +197,7 @@ object Demo {
         st("calendar.family", "off", n("Famille", "Family")),
         st("calendar.school", "off", n("École", "School")),
         st("calendar.holidays", "off", n("Jours fériés", "Holidays")),
+        st("calendar.collection", "off", n("Collectes", "Collections")),
     )
 
     // ------------------------------------------------------------ actions
@@ -321,6 +322,11 @@ object Demo {
                     put(timed(n("Rencontre de parents", "Parent-teacher meeting"), at(4, 18, 30), at(4, 19, 30)))
                 }
                 "calendar.holidays" -> put(allDay(n("Long congé", "Long weekend"), 4))
+                // Collectes : ordures aujourd'hui (jusqu'à 23 h), recyclage demain.
+                "calendar.collection" -> {
+                    put(timed(n("Ordures", "Garbage"), at(0, 6), at(0, 23)))
+                    put(allDay(n("Matières recyclables", "Recycling"), 1))
+                }
             }
         }.toString()
     }

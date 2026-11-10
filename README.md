@@ -38,6 +38,9 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
   - [Rooms](#rooms)
   - [Detailed controls](#detailed-controls)
   - [Cameras](#cameras)
+  - [Notifications](#notifications)
+  - [Kitchen timers](#kitchen-timers)
+  - [Sleep, screen saver and sounds](#sleep-screen-saver-and-sounds)
   - [Header sensors](#header-sensors)
   - [Themes and wallpapers](#themes-and-wallpapers)
   - [Web configuration page](#web-configuration-page)
@@ -162,9 +165,8 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Collection reminders**: "Recycling tomorrow" (blue bin) or "Garbage today" (green bin) chips. On the web page
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
   (case and accents ignored; empty = every event of that calendar). Both can use the same calendar.
-- **Kitchen timers**: the ⏱ button next to the time opens quick durations (1 min to 1 h) or a custom one. Several timers can run
-  at once (+1 min, pause, cancel); the next one counts down in the header. When a timer ends, an alarm rings (up to 2 minutes)
-  with a large card until you tap **OK**.
+- **Kitchen timers** (⏱ next to the time) and the **notification bell** with the number of unread notifications — see
+  [Kitchen timers](#kitchen-timers) and [Notifications](#notifications).
 - **Clock and date** (optional) in the top‑right corner, with the **tablet's battery** next to the time (optional; green with a bolt
   while charging, red under 20 %).
 - After 3 minutes in a room, the tablet returns to the home screen by itself.
@@ -234,6 +236,144 @@ Long‑press a tile to open its control panel:
 
 <img src="docs/screenshots/camera-live.png" width="860" alt="Full-screen camera view">
 
+### Notifications
+
+Home Assistant can show messages on the tablet with the **Message** notify entity of the tablet (see
+[MQTT](#the-tablet-as-a-home-assistant-device-mqtt)). A message appears in a card in the middle of the screen, wakes a dimmed screen,
+and closes after the notification duration or with **OK**.
+
+Example:
+
+```yaml
+action: notify.send_message
+target:
+  entity_id: notify.kitchen_tablet_message
+data:
+  message: "Dinner is ready! 🍝"
+```
+
+For more, send a JSON object as the message (Home Assistant's MQTT notify entity only passes the message text, so the title
+goes inside it):
+
+```yaml
+action: notify.send_message
+target:
+  entity_id: notify.kitchen_tablet_message
+data:
+  message: >-
+    {"title": "Laundry done", "message": "The washer finished its cycle.", "icon": "🧺",
+     "color": "green", "duration": 45, "image": "camera.front_door", "sound": true}
+```
+
+| Key | Meaning |
+|---|---|
+| `title` | bold title |
+| `message` | text |
+| `icon` | an emoji, shown in a coloured circle (default 💬) |
+| `color` | accent colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `amber` or `#RRGGBB` |
+| `duration` | seconds before it closes (default and maximum: the tablet's notification duration, 30 s unless changed) |
+| `image` | a camera or image entity whose snapshot is shown in the card |
+| `sound` | `true` plays the tablet's notification sound (not during quiet hours, except red alerts) |
+| `tag` | replaces an older notification with the same tag; with the message `clear_notification`, removes it |
+
+<img src="docs/screenshots/notification.png" width="860" alt="A notification card with a camera snapshot">
+
+**Notification center.** A notification stays on screen for at most **30 seconds** (configurable in *Sleep & sounds → Notifications*,
+on the web page, or with the number entity *Notification duration*; a shorter `duration` from the automation wins). If nobody taps
+**OK**, it stays **unread** and a **bell** with a red counter appears next to the time. Tap the bell to see every unread
+notification, newest first:
+
+- tap one to open it again (it becomes read and leaves the list);
+- **Select** (or long‑press a notification), tick several, then **Mark as read**;
+- **Mark all as read**.
+
+**Tags.** Add `"tag": "leon_stuck"` to a notification: a new one with the same tag replaces the old one, and sending the message
+`clear_notification` with that tag removes it from the tablet, like the companion app does on phones (e.g. when the vacuum is back
+on its base). With the helper script below, use its `tag` field.
+
+**Camera alerts** (person detected, doorbell, motion) are kept in the notification center too, like Home Assistant's camera
+notifications but without a description: the camera name, the time and a **thumbnail** captured a few seconds after the
+detection. Open one to see the capture large. There is at most one entry per camera and type per minute, and the capture is
+deleted from the tablet once the alert is read.
+
+Unread notifications are kept across restarts and updates (50 at most). The sensor *Unread notifications* gives their number to
+Home Assistant, e.g. to light a lamp while messages are waiting. Emoji newer than the tablet supports are shown as 💬.
+
+
+<img src="docs/screenshots/notification-center.png" width="860" alt="Notification center with camera alerts">
+
+**A helper script** keeps automations short. Create it once in Home Assistant (*Settings → Automations & scenes → Scripts*, YAML mode),
+replacing the notify entity with yours:
+
+```yaml
+alias: Notify the tablet
+mode: parallel
+fields:
+  message: {required: true, selector: {text: {multiline: true}}}
+  title: {selector: {text: null}}
+  icon: {selector: {text: null}}
+  color: {selector: {text: null}}
+  duration: {default: 30, selector: {number: {min: 0, max: 3600}}}
+  sound: {default: false, selector: {boolean: {}}}
+  tag: {selector: {text: null}}
+sequence:
+  - action: notify.send_message
+    target:
+      entity_id: notify.kitchen_tablet_message
+    data:
+      message: >-
+        {{ {'title': title | default(''), 'message': message, 'icon': icon | default('💬', true),
+            'color': color | default('amber', true), 'duration': duration | default(30) | int(30),
+            'sound': sound | default(false) | bool, 'tag': tag | default('')} | to_json }}
+```
+
+Then, in any automation:
+
+```yaml
+- action: script.notify_the_tablet
+  continue_on_error: true   # never block the automation if the tablet is off
+  data:
+    title: Laundry done
+    message: The washer finished its cycle.
+    icon: 🧺
+    color: green
+```
+
+### Kitchen timers
+
+<img src="docs/screenshots/timers.png" width="860" alt="Kitchen timers">
+
+- Tap **⏱** next to the time, then a quick duration (1 min to 1 h) or set your own with − / + and **Start**.
+- Several timers can run at once; each has **+1 min**, pause / resume and cancel. The next one to end counts down in the header
+  (e.g. `4:32 +1`).
+- When a timer ends, the screen wakes up, an **alarm** rings (up to 2 minutes, at the tablet's alarm volume) and a large card stays
+  until you tap **OK**. Timers ring even when notification sounds are off or during quiet hours: you started them yourself.
+
+### Sleep, screen saver and sounds
+
+Everything here is in the tablet's **Sleep & sounds** tab and on the web page (*Display*).
+
+**Screen saver:** after the idle delay the screen shows the **time, date and current weather** (moving a little every
+minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
+The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
+weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Display → Screen saver → Photo
+frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read
+access to albums and assets is enough), then pick the album. The key is encrypted on the tablet and never shown again. Only photos
+are shown (videos are skipped), in Immich's "preview" size.
+
+**Notification sounds:** turn it off and no notification makes a sound, at any time. Timers still ring, since you
+started them yourself.
+
+**Quiet hours** (default 22:00–07:00): notifications make no sound, except red alerts (leak, lock, window…), and the
+screen saver is black whatever style you chose. Also available as the switch *Quiet hours* in Home Assistant.
+
+<img src="docs/screenshots/screensaver.png" width="860" alt="Screen saver with the time and weather">
+
+**Wake on motion** (only on tablets with a front camera, off by default): the front camera watches the room at very low
+resolution (about 2 frames per second) and treats someone passing in front of the tablet like a touch, so the screen doesn't dim,
+or wakes up if it already has. Frames are compared in memory and thrown away; nothing is saved or sent. Android asks for the camera
+permission when you turn it on.
+
 ### Header sensors
 
 Sensors don't take tile space: temperature, humidity, motion, presence, doors, windows, water leaks and locks are summarised as
@@ -266,9 +406,9 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
   **Import HA areas** creates rooms from your areas automatically.
-- **Home**: weather entity, calendars, people and presence sensors, and the **order of floors**.
-- **Display**: language, theme, wallpaper, category grouping, clock and battery, screen saver and its brightness, wake on motion,
-  and camera alerts.
+- **Home**: weather entity, calendars, collection reminders (calendar + keyword), people and presence sensors, and the **order of floors**.
+- **Display**: language, theme, wallpaper, dashboard options, sleep and screen saver (including the Immich photo frame), sounds and
+  quiet hours, notifications, and camera alerts.
 - **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
   Hover a device in the room editor to see its full name and ID.
@@ -288,44 +428,23 @@ browser), the page reloads it instead of overwriting it. Deep links work too: `h
 
 The same options are available on the tablet itself (⋮ menu → settings), protected by the PIN if you set one.
 
-**Screen saver** (Sleep & sounds): after the idle delay the screen shows the **time, date and current weather** (moving a little every
-minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
-The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
-weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Display → Screen saver → Photo
-frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read
-access to albums and assets is enough), then pick the album. The key is encrypted on the tablet and never shown again. Only photos
-are shown (videos are skipped), in Immich's "preview" size.
-
-**Notification sounds** (Sleep & sounds): turn it off and no notification makes a sound, at any time. Timers still ring, since you
-started them yourself.
-
-**Quiet hours** (Sleep & sounds, default 22:00–07:00): notifications make no sound, except red alerts (leak, lock, window…), and the
-screen saver is black whatever style you chose. Also available as the switch *Quiet hours* in Home Assistant.
-
-<img src="docs/screenshots/screensaver.png" width="860" alt="Screen saver with the time and weather">
-
-**Wake on motion** (Sleep & sounds, only on tablets with a front camera, off by default): the front camera watches the room at very low
-resolution (about 2 frames per second) and treats someone passing in front of the tablet like a touch, so the screen doesn't dim,
-or wakes up if it already has. Frames are compared in memory and thrown away; nothing is saved or sent. Android asks for the camera
-permission when you turn it on.
-
 The **About** tab shows the version, GitHub links (repository, release notes, issues), the tablet and Android version, the
 Home Assistant version and connection, and memory use.
+
+Six tabs: **Rooms**, **Display** (language, theme, wallpaper, dashboard options), **Sleep & sounds** (sleep, screen saver,
+sounds and quiet hours, notifications, camera alerts), **Connection**, **Kiosk** and **About**.
 
 | Rooms | Display |
 |---|---|
 | <img src="docs/screenshots/settings-rooms.png" alt="Settings — rooms"> | <img src="docs/screenshots/settings-display.png" alt="Settings — display"> |
 
-The **Sleep & sounds** tab gathers sleep, the screen saver, sounds and quiet hours, notification duration and camera alerts; **Display**
-keeps the language, theme, wallpaper and dashboard options.
-
-| Connection | Kiosk |
+| Sleep & sounds | Connection |
 |---|---|
-| <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> | <img src="docs/screenshots/settings-kiosk.png" alt="Settings — kiosk"> |
+| <img src="docs/screenshots/settings-sleep.png" alt="Settings — sleep and sounds"> | <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> |
 
-| About | |
+| Kiosk | About |
 |---|---|
-| <img src="docs/screenshots/settings-about.png" alt="Settings — about"> | |
+| <img src="docs/screenshots/settings-kiosk.png" alt="Settings — kiosk"> | <img src="docs/screenshots/settings-about.png" alt="Settings — about"> |
 
 ### The tablet as a Home Assistant device (MQTT)
 
@@ -346,70 +465,12 @@ Assistant*), and the device appears under *Settings → Devices & services → M
 | Dim after | number (min) | |
 | Theme / Wallpaper | select | e.g. switch to the Christmas theme on December 1st |
 | Group by category, Show clock, Show battery | switches | |
-| Screen saver, Screen saver brightness | select, number | time and weather or black screen; brightness of the time screen |
+| Screen saver, Screen saver brightness | select, number | time and weather, photo frame or black screen; its brightness |
 | Unread notifications, Notification duration | sensor, number | number of unread notifications; how long a notification stays on screen |
 | Quiet hours, Notification sounds | switches | quiet hours on or off (e.g. on holidays); all notification sounds on or off |
 | Back to home | button | |
-| Message | notify | show a notification card in the middle of the screen (`notify.send_message`) |
+| Message | notify | show a notification card in the middle of the screen (`notify.send_message`, see [Notifications](#notifications)) |
 | TileHouse | update | installed / latest version, **Install** button |
-
-Example: show a message on the tablet.
-
-```yaml
-action: notify.send_message
-target:
-  entity_id: notify.kitchen_tablet_message
-data:
-  message: "Dinner is ready! 🍝"
-```
-
-The message appears in a card centred over the dashboard (it wakes a dimmed screen) and closes after 30 seconds or with **OK**.
-For more, send a JSON object as the message (Home Assistant's MQTT notify entity only passes the message text, so the title
-goes inside it):
-
-```yaml
-action: notify.send_message
-target:
-  entity_id: notify.kitchen_tablet_message
-data:
-  message: >-
-    {"title": "Laundry done", "message": "The washer finished its cycle.", "icon": "🧺",
-     "color": "green", "duration": 45, "image": "camera.front_door", "sound": true}
-```
-
-| Key | Meaning |
-|---|---|
-| `title` | bold title |
-| `message` | text |
-| `icon` | an emoji, shown in a coloured circle (default 💬) |
-| `color` | accent colour: `red`, `orange`, `yellow`, `green`, `blue`, `purple`, `amber` or `#RRGGBB` |
-| `duration` | seconds before it closes (default and maximum: the tablet's notification duration, 30 s unless changed) |
-| `image` | a camera or image entity whose snapshot is shown in the card |
-| `sound` | `true` plays the tablet's notification sound (not during quiet hours, except red alerts) |
-| `tag` | replaces an older notification with the same tag; with the message `clear_notification`, removes it |
-
-<img src="docs/screenshots/notification.png" width="860" alt="A notification card with a camera snapshot">
-
-**Notification center.** A notification stays on screen for at most **30 seconds** (configurable in *Display → Notifications*,
-on the web page, or with the number entity *Notification duration*; a shorter `duration` from the automation wins). If nobody taps
-**OK**, it stays **unread** and a **bell** with a red counter appears next to the time. Tap the bell to see every unread
-notification, newest first:
-
-- tap one to open it again (it becomes read and leaves the list);
-- **Select** (or long‑press a notification), tick several, then **Mark as read**;
-- **Mark all as read**.
-
-**Tags.** Add `"tag": "leon_stuck"` to a notification: a new one with the same tag replaces the old one, and sending the message
-`clear_notification` with that tag removes it from the tablet, like the companion app does on phones (e.g. when the vacuum is back
-on its base). With the script below, use the field *tag* / *étiquette*.
-
-**Camera alerts** (person detected, doorbell, motion) are kept in the notification center too, like Home Assistant's camera
-notifications but without a description: the camera name, the time and a **thumbnail** captured a few seconds after the
-detection. Open one to see the capture large. There is at most one entry per camera and type per minute, and the capture is
-deleted from the tablet once the alert is read.
-
-Unread notifications are kept across restarts and updates (50 at most). The sensor *Unread notifications* gives their number to
-Home Assistant, e.g. to light a lamp while messages are waiting. Emoji newer than the tablet supports are shown as 💬.
 
 The device stays the same even if you reinstall the app or move your configuration to another tablet (its ID is kept in backups).
 

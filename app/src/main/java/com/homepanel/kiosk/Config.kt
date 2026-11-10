@@ -121,17 +121,17 @@ class ConfigStore(ctx: Context) {
 
     /** Calendriers des collectes (vide = pas de pastille). */
     var recycleCalendar: String
-        get() = p.getString("recycleCalendar", "") ?: ""
+        get() = if (demo) "calendar.collection" else p.getString("recycleCalendar", "") ?: ""
         set(v) = p.edit().putString("recycleCalendar", v).apply()
     /** Mots clés cherchés dans le titre des événements (sans tenir compte des majuscules ni des accents). */
     var recycleKeyword: String
-        get() = p.getString("recycleKeyword", "recycl") ?: "recycl"
+        get() = if (demo) "recycl" else p.getString("recycleKeyword", "recycl") ?: "recycl"
         set(v) = p.edit().putString("recycleKeyword", v.trim()).apply()
     var wasteKeyword: String
-        get() = p.getString("wasteKeyword", "ordure") ?: "ordure"
+        get() = if (demo) (if (I18n.english) "garbage" else "ordure") else p.getString("wasteKeyword", "ordure") ?: "ordure"
         set(v) = p.edit().putString("wasteKeyword", v.trim()).apply()
     var wasteCalendar: String
-        get() = p.getString("wasteCalendar", "") ?: ""
+        get() = if (demo) "calendar.collection" else p.getString("wasteCalendar", "") ?: ""
         set(v) = p.edit().putString("wasteCalendar", v).apply()
 
     /** Serveur Immich du cadre photo (ex. http://192.168.1.20:2283) et clé API (chiffrée). */

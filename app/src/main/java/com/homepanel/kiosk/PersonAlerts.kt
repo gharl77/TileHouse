@@ -126,7 +126,6 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
      */
     fun record(camera: String, kind: String) {
         val cfg = app.config
-        if (app.ha.demo) return
         if (kind == "ring" && !cfg.doorbellAlert) return
         if (kind != "ring" && !cfg.personAlert) return
         val now = SystemClock.elapsedRealtime()

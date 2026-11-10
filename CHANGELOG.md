@@ -2,7 +2,7 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
-## 2026.11.5 (in progress)
+## 2026.11.5
 
 - Notification center: every notification shows for at most 30 s (configurable, 10 s–5 min; shorter if the automation asks). One not confirmed with **OK** stays unread: a bell with a red counter appears next to the time. Tapping the bell opens the list of unread notifications (newest first, with icon, title, message and time). Open one to read it (it is then marked as read), select several (or long-press) and mark them as read, or mark all as read. Unread notifications survive restarts and updates (50 at most).
 - New Home Assistant entities: sensor "Unread notifications" and number "Notification duration".
@@ -16,6 +16,7 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Notification sounds switch: turn every notification sound off at all times (timers still ring). Also a switch in Home Assistant.
 - Settings reorganised: a new **Sleep & sounds** tab (sleep, screen saver, sounds and quiet hours, notifications, camera alerts); the Display tab keeps appearance and dashboard options. The web page uses the same groups.
 - When Home Assistant does not respond: the tiles are greyed out (last known state) under the "Offline · retrying…" banner, and tapping a device says the command can't be sent instead of doing nothing. The app reconnects by itself (tested: about 15 s after the network came back, MQTT a few seconds later).
+- Help page (README): new sections for notifications (with a ready-made helper script), kitchen timers, and sleep / screen saver / sounds; new screenshots (notification center, timers, Sleep & sounds tab, collection chips).
 - Fix: the agenda showed some events one day early ("Today" for tomorrow evening), and the forecast labelled tomorrow as "Today" in the evening.
 
 ## 2026.11.4
