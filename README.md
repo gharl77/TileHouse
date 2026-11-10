@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/gharl77/TileHouse/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/gharl77/TileHouse?label=release"></a>
+  <a href="https://github.com/gharl77/TileHouse/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/gharl77/TileHouse?label=release&cacheSeconds=300"></a>
   <img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-3ddc84">
   <img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
@@ -127,7 +127,7 @@ Other useful Android settings for a wall tablet:
 With [ADB](https://developer.android.com/tools/adb) and USB debugging enabled:
 
 ```bash
-adb install TileHouse-2026.11.2.apk
+adb install TileHouse-<version>.apk
 ```
 
 ---
