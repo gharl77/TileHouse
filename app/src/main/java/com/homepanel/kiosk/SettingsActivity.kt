@@ -370,10 +370,10 @@ class SettingsActivity : Activity(), HaClient.Listener {
     /** Liste des albums Immich (via HA), puis choix. */
     private fun pickPhotoSource() {
         photoRow.setSubtitle(tr("Chargement…"))
-        PhotoFrame.sources { list ->
+        PhotoFrame.sources { list, err ->
             if (isFinishing) return@sources
             photoRow.setSubtitle(cfg.photoSourceName.ifEmpty { tr("Aucun") })
-            if (list.isEmpty()) { toast(tr("Aucun album Immich trouvé dans Home Assistant")); return@sources }
+            if (err != null) { toast(err); return@sources }
             val names = (listOf(tr("Aucun")) + list.map { it.first }).toTypedArray()
             android.app.AlertDialog.Builder(this).setTitle(tr("Album photo")).setItems(names) { _, i ->
                 if (i == 0) { cfg.photoSource = ""; cfg.photoSourceName = "" } else { cfg.photoSource = list[i - 1].second; cfg.photoSourceName = list[i - 1].first }

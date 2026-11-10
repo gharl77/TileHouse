@@ -12,8 +12,7 @@ import java.io.StringReader
  * évite de construire en mémoire l'arbre JSON complet de milliers d'entités.
  */
 object CompactJson {
-    // "children" : listes de médias (cadre photo) ; seuls les champs simples de chaque élément sont gardés.
-    private val CONTAINERS = setOf("result", "entities", "children")
+    private val CONTAINERS = setOf("result", "entities")
     private val ATTRS = setOf("friendly_name", "device_class", "unit_of_measurement")
 
     fun parse(text: String): JSONObject = JsonReader(StringReader(text)).use { readObj(it, false) }

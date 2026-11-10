@@ -211,6 +211,8 @@ class WebServer(private val app: App) {
                 if (req.has("quietEnd")) cfg.quietEnd = req.optInt("quietEnd", 420)
                 if (req.has("photoSource")) { cfg.photoSource = req.str("photoSource"); cfg.photoSourceName = req.str("photoSourceName") }
                 if (req.has("photoSeconds")) cfg.photoSeconds = req.optInt("photoSeconds", 30)
+                if (req.has("immichUrl")) cfg.immichUrl = req.str("immichUrl")
+                if (req.str("immichKey").isNotBlank()) cfg.immichKey = req.str("immichKey")
                 if (req.has("recycleCalendar")) cfg.recycleCalendar = req.str("recycleCalendar")
                 if (req.has("wasteCalendar")) cfg.wasteCalendar = req.str("wasteCalendar")
                 if (req.has("recycleKeyword")) cfg.recycleKeyword = req.str("recycleKeyword")
@@ -262,12 +264,13 @@ class WebServer(private val app: App) {
                 })
             }
             "GET /api/photo-sources" -> {
-                // Albums et favoris Immich (via les médias de HA) pour le cadre photo.
+                // Favoris et albums Immich (clé API de l'app) pour le cadre photo.
                 val latch = java.util.concurrent.CountDownLatch(1)
-                var found: List<Pair<String, String>> = emptyList()
-                android.os.Handler(android.os.Looper.getMainLooper()).post { PhotoFrame.sources { found = it; latch.countDown() } }
-                latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
-                ok(JSONObject().put("sources", JSONArray().also { a -> for ((n, id) in found) a.put(JSONObject().put("name", n).put("id", id)) }))
+                var found: List<Pair<String, String>> = emptyList(); var error: String? = null
+                android.os.Handler(android.os.Looper.getMainLooper()).post { PhotoFrame.sources { l, e -> found = l; error = e; latch.countDown() } }
+                latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
+                ok(JSONObject().put("error", error ?: "")
+                    .put("sources", JSONArray().also { a -> for ((n, id) in found) a.put(JSONObject().put("name", n).put("id", id)) }))
             }
             "GET /api/catalog" -> {
                 val cat = loadCatalog() ?: return Reply(502, JSON, err(lastCatalogError ?: tr("Liste indisponible")))
@@ -352,6 +355,7 @@ class WebServer(private val app: App) {
                 .put("noticeSeconds", cfg.noticeSeconds)
                 .put("quietEnabled", cfg.quietEnabled).put("quietStart", cfg.quietStart).put("quietEnd", cfg.quietEnd)
                 .put("photoSource", cfg.photoSource).put("photoSourceName", cfg.photoSourceName).put("photoSeconds", cfg.photoSeconds)
+                .put("immichUrl", cfg.immichUrl).put("hasImmichKey", cfg.immichKey.isNotEmpty())
                 .put("unreadNotices", app.notices.count)
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)

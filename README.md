@@ -289,8 +289,11 @@ The same options are available on the tablet itself (⋮ menu → settings), pro
 
 **Screen saver** (Display): after the idle delay the screen shows the **time, date and current weather** (moving a little every
 minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
-The photo frame shows an **Immich** album or your favourites through Home Assistant's media sources (the Immich integration
-must be set up in Home Assistant), changing photo every 30 seconds (10 s to 5 min), with the time and weather in a corner.
+The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
+weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Display → Screen saver → Photo
+frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read
+access to albums and assets is enough), then pick the album. The key is encrypted on the tablet and never shown again. Only photos
+are shown (videos are skipped), in Immich's "preview" size.
 
 **Quiet hours** (Display, default 22:00–07:00): notifications make no sound, except red alerts (leak, lock, window…), and the
 screen saver is black whatever style you chose. Also available as the switch *Quiet hours* in Home Assistant.

@@ -130,7 +130,15 @@ class ConfigStore(ctx: Context) {
         get() = p.getString("wasteCalendar", "") ?: ""
         set(v) = p.edit().putString("wasteCalendar", v).apply()
 
-    /** Cadre photo : dossier de médias de HA (ex. album Immich), vide = désactivé. */
+    /** Serveur Immich du cadre photo (ex. http://192.168.1.20:2283) et clé API (chiffrée). */
+    var immichUrl: String
+        get() = p.getString("immichUrl", "") ?: ""
+        set(v) = p.edit().putString("immichUrl", v.trim().trimEnd('/')).apply()
+    var immichKey: String
+        get() = secret("immichKey")
+        set(v) = setSecret("immichKey", v.trim())
+
+    /** Cadre photo : "favorites" ou "album:<id>" (Immich), vide = désactivé. */
     var photoSource: String
         get() = p.getString("photoSource", "") ?: ""
         set(v) = p.edit().putString("photoSource", v).apply()
@@ -327,7 +335,8 @@ class ConfigStore(ctx: Context) {
                 .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd)
-                .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds).put("brightness", brightness)
+                .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
+                .put("immichUrl", immichUrl).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
@@ -338,7 +347,7 @@ class ConfigStore(ctx: Context) {
                 .put("enabled", mqttEnabled).put("host", mqttHost).put("port", mqttPort)
                 .put("user", mqttUser).put("deviceName", deviceName).put("deviceId", mqttDeviceId))
             .put("web", JSONObject().put("enabled", webEnabled))
-        if (withSecrets) o.put("secrets", JSONObject().put("token", token).put("mqttPass", mqttPass).put("pin", pin))
+        if (withSecrets) o.put("secrets", JSONObject().put("token", token).put("mqttPass", mqttPass).put("pin", pin).put("immichKey", immichKey))
         return o
     }
 
@@ -363,6 +372,7 @@ class ConfigStore(ctx: Context) {
             if (d.has("photoSource")) photoSource = d.str("photoSource")
             if (d.has("photoSourceName")) photoSourceName = d.str("photoSourceName")
             if (d.has("photoSeconds")) photoSeconds = d.optInt("photoSeconds", 30)
+            if (d.has("immichUrl")) immichUrl = d.str("immichUrl")
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)
             if (d.has("language")) language = d.str("language")
             if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")
@@ -395,6 +405,7 @@ class ConfigStore(ctx: Context) {
             if (s.str("token").isNotEmpty()) token = s.str("token")
             if (s.str("mqttPass").isNotEmpty()) mqttPass = s.str("mqttPass")
             if (s.has("pin")) pin = s.str("pin")
+            if (s.str("immichKey").isNotEmpty()) immichKey = s.str("immichKey")
         }
     }
 

@@ -193,7 +193,13 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <label class="f" for="dimStyle">Écran de veille</label>
     <select id="dimStyle"><option value="clock">Heure et météo</option><option value="photos">Cadre photo</option><option value="black">Écran noir</option></select>
     <div id="photoRow">
-      <label class="f" for="photoSource">Album photo (Immich, via Home Assistant)</label>
+      <div class="row">
+        <div style="flex:3"><label class="f" for="immichUrl">Serveur Immich</label><input id="immichUrl" placeholder="http://192.168.1.20:2283"></div>
+        <div style="flex:3"><label class="f" for="immichKey">Clé API</label><input id="immichKey" type="password" autocomplete="new-password"></div>
+      </div>
+      <div class="row"><button id="saveImmich">Enregistrer et tester</button><span class="muted" id="immichInfo"></span></div>
+      <p class="muted">Dans Immich : Paramètres du compte → Clés API → Nouvelle clé. Les droits de lecture des albums et des médias suffisent. La clé est chiffrée sur la tablette et n'est jamais réaffichée.</p>
+      <label class="f" for="photoSource">Album photo</label>
       <select id="photoSource"><option value="">Chargement…</option></select>
       <label class="f" for="photoSeconds">Changer de photo toutes les</label>
       <select id="photoSeconds"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
@@ -670,6 +676,8 @@ function renderSettings() {
   $("quietStart").value = hm(st.quietStart); $("quietEnd").value = hm(st.quietEnd);
   $("photoRow").hidden = st.dimStyle !== "photos";
   $("photoSeconds").value = String(st.photoSeconds);
+  if (document.activeElement !== $("immichUrl")) $("immichUrl").value = st.immichUrl || "";
+  $("immichKey").placeholder = st.hasImmichKey ? t("•••••••• clé enregistrée (laisser vide pour la garder)") : t("Clé API d'Immich");
   if (st.dimStyle === "photos") loadPhotoSources(st);
   $("unreadInfo").textContent = st.unreadNotices ? "(" + st.unreadNotices + " " + t("non lues") + ")" : "";
   $("motionWakeRow").hidden = !st.frontCamera;
@@ -726,10 +734,20 @@ async function loadPhotoSources(st) {
     const r = await api("GET", "/api/photo-sources");
     s.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
     for (const p of r.sources) s.append(el("option", {value: p.id, textContent: p.name}));
-    if (!r.sources.length) s.append(el("option", {value: "", textContent: t("Aucun album Immich trouvé dans Home Assistant"), disabled: true}));
+    $("immichInfo").textContent = r.error ? "⚠ " + r.error : (r.sources.length ? "✓ " + t("Immich répond") : "");
+    if (r.error) photoSourcesLoaded = false;
   } catch (e) { photoSourcesLoaded = false; s.replaceChildren(el("option", {value: "", textContent: t("Albums indisponibles")})); }
   s.value = st.photoSource;
 }
+$("saveImmich").onclick = async () => {
+  const body = {immichUrl: $("immichUrl").value.trim()};
+  if ($("immichKey").value.trim()) body.immichKey = $("immichKey").value.trim();
+  await saveSettings(body);
+  $("immichKey").value = "";
+  photoSourcesLoaded = false;
+  $("immichInfo").textContent = t("Test…");
+  loadPhotoSources({photoSource: $("photoSource").value});
+};
 $("photoSource").onchange = () => { const s = $("photoSource"); saveSettings({photoSource: s.value, photoSourceName: s.value ? s.options[s.selectedIndex].text : ""}); };
 $("noticeSeconds").onchange = () => saveSettings({noticeSeconds: +$("noticeSeconds").value});
 $("battery").onchange = () => saveSettings({battery: $("battery").checked});
