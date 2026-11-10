@@ -36,6 +36,9 @@ class NoticeStore(ctx: Context) {
     fun add(raw: String): StoredNotice {
         val now = System.currentTimeMillis()
         val n = StoredNotice(maxOf(now, (items.maxOfOrNull { it.id } ?: 0) + 1), now, raw)
+        // Même étiquette : la nouvelle remplace l'ancienne (une seule « Léon est coincé » à la fois).
+        val tag = n.notice.tag
+        if (tag.isNotEmpty()) items.removeAll { it.notice.tag == tag }
         items.add(n)
         while (items.size > MAX) items.remove(items.minBy { it.time })
         changed()
@@ -44,6 +47,9 @@ class NoticeStore(ctx: Context) {
 
     fun markRead(ids: Collection<Long>) { if (items.removeAll { it.id in ids }) changed() }
     fun markRead(id: Long) = markRead(listOf(id))
+    /** Efface les notifications portant cette étiquette (le problème est réglé). */
+    fun clearTag(tag: String) { if (tag.isNotEmpty() && items.removeAll { it.notice.tag == tag }) changed() }
+
     fun markAllRead() { if (items.isNotEmpty()) { items.clear(); changed() } }
 
     private fun changed() {

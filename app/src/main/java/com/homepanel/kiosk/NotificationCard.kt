@@ -29,9 +29,16 @@ import org.json.JSONObject
 class Notice(
     val title: String, val message: String, val icon: String, val duration: Int,
     val color: Int, val image: String?, val sound: Boolean,
+    /** Étiquette : une nouvelle notification de même étiquette remplace l'ancienne ; « clear_notification » l'efface. */
+    val tag: String = "",
 ) {
+    /** Demande d'effacement (comme sur les téléphones) plutôt qu'une notification à afficher. */
+    val isClear get() = message.trim().equals("clear_notification", ignoreCase = true)
+    /** Alerte rouge : garde son son même pendant les heures calmes. */
+    val isUrgent get() = color == 0xFFFF453A.toInt() || color == 0xFFFF3B30.toInt()
+
     /** Même notification, sans le son (réouverture depuis le centre de notifications). */
-    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false)
+    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false, tag)
 
     companion object {
         private val NAMED = mapOf(
@@ -58,6 +65,7 @@ class Notice(
                 color = color,
                 image = o.optString("image").takeIf { it.contains('.') && !it.contains("://") },
                 sound = o.optBoolean("sound", false),
+                tag = o.optString("tag").trim(),
             )
         }
     }
@@ -86,9 +94,14 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
      * Affiche [n] pendant [seconds] (0 = sans fermeture automatique). [onOk] est appelé si on touche OK ;
      * une fermeture automatique ou un toucher à côté laisse la notification non lue.
      */
+    /** Étiquette de la notification affichée (pour l'effacement par HA). */
+    var shownTag = ""
+        private set
+
     fun show(n: Notice, seconds: Int, onOk: (() -> Unit)? = null) {
         clear()
         this.onOk = onOk
+        shownTag = n.tag
         val ctx = act
         // Encadré arrondi : contenu (avec marges) puis barre de temps sur toute la largeur.
         val frame = LinearLayout(ctx).apply {
@@ -156,7 +169,8 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         animate().alpha(1f).setDuration(220).start()
         frame.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
 
-        if (n.sound) try {
+        // Heures calmes : silence, sauf pour les alertes rouges (fuite, serrure…).
+        if (n.sound && (n.isUrgent || !App.instance.config.isQuietNow())) try {
             RingtoneManager.getRingtone(ctx, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.play()
         } catch (_: Exception) {}
 

@@ -151,7 +151,10 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
             val f = list.optJSONObject(i) ?: continue
             val date = try { iso.parse(f.str("datetime").take(10)) } catch (_: Exception) { null }
             val col = LinearLayout(context).apply { orientation = VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
-            val dayName = if (i == 0) tr("Auj.") else date?.let { dayFmt.format(it).replaceFirstChar { c -> c.uppercase() } } ?: ""
+            // « Auj. » seulement si la prévision est vraiment celle d'aujourd'hui (le soir, la première
+            // prévision peut déjà être celle de demain).
+            val isToday = date != null && iso.format(date) == iso.format(Date())
+            val dayName = if (isToday) tr("Auj.") else date?.let { dayFmt.format(it).replaceFirstChar { c -> c.uppercase() } } ?: ""
             col.addView(context.label(13f, 0xB3FFFFFF.toInt(), text = dayName))
             col.addView(context.label(22f, Color.WHITE, text = HomeText.emoji(f.str("condition"))))
             val hi = f.dbl("temperature")?.let { Present.num(Math.round(it).toDouble()) + "°" } ?: ""
@@ -200,8 +203,10 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
     private fun whenText(ev: Event): String {
         val c = Calendar.getInstance().apply { time = ev.start }
         val today = Calendar.getInstance()
-        val diff = ((c.apply { set(Calendar.HOUR_OF_DAY, 12) }.timeInMillis -
-            today.apply { set(Calendar.HOUR_OF_DAY, 12) }.timeInMillis) / 86_400_000L).toInt()
+        // Midi pile des deux jours (minutes et secondes comprises), puis arrondi : un événement
+        // demain soir ne doit pas tomber à « 0,97 jour » et s'afficher « Aujourd'hui ».
+        fun noon(k: Calendar) = k.apply { set(Calendar.HOUR_OF_DAY, 12); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+        val diff = Math.round((noon(c) - noon(today)) / 86_400_000.0).toInt()
         val day = when (diff) {
             0 -> tr("Aujourd'hui")
             1 -> tr("Demain")

@@ -59,10 +59,12 @@ class ConfigStore(ctx: Context) {
     var dimMinutes: Int
         get() = p.getInt("dim", 0)
         set(v) = p.edit().putInt("dim", v).apply()
-    /** Écran de veille : "black" (noir) ou "clock" (heure + météo). */
+    /** Écran de veille : "black" (noir), "clock" (heure + météo) ou "photos" (cadre photo). */
     var dimStyle: String
         get() = p.getString("dimStyle", "clock") ?: "clock"
-        set(v) = p.edit().putString("dimStyle", if (v == "black") "black" else "clock").apply()
+        set(v) = p.edit().putString("dimStyle", if (v in setOf("black", "photos")) v else "clock").apply()
+    /** Style réellement affiché : noir pendant les heures calmes. */
+    val effectiveDimStyle: String get() = if (isQuietNow()) "black" else dimStyle
     /** Luminosité de l'écran de veille « heure + météo », en %. */
     var dimBrightness: Int
         get() = p.getInt("dimBrightness", 10)
@@ -93,6 +95,46 @@ class ConfigStore(ctx: Context) {
     var alertSeconds: Int
         get() = p.getInt("alertSeconds", 20)
         set(v) = p.edit().putInt("alertSeconds", v.coerceIn(5, 120)).apply()
+    /** Heures calmes : pas de son (sauf alertes rouges) et écran de veille noir. */
+    var quietEnabled: Boolean
+        get() = p.getBoolean("quietEnabled", true)
+        set(v) = p.edit().putBoolean("quietEnabled", v).apply()
+    /** Début et fin des heures calmes, en minutes depuis minuit (22:00 → 7:00 par défaut). */
+    var quietStart: Int
+        get() = p.getInt("quietStart", 22 * 60)
+        set(v) = p.edit().putInt("quietStart", v.coerceIn(0, 1439)).apply()
+    var quietEnd: Int
+        get() = p.getInt("quietEnd", 7 * 60)
+        set(v) = p.edit().putInt("quietEnd", v.coerceIn(0, 1439)).apply()
+    /** Vrai pendant les heures calmes (la plage peut passer minuit). */
+    fun isQuietNow(): Boolean {
+        if (!quietEnabled) return false
+        val c = java.util.Calendar.getInstance()
+        val m = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+        val s = quietStart; val e = quietEnd
+        return if (s == e) false else if (s < e) m in s until e else m >= s || m < e
+    }
+
+    /** Calendriers des collectes (vide = pas de pastille). */
+    var recycleCalendar: String
+        get() = p.getString("recycleCalendar", "") ?: ""
+        set(v) = p.edit().putString("recycleCalendar", v).apply()
+    var wasteCalendar: String
+        get() = p.getString("wasteCalendar", "") ?: ""
+        set(v) = p.edit().putString("wasteCalendar", v).apply()
+
+    /** Cadre photo : dossier de médias de HA (ex. album Immich), vide = désactivé. */
+    var photoSource: String
+        get() = p.getString("photoSource", "") ?: ""
+        set(v) = p.edit().putString("photoSource", v).apply()
+    var photoSourceName: String
+        get() = p.getString("photoSourceName", "") ?: ""
+        set(v) = p.edit().putString("photoSourceName", v).apply()
+    /** Secondes entre deux photos. */
+    var photoSeconds: Int
+        get() = p.getInt("photoSeconds", 30)
+        set(v) = p.edit().putInt("photoSeconds", v.coerceIn(5, 600)).apply()
+
     /** Durée maximale d'affichage d'une notification, en secondes (non lue ensuite → clochette). */
     var noticeSeconds: Int
         get() = p.getInt("noticeSeconds", 30)
@@ -276,11 +318,13 @@ class ConfigStore(ctx: Context) {
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
                 .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
-                .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds).put("brightness", brightness)
+                .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
+                .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd)
+                .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
-                .put("persons", JSONArray(persons)).put("floorOrder", JSONArray(floors.map { it.id })))
+                .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
             .put("mqtt", JSONObject()
                 .put("enabled", mqttEnabled).put("host", mqttHost).put("port", mqttPort)
@@ -305,6 +349,12 @@ class ConfigStore(ctx: Context) {
             if (d.has("clock")) showClock = d.optBoolean("clock")
             if (d.has("battery")) showBattery = d.optBoolean("battery")
             if (d.has("noticeSeconds")) noticeSeconds = d.optInt("noticeSeconds", 30)
+            if (d.has("quietEnabled")) quietEnabled = d.optBoolean("quietEnabled")
+            if (d.has("quietStart")) quietStart = d.optInt("quietStart", 1320)
+            if (d.has("quietEnd")) quietEnd = d.optInt("quietEnd", 420)
+            if (d.has("photoSource")) photoSource = d.str("photoSource")
+            if (d.has("photoSourceName")) photoSourceName = d.str("photoSourceName")
+            if (d.has("photoSeconds")) photoSeconds = d.optInt("photoSeconds", 30)
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)
             if (d.has("language")) language = d.str("language")
             if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")
@@ -316,6 +366,8 @@ class ConfigStore(ctx: Context) {
             if (h.has("weather")) weatherEntity = h.str("weather")
             h.optJSONArray("calendars")?.let { a -> calendars = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("persons")?.let { a -> persons = (0 until a.length()).map { a.getString(it) } }
+            if (h.has("recycleCalendar")) recycleCalendar = h.str("recycleCalendar")
+            if (h.has("wasteCalendar")) wasteCalendar = h.str("wasteCalendar")
             h.optJSONArray("floorOrder")?.let { a -> setFloorOrder((0 until a.length()).map { a.getString(it) }) }
         }
         o.optJSONObject("connection")?.let { c -> if (c.str("url").isNotEmpty()) url = c.str("url") }

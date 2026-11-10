@@ -55,12 +55,20 @@ class App : Application() {
     val notices by lazy { NoticeStore(this).also { it.listeners.add { if (::mqtt.isInitialized) mqtt.publishNotices() } } }
     /** Affichage d'une nouvelle notification (tableau de bord) ; null quand il n'est pas à l'écran. */
     var onNotice: ((StoredNotice) -> Unit)? = null
+    /** Appelé quand HA efface une notification (étiquette) : ferme l'encadré s'il l'affiche. */
+    var onNoticeCleared: ((String) -> Unit)? = null
     /** Notification arrivée pendant qu'un autre écran était affiché : montrée au retour. */
     var pendingNotice: Long? = null
 
     /** Point d'entrée de toutes les notifications (entité notify de HA, page web). */
     fun receiveNotice(raw: String) {
         if (raw.isBlank()) return
+        val parsed = Notice.parse(raw)
+        if (parsed.isClear) {
+            notices.clearTag(parsed.tag)
+            onNoticeCleared?.invoke(parsed.tag)
+            return
+        }
         val n = notices.add(raw)
         onNotice?.invoke(n) ?: run { pendingNotice = n.id }
     }

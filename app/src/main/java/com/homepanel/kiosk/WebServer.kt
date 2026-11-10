@@ -206,6 +206,13 @@ class WebServer(private val app: App) {
                 if (req.has("clock")) cfg.showClock = req.optBoolean("clock")
                 if (req.has("battery")) cfg.showBattery = req.optBoolean("battery")
                 if (req.has("noticeSeconds")) cfg.noticeSeconds = req.optInt("noticeSeconds", 30)
+                if (req.has("quietEnabled")) cfg.quietEnabled = req.optBoolean("quietEnabled")
+                if (req.has("quietStart")) cfg.quietStart = req.optInt("quietStart", 1320)
+                if (req.has("quietEnd")) cfg.quietEnd = req.optInt("quietEnd", 420)
+                if (req.has("photoSource")) { cfg.photoSource = req.str("photoSource"); cfg.photoSourceName = req.str("photoSourceName") }
+                if (req.has("photoSeconds")) cfg.photoSeconds = req.optInt("photoSeconds", 30)
+                if (req.has("recycleCalendar")) cfg.recycleCalendar = req.str("recycleCalendar")
+                if (req.has("wasteCalendar")) cfg.wasteCalendar = req.str("wasteCalendar")
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
                 if (req.has("alertSeconds")) cfg.alertSeconds = req.optInt("alertSeconds", 20)
                 if (req.has("alertTrigger")) cfg.alertTrigger = req.str("alertTrigger")
@@ -251,6 +258,14 @@ class WebServer(private val app: App) {
                     app.notifyConfigChanged()
                     state()
                 })
+            }
+            "GET /api/photo-sources" -> {
+                // Albums et favoris Immich (via les médias de HA) pour le cadre photo.
+                val latch = java.util.concurrent.CountDownLatch(1)
+                var found: List<Pair<String, String>> = emptyList()
+                android.os.Handler(android.os.Looper.getMainLooper()).post { PhotoFrame.sources { found = it; latch.countDown() } }
+                latch.await(15, java.util.concurrent.TimeUnit.SECONDS)
+                ok(JSONObject().put("sources", JSONArray().also { a -> for ((n, id) in found) a.put(JSONObject().put("name", n).put("id", id)) }))
             }
             "GET /api/catalog" -> {
                 val cat = loadCatalog() ?: return Reply(502, JSON, err(lastCatalogError ?: tr("Liste indisponible")))
@@ -316,6 +331,7 @@ class WebServer(private val app: App) {
                 .put("weather", cfg.weatherEntity)
                 .put("calendars", JSONArray(cfg.calendars))
                 .put("persons", JSONArray(cfg.persons))
+                .put("recycleCalendar", cfg.recycleCalendar).put("wasteCalendar", cfg.wasteCalendar)
                 .put("floors", JSONArray().also { a -> for (f in cfg.floors) a.put(JSONObject().put("id", f.id).put("name", f.name)) }))
             .put("settings", JSONObject()
                 .put("wallpaper", cfg.wallpaper)
@@ -331,6 +347,8 @@ class WebServer(private val app: App) {
                 .put("clock", cfg.showClock)
                 .put("battery", cfg.showBattery)
                 .put("noticeSeconds", cfg.noticeSeconds)
+                .put("quietEnabled", cfg.quietEnabled).put("quietStart", cfg.quietStart).put("quietEnd", cfg.quietEnd)
+                .put("photoSource", cfg.photoSource).put("photoSourceName", cfg.photoSourceName).put("photoSeconds", cfg.photoSeconds)
                 .put("unreadNotices", app.notices.count)
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)

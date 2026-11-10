@@ -123,10 +123,31 @@ class SettingsActivity : Activity(), HaClient.Listener {
             dimChoices.map { if (it == 0) tr("Jamais") else "$it min" }, dimChoices.indexOf(cfg.dimMinutes).coerceAtLeast(0)) {
             cfg.dimMinutes = dimChoices[it]; app.notifyConfigChanged()
         }))
-        val styleKeys = listOf("clock", "black")
+        val styleKeys = listOf("clock", "photos", "black")
         board.addRow(settingRow(R.drawable.ic_clock, Ui.BLUE, tr("Écran de veille"), trailing = choice(
-            listOf(tr("Heure et météo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
-            cfg.dimStyle = styleKeys[it]; app.notifyConfigChanged()
+            listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
+            cfg.dimStyle = styleKeys[it]; app.notifyConfigChanged(); updatePhotoRow()
+        }))
+        // Cadre photo : album Immich (chargé depuis Home Assistant à l'ouverture des réglages)
+        photoRow = settingRow(R.drawable.ic_image, Ui.PINK, tr("Album photo"), cfg.photoSourceName.ifEmpty { tr("Aucun") }, chevron = true) { pickPhotoSource() }
+        board.addRow(photoRow)
+        val photoChoices = listOf(10, 20, 30, 60, 120, 300)
+        photoTimeRow = settingRow(R.drawable.ic_clock, Ui.PINK, tr("Changer de photo toutes les"), trailing = choice(
+            photoChoices.map { if (it < 60) "$it s" else "${it / 60} min" }, photoChoices.indexOf(cfg.photoSeconds).let { if (it < 0) 2 else it }) {
+            cfg.photoSeconds = photoChoices[it]
+        })
+        board.addRow(photoTimeRow)
+        updatePhotoRow()
+        // Heures calmes
+        val hours = (0 until 48).map { it * 30 }
+        fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+        board.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Heures calmes"), tr("Pas de son (sauf alertes rouges) et écran de veille noir"),
+            toggle(cfg.quietEnabled) { cfg.quietEnabled = it; app.notifyConfigChanged() }))
+        board.addRow(settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Début"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietStart).let { if (it < 0) 44 else it }) {
+            cfg.quietStart = hours[it]; app.notifyConfigChanged()
+        }))
+        board.addRow(settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Fin"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietEnd).let { if (it < 0) 14 else it }) {
+            cfg.quietEnd = hours[it]; app.notifyConfigChanged()
         }))
         val dimLevels = listOf(1, 3, 5, 10, 15, 20, 30, 40, 50)
         board.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Luminosité en veille"), tr("Pour l'écran « Heure et météo »"), choice(
@@ -335,6 +356,30 @@ class SettingsActivity : Activity(), HaClient.Listener {
     private fun updateMqtt() {
         val st = app.mqtt.status
         mqttRow.setSubtitle(cfg.deviceName + " · " + st)
+    }
+
+    private lateinit var photoRow: View
+    private lateinit var photoTimeRow: View
+
+    private fun updatePhotoRow() {
+        val on = cfg.dimStyle == "photos"
+        photoRow.visibility = if (on) View.VISIBLE else View.GONE
+        photoTimeRow.visibility = photoRow.visibility
+    }
+
+    /** Liste des albums Immich (via HA), puis choix. */
+    private fun pickPhotoSource() {
+        photoRow.setSubtitle(tr("Chargement…"))
+        PhotoFrame.sources { list ->
+            if (isFinishing) return@sources
+            photoRow.setSubtitle(cfg.photoSourceName.ifEmpty { tr("Aucun") })
+            if (list.isEmpty()) { toast(tr("Aucun album Immich trouvé dans Home Assistant")); return@sources }
+            val names = (listOf(tr("Aucun")) + list.map { it.first }).toTypedArray()
+            android.app.AlertDialog.Builder(this).setTitle(tr("Album photo")).setItems(names) { _, i ->
+                if (i == 0) { cfg.photoSource = ""; cfg.photoSourceName = "" } else { cfg.photoSource = list[i - 1].second; cfg.photoSourceName = list[i - 1].first }
+                photoRow.setSubtitle(cfg.photoSourceName.ifEmpty { tr("Aucun") })
+            }.show()
+        }
     }
 
     private var motionToggle: android.widget.Switch? = null

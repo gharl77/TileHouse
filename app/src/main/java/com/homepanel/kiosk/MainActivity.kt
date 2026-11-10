@@ -145,6 +145,20 @@ class MainActivity : Activity(), HaClient.Listener {
         // Heure, avec la batterie de la tablette à sa gauche (selon les réglages)
         batteryView = BatteryView(this)
         val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        // Minuteries : icône toujours visible, temps restant de la plus proche quand une tourne.
+        timerButton = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(4), dp(10), dp(4))
+            addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_timer)
+                imageTintList = android.content.res.ColorStateList.valueOf(0xE6FFFFFF.toInt())
+            }, LinearLayout.LayoutParams(dp(28), dp(28)))
+            timerText = label(17f, Color.WHITE, true).apply { setPadding(dp(6), 0, 0, 0); visibility = View.GONE }
+            addView(timerText)
+            isClickable = true
+            setOnClickListener { openTimers() }
+        }
+        timeRow.addView(timerButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         bellView = BellView(this).apply { setOnClickListener { openCenter() } }
         timeRow.addView(bellView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
         timeRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
@@ -194,7 +208,7 @@ class MainActivity : Activity(), HaClient.Listener {
     /** Appelé quand la configuration change (page web, paliers HA). */
     private val onConfigChanged: () -> Unit = {
         homeDataAt = 0L // météo/calendriers peuvent avoir changé : on recharge
-        if (!dimmed) applyBrightness() else { applyDimBrightness(); updateDimScreen() }
+        if (!dimmed) applyBrightness() else { shownDimStyle = ""; updateDimScreen() }
         updateMotion()
         root.background = Themes.background(this, cfg)
         rebuild()
@@ -211,7 +225,11 @@ class MainActivity : Activity(), HaClient.Listener {
         app.mqtt.onScreenOff = { off -> if (off && !dimmed) dim() else if (!off && dimmed) undim() }
         app.mqtt.onHome = { goHome() }
         app.onNotice = { showNotice(it) }
+        app.onNoticeCleared = { tag -> notice?.let { if (it.showing && tag.isNotEmpty() && it.shownTag == tag) it.close() } }
         if (onNoticesChanged !in app.notices.listeners) app.notices.listeners.add(onNoticesChanged)
+        if (onTimers !in KitchenTimers.listeners) KitchenTimers.listeners.add(onTimers)
+        KitchenTimers.onDone = { onTimerDone(it) }
+        onTimers()
         onNoticesChanged()
         app.pendingNotice?.let { id -> app.pendingNotice = null; app.notices.find(id)?.let { n -> handler.post { showNotice(n) } } }
         app.ha.ensureConnected()
@@ -250,6 +268,7 @@ class MainActivity : Activity(), HaClient.Listener {
         app.mqtt.onScreenOff = null
         app.mqtt.onHome = null
         app.onNotice = null
+        app.onNoticeCleared = null
         app.notices.listeners.remove(onNoticesChanged)
         handler.removeCallbacks(tick)
         handler.removeCallbacks(snapshotTick)
@@ -394,7 +413,7 @@ class MainActivity : Activity(), HaClient.Listener {
         subtitleView.text = p
         subtitleView.visibility = if (p.isEmpty()) View.GONE else View.VISIBLE
         // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
-        updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"), activeOnly = true)
+        updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"), activeOnly = true, extra = collectChips)
     }
 
     /** Prévisions (weather.get_forecasts) et agenda (API calendrier), rafraîchis toutes les 15 min. */
@@ -412,6 +431,7 @@ class MainActivity : Activity(), HaClient.Listener {
                 weatherCard?.updateForecast(forecast)
             }
         }
+        loadCollections()
         val cals = cfg.calendars
         if (cals.isEmpty()) { events = emptyList(); calendarCard?.setEvents(events); return }
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
@@ -432,6 +452,58 @@ class MainActivity : Activity(), HaClient.Listener {
             }
         }
     }
+
+    /** Pastilles « Recyclage / Déchets aujourd'hui ou demain », d'après les calendriers choisis. */
+    private var collectChips: List<Present.Chip> = emptyList()
+
+    private fun loadCollections() {
+        val rc = cfg.recycleCalendar; val wc = cfg.wasteCalendar
+        val cals = listOf(rc, wc).filter { it.isNotEmpty() }.distinct()
+        if (cals.isEmpty()) { collectChips = emptyList(); return }
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val day0 = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }
+        val start = iso.format(day0.time)
+        val end = iso.format(Date(day0.timeInMillis + 2 * 86_400_000L))
+        // (type, jour 0 = aujourd'hui / 1 = demain)
+        val found = HashMap<String, Int>()
+        var left = cals.size
+        for (cal in cals) app.snapshots.restGet("/api/calendars/$cal?start=${Uri.encode(start)}&end=${Uri.encode(end)}") { text ->
+            val arr = try { JSONArray(text ?: "[]") } catch (_: Exception) { JSONArray() }
+            val now = System.currentTimeMillis()
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val st = o.optJSONObject("start") ?: continue
+                val en = o.optJSONObject("end")
+                val startT = parseTime(st) ?: continue
+                val endT = en?.let { parseTime(it) } ?: (startT + 3_600_000L)
+                if (endT <= now) continue // collecte déjà passée aujourd'hui
+                val dayIdx = ((startT - day0.timeInMillis) / 86_400_000L).toInt().coerceAtLeast(0)
+                if (dayIdx > 1) continue
+                val summary = o.optString("summary").lowercase()
+                // Même calendrier pour les deux : on trie d'après le titre de l'événement.
+                val type = when {
+                    rc == wc -> if (listOf("recycl", "bac bleu", "recycling").any { it in summary }) "recycle" else "waste"
+                    cal == rc -> "recycle"
+                    else -> "waste"
+                }
+                found[type] = minOf(found[type] ?: 9, dayIdx)
+            }
+            if (--left == 0) {
+                collectChips = listOf("recycle", "waste").mapNotNull { t ->
+                    val d = found[t] ?: return@mapNotNull null
+                    val what = if (t == "recycle") tr("Recyclage") else tr("Déchets")
+                    Present.Chip(if (t == "recycle") R.drawable.ic_recycle else R.drawable.ic_trash,
+                        what + " " + if (d == 0) tr("aujourd'hui") else tr("demain"), 1, "collect")
+                }
+                if (roomIndex == HOME) updateHomeHeader()
+            }
+        }
+    }
+
+    private fun parseTime(o: JSONObject): Long? = try {
+        if (o.has("dateTime")) SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).parse(o.getString("dateTime").replace(Regex("\\.\\d+"), ""))?.time
+        else SimpleDateFormat("yyyy-MM-dd", Locale.US).parse(o.getString("date"))?.time
+    } catch (_: Exception) { null }
 
     private fun parseEvents(text: String?, color: Int, out: MutableList<CalendarCard.Event>) {
         val arr = try { JSONArray(text ?: return) } catch (_: Exception) { return }
@@ -617,9 +689,9 @@ class MainActivity : Activity(), HaClient.Listener {
     }
 
     /** Met à jour les pastilles seulement si leur contenu a changé. */
-    private fun updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false) {
-        val chips = if (room == null) emptyList() else Present.chips(room, app.ha.states)
-            .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light") }
+    private fun updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false, extra: List<Present.Chip> = emptyList()) {
+        val chips = (if (room == null) emptyList() else Present.chips(room, app.ha.states)
+            .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light") }) + extra
         if (chips == lastChips && chipsView.childCount == chips.size) return
         lastChips = chips
         chipsView.removeAllViews()
@@ -751,8 +823,9 @@ class MainActivity : Activity(), HaClient.Listener {
         dimmed = true
         dimView.visibility = View.VISIBLE
         dimView.bringToFront()
-        applyDimBrightness()
+        shownDimStyle = ""
         updateDimScreen()
+        dimView.onShown(true)
         motion?.rebaseline() // l'écran qui s'assombrit change l'éclairage de la pièce
         updateClock()
         app.mqtt.setScreenOff(true)
@@ -760,12 +833,17 @@ class MainActivity : Activity(), HaClient.Listener {
 
     /** Écran de veille : noir (luminosité minimale) ou heure + météo (luminosité choisie). */
     private fun applyDimBrightness() {
-        val clock = cfg.dimStyle == "clock"
-        window.attributes = window.attributes.apply { screenBrightness = if (clock) cfg.dimBrightness / 100f else 0.01f }
+        val lit = cfg.effectiveDimStyle != "black"
+        window.attributes = window.attributes.apply { screenBrightness = if (lit) cfg.dimBrightness / 100f else 0.01f }
     }
 
+    private var shownDimStyle = ""
+
+    /** Écran de veille ; passe tout seul au noir au début des heures calmes (et revient après). */
     private fun updateDimScreen() {
-        dimView.update(cfg.dimStyle == "clock", app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() })
+        val style = cfg.effectiveDimStyle
+        if (style != shownDimStyle) { shownDimStyle = style; applyDimBrightness() }
+        dimView.update(style, app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() })
     }
 
     /** Luminosité normale : réglage de l'app (HA / page web), sinon celle du système. */
@@ -782,6 +860,7 @@ class MainActivity : Activity(), HaClient.Listener {
         applyBrightness()
         if (was) app.mqtt.setScreenOff(false)
         dimView.visibility = View.GONE
+        dimView.onShown(false)
         if (was) motion?.rebaseline()
         if (cameraTiles.isNotEmpty()) refreshSnapshots()
     }
@@ -790,12 +869,44 @@ class MainActivity : Activity(), HaClient.Listener {
 
     private var notice: NotificationCard? = null
     private var center: NotificationCenter? = null
+
+    // ------------------------------------------------------------ minuteries
+
+    private lateinit var timerButton: LinearLayout
+    private lateinit var timerText: TextView
+    private var timerPanel: TimerPanel? = null
+    private val timerAlarm by lazy { TimerAlarm(this) }
+
+    private val onTimers: () -> Unit = {
+        val next = KitchenTimers.list.minByOrNull { it.remaining() }
+        timerText.visibility = if (next == null) View.GONE else View.VISIBLE
+        timerText.text = next?.let { KitchenTimers.format(it.remaining()) + if (KitchenTimers.list.size > 1) "  +${KitchenTimers.list.size - 1}" else "" } ?: ""
+        timerButton.background = if (next == null) null else roundRect(0x33FFB300, dpf(18))
+    }
+
+    private fun openTimers() {
+        val p = timerPanel ?: TimerPanel(this).also {
+            root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            timerPanel = it
+        }
+        p.show()
+    }
+
+    /** Fin d'une minuterie : sonnerie en boucle et grand encadré jusqu'à « Arrêter ». */
+    private fun onTimerDone(t: KitchenTimer) {
+        if (dimmed) undim()
+        lastTouch = SystemClock.uptimeMillis()
+        timerAlarm.start()
+        timerPanel?.hide()
+        noticeCard().show(Notice(tr("Minuterie terminée !"), tr("Minuterie de") + " " + t.label, "⏰", 0, 0xFFFF9F0A.toInt(), null, false),
+            0) { timerAlarm.stop() }
+    }
     private lateinit var bellView: BellView
     private val onNoticesChanged: () -> Unit = { bellView.setCount(app.notices.count) }
 
     private fun noticeCard(): NotificationCard = notice ?: NotificationCard(this).also {
         root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
-        it.onClosed = { lastTouch = SystemClock.uptimeMillis() }
+        it.onClosed = { lastTouch = SystemClock.uptimeMillis(); timerAlarm.stop() }
         notice = it
     }
 

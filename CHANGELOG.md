@@ -7,6 +7,12 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Notification center: every notification shows for at most 30 s (configurable, 10 s–5 min; shorter if the automation asks). One not confirmed with **OK** stays unread: a bell with a red counter appears next to the time. Tapping the bell opens the list of unread notifications (newest first, with icon, title, message and time). Open one to read it (it is then marked as read), select several (or long-press) and mark them as read, or mark all as read. Unread notifications survive restarts and updates (50 at most).
 - New Home Assistant entities: sensor "Unread notifications" and number "Notification duration".
 - An emoji the tablet cannot draw (too recent for Android 8) is replaced by 💬 instead of an empty box.
+- Notification tags: a notification with the same `tag` replaces the previous one, and the message `clear_notification` with that tag removes it from the tablet (like on phones), e.g. when Léon is back on his base.
+- Quiet hours (default 22:00–07:00): no notification sound except red alerts, and the screen saver turns black. Switch "Quiet hours" in Home Assistant.
+- Kitchen timers: timer button next to the time, quick durations (1 min to 1 h) or a custom one, several timers at once with +1 min, pause and cancel; the remaining time shows in the header; when one ends, an alarm rings (up to 2 min) with a large card until OK.
+- Collection chips on the home screen: "Recycling tomorrow / today" and "Garbage tomorrow / today", from calendars chosen on the web page (Home tab).
+- Photo frame screen saver: photos from an Immich album or your favourites (through Home Assistant's media sources), changing every 30 s (10 s–5 min), with the time and weather in a corner.
+- Fix: the agenda showed some events one day early ("Today" for tomorrow evening), and the forecast labelled tomorrow as "Today" in the evening.
 
 ## 2026.11.4
 
