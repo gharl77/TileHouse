@@ -143,11 +143,15 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <label class="f">Calendriers affichés</label>
     <div id="calList" class="muted">Connexion requise…</div>
     <h2 style="margin-top:24px">Collectes</h2>
-    <p class="muted">La veille et le jour d'une collecte, une pastille « Recyclage demain » ou « Déchets aujourd'hui » apparaît sur l'accueil. Si vous choisissez le même calendrier pour les deux, le titre de l'événement fait le tri (« recyclage »…).</p>
-    <label class="f" for="recycleCal">Calendrier du recyclage</label>
-    <select id="recycleCal"></select>
-    <label class="f" for="wasteCal">Calendrier des déchets</label>
-    <select id="wasteCal"></select>
+    <p class="muted">La veille et le jour d'une collecte, une pastille « Recyclage demain » (bac bleu) ou « Ordures aujourd'hui » (bac vert) apparaît sur l'accueil. Un événement compte si son titre contient le mot clé (majuscules et accents ignorés ; vide = tous les événements du calendrier).</p>
+    <div class="row">
+      <div style="flex:2"><label class="f" for="recycleCal">Calendrier du recyclage</label><select id="recycleCal"></select></div>
+      <div style="flex:1"><label class="f" for="recycleKw">Mot clé</label><input id="recycleKw" placeholder="recycl"></div>
+    </div>
+    <div class="row">
+      <div style="flex:2"><label class="f" for="wasteCal">Calendrier des ordures</label><select id="wasteCal"></select></div>
+      <div style="flex:1"><label class="f" for="wasteKw">Mot clé</label><input id="wasteKw" placeholder="ordure"></div>
+    </div>
   </section>
   <section class="card">
     <h2>Qui est à la maison</h2>
@@ -617,6 +621,11 @@ function renderHome() {
     for (const c of cals) s.append(el("option", {value: c.id, textContent: c.name}));
     s.value = h[key] || "";
     s.onchange = () => saveSettings({[key]: s.value});
+  }
+  for (const [id, key] of [["recycleKw", "recycleKeyword"], ["wasteKw", "wasteKeyword"]]) {
+    const i = $(id);
+    if (document.activeElement !== i) i.value = h[key] || "";
+    i.onchange = () => saveSettings({[key]: i.value.trim()});
   }
   renderPresence(ex, h.persons);
   const fl = $("floorList");

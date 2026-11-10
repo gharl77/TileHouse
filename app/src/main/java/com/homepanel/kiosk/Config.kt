@@ -119,6 +119,13 @@ class ConfigStore(ctx: Context) {
     var recycleCalendar: String
         get() = p.getString("recycleCalendar", "") ?: ""
         set(v) = p.edit().putString("recycleCalendar", v).apply()
+    /** Mots clés cherchés dans le titre des événements (sans tenir compte des majuscules ni des accents). */
+    var recycleKeyword: String
+        get() = p.getString("recycleKeyword", "recycl") ?: "recycl"
+        set(v) = p.edit().putString("recycleKeyword", v.trim()).apply()
+    var wasteKeyword: String
+        get() = p.getString("wasteKeyword", "ordure") ?: "ordure"
+        set(v) = p.edit().putString("wasteKeyword", v.trim()).apply()
     var wasteCalendar: String
         get() = p.getString("wasteCalendar", "") ?: ""
         set(v) = p.edit().putString("wasteCalendar", v).apply()
@@ -324,7 +331,8 @@ class ConfigStore(ctx: Context) {
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
-                .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar).put("floorOrder", JSONArray(floors.map { it.id })))
+                .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
+                .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
             .put("mqtt", JSONObject()
                 .put("enabled", mqttEnabled).put("host", mqttHost).put("port", mqttPort)
@@ -368,6 +376,8 @@ class ConfigStore(ctx: Context) {
             h.optJSONArray("persons")?.let { a -> persons = (0 until a.length()).map { a.getString(it) } }
             if (h.has("recycleCalendar")) recycleCalendar = h.str("recycleCalendar")
             if (h.has("wasteCalendar")) wasteCalendar = h.str("wasteCalendar")
+            if (h.has("recycleKeyword")) recycleKeyword = h.str("recycleKeyword")
+            if (h.has("wasteKeyword")) wasteKeyword = h.str("wasteKeyword")
             h.optJSONArray("floorOrder")?.let { a -> setFloorOrder((0 until a.length()).map { a.getString(it) }) }
         }
         o.optJSONObject("connection")?.let { c -> if (c.str("url").isNotEmpty()) url = c.str("url") }

@@ -453,7 +453,7 @@ class MainActivity : Activity(), HaClient.Listener {
         }
     }
 
-    /** Pastilles « Recyclage / Déchets aujourd'hui ou demain », d'après les calendriers choisis. */
+    /** Pastilles « Recyclage / Ordures aujourd'hui ou demain », d'après les calendriers et mots clés choisis. */
     private var collectChips: List<Present.Chip> = emptyList()
 
     private fun loadCollections() {
@@ -479,26 +479,27 @@ class MainActivity : Activity(), HaClient.Listener {
                 if (endT <= now) continue // collecte déjà passée aujourd'hui
                 val dayIdx = ((startT - day0.timeInMillis) / 86_400_000L).toInt().coerceAtLeast(0)
                 if (dayIdx > 1) continue
-                val summary = o.optString("summary").lowercase()
-                // Même calendrier pour les deux : on trie d'après le titre de l'événement.
-                val type = when {
-                    rc == wc -> if (listOf("recycl", "bac bleu", "recycling").any { it in summary }) "recycle" else "waste"
-                    cal == rc -> "recycle"
-                    else -> "waste"
+                // Le titre doit contenir le mot clé du type (vide = tous les événements du calendrier).
+                val summary = norm(o.optString("summary"))
+                for ((type, c, kw) in listOf(Triple("recycle", rc, cfg.recycleKeyword), Triple("waste", wc, cfg.wasteKeyword))) {
+                    if (cal == c && (kw.isEmpty() || norm(kw) in summary)) found[type] = minOf(found[type] ?: 9, dayIdx)
                 }
-                found[type] = minOf(found[type] ?: 9, dayIdx)
             }
             if (--left == 0) {
+                // Bac bleu pour le recyclage, bac vert pour les ordures.
                 collectChips = listOf("recycle", "waste").mapNotNull { t ->
                     val d = found[t] ?: return@mapNotNull null
-                    val what = if (t == "recycle") tr("Recyclage") else tr("Déchets")
-                    Present.Chip(if (t == "recycle") R.drawable.ic_recycle else R.drawable.ic_trash,
-                        what + " " + if (d == 0) tr("aujourd'hui") else tr("demain"), 1, "collect")
+                    val what = if (t == "recycle") tr("Recyclage") else tr("Ordures")
+                    Present.Chip(R.drawable.ic_bin, what + " " + if (d == 0) tr("aujourd'hui") else tr("demain"), 0, "collect",
+                        if (t == "recycle") 0xFF2F8CFF.toInt() else 0xFF34C759.toInt())
                 }
                 if (roomIndex == HOME) updateHomeHeader()
             }
         }
     }
+
+    /** Minuscules sans accents (« Matières Recyclables » → « matieres recyclables »). */
+    private fun norm(t: String) = java.text.Normalizer.normalize(t.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}+"), "")
 
     private fun parseTime(o: JSONObject): Long? = try {
         if (o.has("dateTime")) SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).parse(o.getString("dateTime").replace(Regex("\\.\\d+"), ""))?.time

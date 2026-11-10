@@ -263,9 +263,9 @@ fun Context.chipView(c: Present.Chip) = TextView(this).apply {
     typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     gravity = android.view.Gravity.CENTER_VERTICAL
     getDrawable(c.icon)?.mutate()?.let { d ->
-        val s = dp(18)
+        val s = dp(if (c.iconTint != null) 22 else 18)
         d.setBounds(0, 0, s, s)
-        d.setTint(Color.WHITE)
+        d.setTint(c.iconTint ?: Color.WHITE)
         setCompoundDrawables(d, null, null, null)
     }
     compoundDrawablePadding = dp(6)

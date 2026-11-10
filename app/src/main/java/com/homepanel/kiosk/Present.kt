@@ -277,7 +277,7 @@ object Present {
     }
 
     /** Pastille de l'en-tête : icône, texte, niveau (0 normal, 1 attention, 2 alerte). */
-    data class Chip(val icon: Int, val text: String, val level: Int = 0, val kind: String = "")
+    data class Chip(val icon: Int, val text: String, val level: Int = 0, val kind: String = "", val iconTint: Int? = null)
 
     /** Type de pastille auquel contribue une entité (null si aucune). */
     fun chipKind(id: String, e: EntityState?): String? {

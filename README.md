@@ -158,8 +158,9 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   (nothing at all when everything is off, locked and closed). Tap a chip to see which devices, with a **Turn off** / **Lock** button
   on each one that can be controlled.
 - **Rooms by floor**: rooms are grouped using your Home Assistant floors, in the order you choose. Rooms without a floor appear under *Other rooms*.
-- **Collection reminders**: "Recycling tomorrow" or "Garbage today" chips, from the calendars you pick on the web page
-  (*Home → Collections*). If both use the same calendar, the event title decides ("recycling"…).
+- **Collection reminders**: "Recycling tomorrow" (blue bin) or "Garbage today" (green bin) chips. On the web page
+  (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
+  (case and accents ignored; empty = every event of that calendar). Both can use the same calendar.
 - **Kitchen timers**: the ⏱ button next to the time opens quick durations (1 min to 1 h) or a custom one. Several timers can run
   at once (+1 min, pause, cancel); the next one counts down in the header. When a timer ends, an alarm rings (up to 2 minutes)
   with a large card until you tap **OK**.
