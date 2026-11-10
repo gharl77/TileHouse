@@ -33,6 +33,8 @@ class Notice(
     val tag: String = "",
     /** Image enregistrée sur la tablette (alertes caméra : capture prise au moment de la détection). */
     val imageFile: String? = null,
+    /** Boutons d'action (au plus 3) : {title, service: "domaine.service", entity_id, data}. */
+    val actions: List<JSONObject> = emptyList(),
 ) {
     /** Demande d'effacement (comme sur les téléphones) plutôt qu'une notification à afficher. */
     val isClear get() = message.trim().equals("clear_notification", ignoreCase = true)
@@ -40,7 +42,7 @@ class Notice(
     val isUrgent get() = color == 0xFFFF453A.toInt() || color == 0xFFFF3B30.toInt()
 
     /** Même notification, sans le son (réouverture depuis le centre de notifications). */
-    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false, tag, imageFile)
+    fun copyNoSound() = Notice(title, message, icon, duration, color, image, false, tag, imageFile, actions)
 
     companion object {
         private val NAMED = mapOf(
@@ -69,6 +71,8 @@ class Notice(
                 sound = o.optBoolean("sound", false),
                 tag = o.optString("tag").trim(),
                 imageFile = o.optString("imageFile").takeIf { it.isNotEmpty() },
+                actions = o.optJSONArray("actions")?.let { a -> (0 until minOf(3, a.length())).mapNotNull { a.optJSONObject(it) }
+                    .filter { it.optString("title").isNotBlank() && it.optString("service").contains('.') } } ?: emptyList(),
             )
         }
     }
@@ -159,13 +163,21 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
                 bitmap = bmp; img.setImageBitmap(bmp)
             }
         }
-        // Bouton OK
-        card.addView(ctx.label(18f, 0xFF1C1C1E.toInt(), true, "OK").apply {
+        // Boutons d'action (ex. « Verrouiller »), puis OK
+        val buttons = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        for (a in n.actions) buttons.addView(ctx.label(17f, Color.WHITE, true, a.optString("title")).apply {
+            gravity = Gravity.CENTER
+            background = roundRect(0x33FFFFFF, ctx.dpf(14))
+            setPadding(ctx.dp(26), ctx.dp(12), ctx.dp(26), ctx.dp(12))
+            setOnClickListener { runAction(a) }
+        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = ctx.dp(12) })
+        buttons.addView(ctx.label(18f, 0xFF1C1C1E.toInt(), true, "OK").apply {
             gravity = Gravity.CENTER
             background = roundRect(n.color, ctx.dpf(14))
             setPadding(ctx.dp(48), ctx.dp(12), ctx.dp(48), ctx.dp(12))
             setOnClickListener { this@NotificationCard.onOk?.invoke(); this@NotificationCard.onOk = null; close() }
-        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = ctx.dp(24); bottomMargin = ctx.dp(24) })
+        })
+        card.addView(buttons, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = ctx.dp(24); bottomMargin = ctx.dp(24) })
         // Barre de temps restant, collée au bas de l'encadré
         if (seconds > 0) {
             val track = FrameLayout(ctx).apply { setBackgroundColor(0x1AFFFFFF) }
@@ -201,6 +213,20 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
             })
             start()
         }
+    }
+
+    /** Bouton d'action : appelle le service de HA, puis la notification est lue et se ferme. */
+    private fun runAction(a: JSONObject) {
+        val ha = App.instance.ha
+        if (!ha.demo && ha.status != HaClient.Status.CONNECTED) {
+            android.widget.Toast.makeText(act, tr("Home Assistant ne répond pas : commande impossible pour le moment."), android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        val (domain, service) = a.optString("service").split('.', limit = 2)
+        ha.callService(domain, service, a.optString("entity_id"), a.optJSONObject("data"))
+        performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+        onOk?.invoke(); onOk = null
+        close()
     }
 
     fun close() {

@@ -102,6 +102,11 @@ class MainActivity : Activity(), HaClient.Listener {
             if (roomIndex != HOME && !dimmed && dialog?.isShowing != true &&
                 SystemClock.uptimeMillis() - lastTouch > AUTO_HOME_MS) goHome()
             if (roomIndex == HOME && System.currentTimeMillis() - homeDataAt > 15 * 60_000L) loadHomeData()
+            // Carte du matin : apparaît / disparaît à l'heure choisie ; pastille de pointe (« en cours ») à jour.
+            val morning = cfg.isMorningNow() && cfg.morningSources.length() > 0
+            if (roomIndex == HOME && morning != morningShown) showHome()
+            else if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
+            checkPeakReminder()
             handler.postDelayed(this, 10_000)
         }
     }
@@ -374,6 +379,25 @@ class MainActivity : Activity(), HaClient.Listener {
         cards.addView(c, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
         content.addView(cards, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
 
+        // Carte du matin (sources choisies dans la page web), pendant la plage horaire choisie.
+        morningShown = cfg.isMorningNow() && cfg.morningSources.length() > 0
+        if (morningShown) HomeExtras.morningCard(this, cfg.morningSources, app.ha.states) { openMorning() }?.let {
+            morningView = it
+            content.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
+        }
+        // Raccourcis : scripts, scènes, boutons
+        if (cfg.shortcuts.isNotEmpty()) {
+            val row = FlowLayout(this)
+            for (id in cfg.shortcuts) row.addView(HomeExtras.shortcut(this, id, app.ha.states[id]) { v ->
+                if (haOffline()) return@shortcut
+                if (Present.tap(app.ha, id, app.ha.states[id])) {
+                    v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    v.animate().alpha(0.5f).setDuration(120).withEndAction { v.animate().alpha(1f).setDuration(300).start() }.start()
+                }
+            })
+            content.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(14) })
+        }
+
         // Pièces regroupées par palier (étage) de Home Assistant
         val placed = HashSet<Int>()
         for (floor in cfg.floors) {
@@ -413,7 +437,9 @@ class MainActivity : Activity(), HaClient.Listener {
         subtitleView.text = p
         subtitleView.visibility = if (p.isEmpty()) View.GONE else View.VISIBLE
         // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
-        updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"), activeOnly = true, extra = collectChips)
+        val st = app.ha.states
+        updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"), activeOnly = true,
+            extra = HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
     }
 
     /** Prévisions (weather.get_forecasts) et agenda (API calendrier), rafraîchis toutes les 15 min. */
@@ -432,6 +458,7 @@ class MainActivity : Activity(), HaClient.Listener {
             }
         }
         loadCollections()
+        loadPeaks()
         val cals = cfg.calendars
         if (cals.isEmpty()) { events = emptyList(); calendarCard?.setEvents(events); return }
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
@@ -455,6 +482,77 @@ class MainActivity : Activity(), HaClient.Listener {
 
     /** Pastilles « Recyclage / Ordures aujourd'hui ou demain », d'après les calendriers et mots clés choisis. */
     private var collectChips: List<Present.Chip> = emptyList()
+
+    private var peaks: List<HomeExtras.Peak> = emptyList()
+    private var morningShown = false
+    private var morningView: View? = null
+    private val reminded = HashSet<Long>()
+
+    /** Pointes d'électricité des 2 prochains jours (calendrier choisi). */
+    private fun loadPeaks() {
+        val cal = cfg.peakCalendar
+        if (cal.isEmpty() || app.ha.demo && cal.isEmpty()) { peaks = emptyList(); return }
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val day0 = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0) }
+        val start = iso.format(day0.time); val end = iso.format(Date(day0.timeInMillis + 2 * 86_400_000L))
+        app.snapshots.restGet("/api/calendars/$cal?start=${Uri.encode(start)}&end=${Uri.encode(end)}") { text ->
+            val arr = try { JSONArray(text ?: "[]") } catch (_: Exception) { JSONArray() }
+            peaks = (0 until arr.length()).mapNotNull { i ->
+                val o = arr.optJSONObject(i) ?: return@mapNotNull null
+                val s0 = o.optJSONObject("start")?.let { parseTime(it) } ?: return@mapNotNull null
+                val e0 = o.optJSONObject("end")?.let { parseTime(it) } ?: (s0 + 4 * 3_600_000L)
+                HomeExtras.Peak(s0, e0)
+            }
+            if (roomIndex == HOME) updateHomeHeader()
+        }
+    }
+
+    /** Rappel avant une pointe : une notification (centre de notifications), une seule fois par pointe. */
+    private fun checkPeakReminder() {
+        val lead = cfg.peakReminder * 60_000L
+        if (lead <= 0) return
+        val now = System.currentTimeMillis()
+        for (p in peaks) if (p.start > now && p.start - now <= lead && reminded.add(p.start)) {
+            val f = SimpleDateFormat("HH:mm", I18n.locale)
+            app.receiveNotice(JSONObject().put("title", tr("Pointe d'électricité à") + " " + f.format(Date(p.start)))
+                .put("message", tr("De") + " " + f.format(Date(p.start)) + " " + tr("à") + " " + f.format(Date(p.end)) + ". " +
+                    tr("Baissez le chauffage et évitez les gros appareils pendant la pointe."))
+                .put("icon", "⚡").put("color", "orange").put("sound", true).put("tag", "pointe_electricite").toString())
+        }
+    }
+
+    private fun showWeatherAlerts() {
+        val text = HomeExtras.weatherDetails(cfg.weatherAlerts, app.ha.states)
+        @Suppress("DEPRECATION")
+        showReader(tr("Alertes météo"), if (text.isEmpty()) tr("Aucune alerte en vigueur.") else android.text.Html.fromHtml(text))
+    }
+
+    private fun openMorning() = showReader("☀️  " + tr("Ce matin"), HomeExtras.morningFull(cfg.morningSources, app.ha.states))
+
+    /** Fenêtre de lecture (texte long, défilant). */
+    private fun showReader(title: String, body: CharSequence) {
+        val d = android.app.Dialog(this)
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(30), dp(24), dp(30), dp(24))
+            background = roundRect(0xF21C1C1E.toInt(), dpf(22))
+        }
+        box.addView(label(22f, Color.WHITE, true, title).apply { setPadding(0, 0, 0, dp(12)) })
+        box.addView(ScrollView(this).apply {
+            addView(label(16f, 0xE6FFFFFF.toInt()).apply { text = body; setLineSpacing(0f, 1.15f) })
+        }, LinearLayout.LayoutParams(MATCH_PARENT, (resources.displayMetrics.heightPixels * 0.7f).toInt()))
+        d.setContentView(box)
+        d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        d.window?.setLayout(minOf(resources.displayMetrics.widthPixels - dp(80), dp(900)), WindowManager.LayoutParams.WRAP_CONTENT)
+        d.window?.setDimAmount(0.7f)
+        d.setCanceledOnTouchOutside(true)
+        d.window?.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        d.show()
+        @Suppress("DEPRECATION")
+        d.window?.decorView?.systemUiVisibility = window.decorView.systemUiVisibility
+        d.window?.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+    }
 
     private fun loadCollections() {
         val rc = cfg.recycleCalendar; val wc = cfg.wasteCalendar
@@ -699,7 +797,7 @@ class MainActivity : Activity(), HaClient.Listener {
         chipsView.removeAllViews()
         for (c in chips) chipsView.addView(chipView(c).apply {
             isClickable = true
-            setOnClickListener { room?.let { showChipDetail(it, c) } }
+            setOnClickListener { if (c.kind == "wx") showWeatherAlerts() else room?.let { showChipDetail(it, c) } }
         })
     }
 
@@ -744,6 +842,9 @@ class MainActivity : Activity(), HaClient.Listener {
         chipDetailRefresh?.invoke()
         if (roomIndex == HOME) {
             if (ids.contains(cfg.weatherEntity)) weatherCard?.update(app.ha.states[cfg.weatherEntity])
+            // Une source de la carte du matin a changé (ex. résumé publié à 5 h) : on la redessine.
+            val ms = cfg.morningSources
+            if (morningShown && (0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) { showHome(); return }
             updateHomeHeader()
             return
         }

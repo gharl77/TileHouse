@@ -66,6 +66,9 @@ li.dragging{opacity:.75;outline:2px dashed var(--blue);outline-offset:-2px;backg
 #login .card{width:min(340px,90vw)}
 .roomName{font-size:22px;font-weight:600;flex:1;min-width:200px}
 .empty{padding:16px 6px;color:var(--mute)}
+.rule{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin:8px 0;padding:10px;border:1px solid var(--line);border-radius:12px}
+.rule>div{flex:1;min-width:120px}
+.rule .x{flex:none}
 .aboutHead{display:flex;gap:16px;align-items:center;margin-bottom:8px}
 .logo.big{width:72px;height:72px}
 .aboutName{font-size:26px;font-weight:600}
@@ -161,7 +164,42 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <p class="muted">Les pièces sont regroupées selon les paliers (étages) de Home Assistant. Glissez ⠿ pour changer l'ordre.</p>
     <ul class="rooms" id="floorList"></ul>
   </section>
+  <section class="card">
+    <h2>Électricité et météo</h2>
+    <label class="f" for="peakCal">Calendrier des pointes (Hydro-Québec)</label>
+    <select id="peakCal"></select>
+    <label class="f" for="peakReminder">Rappel avant une pointe</label>
+    <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select>
+    <p class="muted">Pastille « Pointe demain / aujourd'hui » la veille et le jour même, puis « Pointe en cours » (rouge) pendant la pointe. Le rappel arrive dans le centre de notifications.</p>
+    <h2 style="margin-top:24px">Alertes météo</h2>
+    <p class="muted">Capteurs qui comptent les alertes en vigueur (ex. Environnement Canada : alertes, veilles, avis). Une pastille apparaît quand l'un d'eux est au-dessus de 0 ; touchez-la pour le détail.</p>
+    <div id="alertList" class="muted">Connexion requise…</div>
+  </section>
+  <section class="card">
+    <h2>Raccourcis</h2>
+    <p class="muted">Scripts, scènes et boutons affichés en gros boutons sur l'accueil, dans l'ordre où vous les cochez.</p>
+    <input id="scQ" placeholder="Rechercher…">
+    <ul class="ents pick" id="scList" style="max-height:260px"></ul>
+    <h2 style="margin-top:24px">Pastilles personnalisées</h2>
+    <p class="muted">Une pastille apparaît sur l'accueil quand l'entité est dans un des états indiqués (séparés par des virgules). Ex. : laveuse « À vider ».</p>
+    <div id="chipRules"></div>
+    <button id="addChip">+ Ajouter une pastille</button>
+  </section>
+  <section class="card" style="grid-column:1/-1">
+    <h2>Carte du matin</h2>
+    <p class="muted">Une carte sur l'accueil pendant la plage horaire, avec les sources de votre choix : un texte (état ou attribut d'une entité, Markdown accepté) ou un flux de nouvelles (liste des titres). Touchez la carte sur la tablette pour tout lire.</p>
+    <div class="row">
+      <div style="flex:1"><label class="f" for="mStart">De</label><input type="time" id="mStart"></div>
+      <div style="flex:1"><label class="f" for="mEnd">À</label><input type="time" id="mEnd"></div>
+    </div>
+    <h2 style="margin-top:18px">Sources</h2>
+    <div id="mSources"></div>
+    <button id="addSource">+ Ajouter une source</button>
+    <h2 style="margin-top:18px">Suggestions</h2>
+    <div id="mSuggest" class="row muted">Recherche…</div>
+  </section>
 </main>
+<datalist id="allEnts"></datalist>
 
 <!-- ============ Affichage ============ -->
 <main class="panel grid2" data-panel="display" hidden>
@@ -504,6 +542,140 @@ function renderAbout(a) {
   }
 }
 
+
+// ---- Accueil : pointes, alertes météo, raccourcis, pastilles, carte du matin
+const hmm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+const mins = v => { const [a, b] = (v || "0:0").split(":").map(Number); return a * 60 + b; };
+let H = null, EX = null;
+function renderHomeExtras(ex, h) {
+  H = h; EX = ex;
+  const dl = $("allEnts");
+  if (ex.all && dl.childElementCount !== ex.all.length) dl.replaceChildren(...ex.all.map(e => el("option", {value: e.id, textContent: e.name})));
+  // Pointes
+  const pc = $("peakCal");
+  pc.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
+  for (const c of (ex.calendar || [])) pc.append(el("option", {value: c.id, textContent: c.name}));
+  pc.value = h.peakCalendar || "";
+  pc.onchange = () => saveSettings({peakCalendar: pc.value});
+  $("peakReminder").value = String(h.peakReminder);
+  $("peakReminder").onchange = () => saveSettings({peakReminder: +$("peakReminder").value});
+  // Alertes météo
+  const al = $("alertList");
+  if (ex.alerts) {
+    al.replaceChildren(); al.className = "";
+    if (!ex.alerts.length) al.append(el("p", {class: "muted", textContent: t("Aucun capteur d'alertes trouvé.")}));
+    for (const a of ex.alerts) {
+      const cb = el("input", {type: "checkbox", checked: h.weatherAlerts.includes(a.id), onchange: () => {
+        saveSettings({weatherAlerts: [...al.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.id)});
+      }});
+      cb.dataset.id = a.id;
+      al.append(el("label", {class: "check"}, cb, " " + a.name, el("span", {class: "muted", textContent: "  " + a.id})));
+    }
+  }
+  renderShortcuts(); renderChipRules(); renderSources();
+  if (document.activeElement !== $("mStart")) $("mStart").value = hmm(h.morningStart);
+  if (document.activeElement !== $("mEnd")) $("mEnd").value = hmm(h.morningEnd);
+  loadSuggestions();
+}
+$("mStart").onchange = () => saveSettings({morningStart: mins($("mStart").value)});
+$("mEnd").onchange = () => saveSettings({morningEnd: mins($("mEnd").value)});
+
+function renderShortcuts() {
+  const ul = $("scList"), q = $("scQ").value.trim().toLowerCase();
+  const doms = ["script", "scene", "button", "input_button"];
+  const ents = (cat ? cat.entities : []).filter(e => doms.includes(domain(e.id)));
+  const sel = H.shortcuts;
+  const list = [...sel.map(id => ents.find(e => e.id === id) || {id, name: id}), ...ents.filter(e => !sel.includes(e.id))]
+    .filter(e => sel.includes(e.id) || !q || e.name.toLowerCase().includes(q) || e.id.includes(q)).slice(0, 200);
+  ul.replaceChildren();
+  if (!cat) { ul.append(el("li", {class: "empty", textContent: t("Connexion requise…")})); return; }
+  for (const e of list) {
+    const on = sel.includes(e.id);
+    ul.append(el("li", {onclick: () => {
+      const next = on ? sel.filter(x => x !== e.id) : [...sel, e.id];
+      H.shortcuts = next; saveSettings({shortcuts: next}); renderShortcuts();
+    }}, el("span", {class: "dot", textContent: on ? "✓" : (ICON[domain(e.id)] || "•")}),
+      el("div", {class: "info"}, el("div", {textContent: e.name}), el("div", {class: "id", textContent: e.id}))));
+  }
+}
+$("scQ").oninput = renderShortcuts;
+
+function renderChipRules() {
+  const box = $("chipRules");
+  box.replaceChildren();
+  const rules = H.customChips;
+  const save = () => saveSettings({customChips: rules});
+  rules.forEach((r, i) => {
+    const ent = el("input", {value: r.entity || "", placeholder: "input_select.statut_de_la_laveuse", onchange: ev => { r.entity = ev.target.value.trim(); save(); }});
+    ent.setAttribute("list", "allEnts");
+    const sts = el("input", {value: (r.states || []).join(", "), placeholder: "À vider", onchange: ev => { r.states = ev.target.value.split(",").map(x => x.trim()).filter(Boolean); save(); }});
+    const txt = el("input", {value: r.text || "", placeholder: "🧺 Laveuse à vider", onchange: ev => { r.text = ev.target.value; save(); }});
+    const col = el("select", {onchange: ev => { r.color = ev.target.value; save(); }},
+      el("option", {value: "", textContent: t("Neutre")}), el("option", {value: "orange", textContent: t("Orange")}), el("option", {value: "red", textContent: t("Rouge")}));
+    col.value = r.color || "";
+    box.append(el("div", {class: "rule"},
+      el("div", {}, el("label", {class: "f", textContent: t("Entité")}), ent),
+      el("div", {}, el("label", {class: "f", textContent: t("États")}), sts),
+      el("div", {}, el("label", {class: "f", textContent: t("Texte")}), txt),
+      el("div", {}, el("label", {class: "f", textContent: t("Couleur")}), col),
+      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { rules.splice(i, 1); save(); renderChipRules(); }})));
+  });
+}
+$("addChip").onclick = () => { H.customChips.push({entity: "", states: [], text: "", color: "orange"}); renderChipRules(); };
+
+const attrCache = {};
+async function attrsOf(id) {
+  if (!id) return [];
+  if (!attrCache[id]) { try { attrCache[id] = (await api("POST", "/api/attrs", {entity: id})).attributes; } catch (e) { attrCache[id] = []; } }
+  return attrCache[id];
+}
+function renderSources() {
+  const box = $("mSources");
+  box.replaceChildren();
+  const src = H.morningSources;
+  const save = () => saveSettings({morningSources: src});
+  if (!src.length) box.append(el("p", {class: "muted", textContent: t("Aucune source : la carte du matin n'est pas affichée.")}));
+  src.forEach((s, i) => {
+    const ent = el("input", {value: s.entity || "", placeholder: "sensor.resume_matinal"});
+    ent.setAttribute("list", "allEnts");
+    const at = el("select", {});
+    const fill = async () => {
+      const list = await attrsOf(ent.value.trim());
+      at.replaceChildren(el("option", {value: "", textContent: t("État (ou flux)")}), ...list.map(a => el("option", {value: a.name, textContent: a.name + (a.feed ? " · " + t("flux") : "")})));
+      if (s.attribute && !list.some(a => a.name === s.attribute)) at.append(el("option", {value: s.attribute, textContent: s.attribute}));
+      at.value = s.attribute || "";
+    };
+    ent.onchange = () => { s.entity = ent.value.trim(); s.attribute = ""; save(); fill(); };
+    at.onchange = () => { s.attribute = at.value; save(); };
+    fill();
+    box.append(el("div", {class: "rule"},
+      el("div", {}, el("label", {class: "f", textContent: t("Titre")}), el("input", {value: s.title || "", onchange: ev => { s.title = ev.target.value; save(); }})),
+      el("div", {}, el("label", {class: "f", textContent: t("Entité")}), ent),
+      el("div", {}, el("label", {class: "f", textContent: t("Attribut")}), at),
+      el("button", {class: "mini x", textContent: "▲", disabled: i === 0, onclick: () => { move(src, i, -1); save(); renderSources(); }}),
+      el("button", {class: "mini x", textContent: "▼", disabled: i === src.length - 1, onclick: () => { move(src, i, 1); save(); renderSources(); }}),
+      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { src.splice(i, 1); save(); renderSources(); }})));
+  });
+}
+$("addSource").onclick = () => { H.morningSources.push({entity: "", attribute: "", title: ""}); renderSources(); };
+
+let suggested = false;
+async function loadSuggestions() {
+  if (suggested || !EX || !EX.all) return;
+  suggested = true;
+  const box = $("mSuggest");
+  box.replaceChildren();
+  const add = (title, entity, attribute) => box.append(el("button", {textContent: "+ " + title, onclick: () => {
+    H.morningSources.push({entity, attribute, title}); saveSettings({morningSources: H.morningSources}); renderSources();
+  }}));
+  // Résumés générés (ex. sensor.resume_matinal) : chaque section texte ; flux de nouvelles (attribut « entries »)
+  const cands = EX.all.filter(e => e.id.startsWith("sensor.") && /resume|résumé|briefing|summary|nouvelles|news|feed|rss/i.test(e.id + " " + e.name)).slice(0, 25);
+  for (const c of cands) {
+    for (const a of await attrsOf(c.id)) add(a.feed ? c.name : c.name + " · " + a.name, c.id, a.feed && a.name === "entries" ? "" : a.name);
+  }
+  if (!box.childElementCount) box.append(el("span", {textContent: t("Aucune suggestion : ajoutez une source à la main.")}));
+}
+
 // ---- Mise à jour
 function renderUpdate(u) {
   if (!u) return;
@@ -635,6 +807,7 @@ function renderHome() {
     i.onchange = () => saveSettings({[key]: i.value.trim()});
   }
   renderPresence(ex, h.persons);
+  renderHomeExtras(ex, h);
   const fl = $("floorList");
   fl.replaceChildren();
   const floors = h.floors.slice();

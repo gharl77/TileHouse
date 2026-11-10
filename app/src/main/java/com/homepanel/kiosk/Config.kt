@@ -142,6 +142,44 @@ class ConfigStore(ctx: Context) {
         get() = secret("immichKey")
         set(v) = setSecret("immichKey", v.trim())
 
+    // ------------------------------------------------------------ accueil : infos et raccourcis
+
+    /** Calendrier des pointes d'électricité (Hydro-Québec), vide = pas de pastille. */
+    var peakCalendar: String
+        get() = p.getString("peakCalendar", "") ?: ""
+        set(v) = p.edit().putString("peakCalendar", v).apply()
+    /** Rappel (notification) avant le début d'une pointe, en minutes ; 0 = aucun. */
+    var peakReminder: Int
+        get() = p.getInt("peakReminder", 60)
+        set(v) = p.edit().putInt("peakReminder", v.coerceIn(0, 720)).apply()
+    /** Capteurs d'alertes météo (nombre d'alertes en vigueur), ex. Environnement Canada. */
+    var weatherAlerts: List<String>
+        get() = csv("weatherAlerts")
+        set(v) = p.edit().putString("weatherAlerts", v.joinToString(",")).apply()
+    /** Raccourcis de l'accueil : scripts, scènes, boutons. */
+    var shortcuts: List<String>
+        get() = csv("shortcuts")
+        set(v) = p.edit().putString("shortcuts", v.joinToString(",")).apply()
+    /** Pastilles personnalisées : [{entity, states:[..], text, color}] (JSON). */
+    var customChips: JSONArray
+        get() = try { JSONArray(p.getString("customChips", "[]")) } catch (_: Exception) { JSONArray() }
+        set(v) = p.edit().putString("customChips", v.toString()).apply()
+    /** Carte du matin : sources [{entity, attribute, title}] (JSON) et plage horaire (minutes). */
+    var morningSources: JSONArray
+        get() = try { JSONArray(p.getString("morningSources", "[]")) } catch (_: Exception) { JSONArray() }
+        set(v) = p.edit().putString("morningSources", v.toString()).apply()
+    var morningStart: Int
+        get() = p.getInt("morningStart", 5 * 60)
+        set(v) = p.edit().putInt("morningStart", v.coerceIn(0, 1439)).apply()
+    var morningEnd: Int
+        get() = p.getInt("morningEnd", 10 * 60)
+        set(v) = p.edit().putInt("morningEnd", v.coerceIn(0, 1439)).apply()
+    fun isMorningNow(): Boolean {
+        val c = java.util.Calendar.getInstance()
+        val m = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
+        return if (morningStart <= morningEnd) m in morningStart until morningEnd else m >= morningStart || m < morningEnd
+    }
+
     /** Cadre photo : "favorites" ou "album:<id>" (Immich), vide = désactivé. */
     var photoSource: String
         get() = p.getString("photoSource", "") ?: ""
@@ -345,6 +383,9 @@ class ConfigStore(ctx: Context) {
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
+                .put("peakCalendar", peakCalendar).put("peakReminder", peakReminder).put("weatherAlerts", JSONArray(weatherAlerts))
+                .put("shortcuts", JSONArray(shortcuts)).put("customChips", customChips).put("morningSources", morningSources)
+                .put("morningStart", morningStart).put("morningEnd", morningEnd)
                 .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
             .put("mqtt", JSONObject()
@@ -393,6 +434,14 @@ class ConfigStore(ctx: Context) {
             if (h.has("wasteCalendar")) wasteCalendar = h.str("wasteCalendar")
             if (h.has("recycleKeyword")) recycleKeyword = h.str("recycleKeyword")
             if (h.has("wasteKeyword")) wasteKeyword = h.str("wasteKeyword")
+            if (h.has("peakCalendar")) peakCalendar = h.str("peakCalendar")
+            if (h.has("peakReminder")) peakReminder = h.optInt("peakReminder", 60)
+            h.optJSONArray("weatherAlerts")?.let { a -> weatherAlerts = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("shortcuts")?.let { a -> shortcuts = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("customChips")?.let { customChips = it }
+            h.optJSONArray("morningSources")?.let { morningSources = it }
+            if (h.has("morningStart")) morningStart = h.optInt("morningStart", 300)
+            if (h.has("morningEnd")) morningEnd = h.optInt("morningEnd", 600)
             h.optJSONArray("floorOrder")?.let { a -> setFloorOrder((0 until a.length()).map { a.getString(it) }) }
         }
         o.optJSONObject("connection")?.let { c -> if (c.str("url").isNotEmpty()) url = c.str("url") }
@@ -422,6 +471,10 @@ class ConfigStore(ctx: Context) {
         // Accueil : météo et personnes
         if (weatherEntity.isNotEmpty()) s.add(weatherEntity)
         s.addAll(persons)
+        // Accueil : alertes météo, raccourcis, pastilles personnalisées, carte du matin
+        s.addAll(weatherAlerts)
+        s.addAll(shortcuts)
+        for (a in listOf(customChips, morningSources)) for (i in 0 until a.length()) a.optJSONObject(i)?.optString("entity")?.takeIf { it.isNotEmpty() }?.let { s.add(it) }
         return s
     }
 }

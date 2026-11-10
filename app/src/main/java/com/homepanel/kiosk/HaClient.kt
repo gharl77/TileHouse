@@ -125,7 +125,7 @@ class HaClient {
             .put("type", "call_service")
             .put("domain", domain)
             .put("service", service)
-            .put("target", JSONObject().put("entity_id", entityId))
+        if (entityId.isNotEmpty()) msg.put("target", JSONObject().put("entity_id", entityId))
         if (data != null) msg.put("service_data", data)
         send(msg, null)
     }

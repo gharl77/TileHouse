@@ -262,7 +262,7 @@ fun Context.chipView(c: Present.Chip) = TextView(this).apply {
     setTextColor(Color.WHITE)
     typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
     gravity = android.view.Gravity.CENTER_VERTICAL
-    getDrawable(c.icon)?.mutate()?.let { d ->
+    if (c.icon != 0) getDrawable(c.icon)?.mutate()?.let { d ->
         val s = dp(if (c.iconTint != null) 22 else 18)
         d.setBounds(0, 0, s, s)
         d.setTint(c.iconTint ?: Color.WHITE)

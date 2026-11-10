@@ -218,6 +218,15 @@ class WebServer(private val app: App) {
                 if (req.has("wasteCalendar")) cfg.wasteCalendar = req.str("wasteCalendar")
                 if (req.has("recycleKeyword")) cfg.recycleKeyword = req.str("recycleKeyword")
                 if (req.has("wasteKeyword")) cfg.wasteKeyword = req.str("wasteKeyword")
+                if (req.has("peakCalendar")) cfg.peakCalendar = req.str("peakCalendar")
+                if (req.has("peakReminder")) cfg.peakReminder = req.optInt("peakReminder", 60)
+                req.optJSONArray("weatherAlerts")?.let { a -> cfg.weatherAlerts = (0 until a.length()).map { a.getString(it) } }
+                req.optJSONArray("shortcuts")?.let { a -> cfg.shortcuts = (0 until a.length()).map { a.getString(it) } }
+                req.optJSONArray("customChips")?.let { cfg.customChips = it }
+                req.optJSONArray("morningSources")?.let { cfg.morningSources = it }
+                if (req.has("morningStart")) cfg.morningStart = req.optInt("morningStart", 300)
+                if (req.has("morningEnd")) cfg.morningEnd = req.optInt("morningEnd", 600)
+                val homeExtras = listOf("weatherAlerts", "shortcuts", "customChips", "morningSources").any { req.has(it) }
                 if (req.has("personAlert")) cfg.personAlert = req.optBoolean("personAlert")
                 if (req.has("alertSeconds")) cfg.alertSeconds = req.optInt("alertSeconds", 20)
                 if (req.has("alertTrigger")) cfg.alertTrigger = req.str("alertTrigger")
@@ -229,7 +238,7 @@ class WebServer(private val app: App) {
                 req.optJSONArray("calendars")?.let { a -> cfg.calendars = (0 until a.length()).map { a.getString(it) } }
                 req.optJSONArray("persons")?.let { a -> cfg.persons = (0 until a.length()).map { a.getString(it) }; subs = true }
                 req.optJSONArray("floorOrder")?.let { a -> cfg.setFloorOrder((0 until a.length()).map { a.getString(it) }) }
-                if (subs) app.ha.setEntities(cfg.allEntityIds())
+                if (subs || homeExtras) app.ha.setEntities(cfg.allEntityIds())
                 // MQTT : connexion au broker (le mot de passe n'est jamais renvoyé)
                 var mqttRestart = false
                 if (req.has("mqttEnabled")) { cfg.mqttEnabled = req.optBoolean("mqttEnabled"); mqttRestart = true }
@@ -272,6 +281,28 @@ class WebServer(private val app: App) {
                 latch.await(20, java.util.concurrent.TimeUnit.SECONDS)
                 ok(JSONObject().put("error", error ?: "")
                     .put("sources", JSONArray().also { a -> for ((n, id) in found) a.put(JSONObject().put("name", n).put("id", id)) }))
+            }
+            "POST /api/attrs" -> {
+                // Attributs d'une entité (carte du matin) : nom, type (texte ou flux) et aperçu.
+                val id = req.str("entity")
+                val cfg = app.config
+                if (id.isEmpty() || app.ha.demo) return ok(JSONObject().put("attributes", JSONArray()))
+                val text = try {
+                    app.ha.http.newCall(okhttp3.Request.Builder().url(cfg.url.trimEnd('/') + "/api/states/" + id)
+                        .header("Authorization", "Bearer ${cfg.token}").build()).execute().use { if (it.isSuccessful) it.body?.string() else null }
+                } catch (_: Exception) { null }
+                val attrs = JSONArray()
+                try {
+                    val a = JSONObject(text ?: "{}").optJSONObject("attributes") ?: JSONObject()
+                    for (k in a.keys()) {
+                        val v = a.opt(k)
+                        val feed = v is JSONArray && (v.optJSONObject(0)?.has("title") == true)
+                        if (k in setOf("friendly_name", "icon", "attribution", "unit_of_measurement", "device_class", "state_class")) continue
+                        if (v is String && v.length >= 40 || feed)
+                            attrs.put(JSONObject().put("name", k).put("feed", feed).put("preview", if (feed) "" else (v as String).take(80)))
+                    }
+                } catch (_: Exception) {}
+                ok(JSONObject().put("attributes", attrs))
             }
             "GET /api/catalog" -> {
                 val cat = loadCatalog() ?: return Reply(502, JSON, err(lastCatalogError ?: tr("Liste indisponible")))
@@ -339,6 +370,10 @@ class WebServer(private val app: App) {
                 .put("persons", JSONArray(cfg.persons))
                 .put("recycleCalendar", cfg.recycleCalendar).put("wasteCalendar", cfg.wasteCalendar)
                 .put("recycleKeyword", cfg.recycleKeyword).put("wasteKeyword", cfg.wasteKeyword)
+                .put("peakCalendar", cfg.peakCalendar).put("peakReminder", cfg.peakReminder)
+                .put("weatherAlerts", JSONArray(cfg.weatherAlerts)).put("shortcuts", JSONArray(cfg.shortcuts))
+                .put("customChips", cfg.customChips).put("morningSources", cfg.morningSources)
+                .put("morningStart", cfg.morningStart).put("morningEnd", cfg.morningEnd)
                 .put("floors", JSONArray().also { a -> for (f in cfg.floors) a.put(JSONObject().put("id", f.id).put("name", f.name)) }))
             .put("settings", JSONObject()
                 .put("wallpaper", cfg.wallpaper)

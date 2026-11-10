@@ -86,6 +86,12 @@ object CatalogLoader {
                 val o = arr.getJSONObject(i)
                 val id = o.optString("entity_id")
                 val dom = id.substringBefore('.')
+                // Toutes les entités (nom + id) : pastilles personnalisées, sources de la carte du matin.
+                val fname = o.optJSONObject("attributes")?.str("friendly_name")?.ifEmpty { id } ?: id
+                extras.getOrPut("all") { ArrayList() }.add(id to fname)
+                // Alertes météo (Environnement Canada : warnings, watches, advisory, statements)
+                if (dom == "sensor" && Regex("_(warnings|watches|advisory|advisories|statements|alertes|veilles|avis|bulletins)$").containsMatchIn(id))
+                    extras.getOrPut("alerts") { ArrayList() }.add(id to fname)
                 if (dom == "weather" || dom == "calendar" || dom == "person") {
                     val n = o.optJSONObject("attributes")?.str("friendly_name")?.ifEmpty { id } ?: id
                     extras.getOrPut(dom) { ArrayList() }.add(id to n)
