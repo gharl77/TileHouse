@@ -665,6 +665,7 @@ class MainActivity : Activity(), HaClient.Listener {
                     }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(14) })
                     row.isClickable = true
                     row.setOnClickListener {
+                        if (haOffline()) return@setOnClickListener
                         if (Present.tap(app.ha, re.id, app.ha.states[re.id])) row.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     }
                 }
@@ -714,7 +715,15 @@ class MainActivity : Activity(), HaClient.Listener {
         t.bind(Present.displayName(re, e, room.name), status, Present.active(e), Present.unavailable(e), Present.accent(e), Present.icon(re.id, e))
     }
 
+    /** HA injoignable : on le dit plutôt que d'ignorer le toucher sans rien montrer. */
+    private fun haOffline(): Boolean {
+        if (app.ha.demo || app.ha.status == HaClient.Status.CONNECTED) return false
+        Toast.makeText(this, tr("Home Assistant ne répond pas : commande impossible pour le moment."), Toast.LENGTH_SHORT).show()
+        return true
+    }
+
     private fun onTileTap(t: TileView, re: RoomEntity, room: Room) {
+        if (Present.domain(re.id) != "camera" && haOffline()) return
         val e = app.ha.states[re.id]
         if (Present.domain(re.id) == "climate") { openDetail(re, room); return }
         if (Present.tap(app.ha, re.id, e)) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
@@ -759,6 +768,8 @@ class MainActivity : Activity(), HaClient.Listener {
 
     private fun updateStatus(s: HaClient.Status) {
         if (!cfg.isConfigured) { statusView.visibility = View.GONE; return }
+        // Hors ligne : les tuiles montrent le dernier état connu, en grisé pour ne pas faire croire qu'il est à jour.
+        content.alpha = if (s == HaClient.Status.CONNECTED || s == HaClient.Status.IDLE || app.ha.demo) 1f else 0.55f
         val (text, color) = when (s) {
             HaClient.Status.CONNECTED, HaClient.Status.IDLE -> { statusView.visibility = View.GONE; return }
             HaClient.Status.CONNECTING -> tr("Connexion à Home Assistant…") to 0x99FF9F0A.toInt()

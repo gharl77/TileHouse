@@ -95,6 +95,10 @@ class ConfigStore(ctx: Context) {
     var alertSeconds: Int
         get() = p.getInt("alertSeconds", 20)
         set(v) = p.edit().putInt("alertSeconds", v.coerceIn(5, 120)).apply()
+    /** Sons des notifications ; désactivé = silence en tout temps (les minuteries sonnent quand même). */
+    var soundsEnabled: Boolean
+        get() = p.getBoolean("soundsEnabled", true)
+        set(v) = p.edit().putBoolean("soundsEnabled", v).apply()
     /** Heures calmes : pas de son (sauf alertes rouges) et écran de veille noir. */
     var quietEnabled: Boolean
         get() = p.getBoolean("quietEnabled", true)
@@ -334,7 +338,7 @@ class ConfigStore(ctx: Context) {
             .put("display", JSONObject()
                 .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
-                .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd)
+                .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
                 .put("immichUrl", immichUrl).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
@@ -367,6 +371,7 @@ class ConfigStore(ctx: Context) {
             if (d.has("battery")) showBattery = d.optBoolean("battery")
             if (d.has("noticeSeconds")) noticeSeconds = d.optInt("noticeSeconds", 30)
             if (d.has("quietEnabled")) quietEnabled = d.optBoolean("quietEnabled")
+            if (d.has("soundsEnabled")) soundsEnabled = d.optBoolean("soundsEnabled")
             if (d.has("quietStart")) quietStart = d.optInt("quietStart", 1320)
             if (d.has("quietEnd")) quietEnd = d.optInt("quietEnd", 420)
             if (d.has("photoSource")) photoSource = d.str("photoSource")

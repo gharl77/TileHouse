@@ -207,6 +207,7 @@ class WebServer(private val app: App) {
                 if (req.has("battery")) cfg.showBattery = req.optBoolean("battery")
                 if (req.has("noticeSeconds")) cfg.noticeSeconds = req.optInt("noticeSeconds", 30)
                 if (req.has("quietEnabled")) cfg.quietEnabled = req.optBoolean("quietEnabled")
+                if (req.has("soundsEnabled")) cfg.soundsEnabled = req.optBoolean("soundsEnabled")
                 if (req.has("quietStart")) cfg.quietStart = req.optInt("quietStart", 1320)
                 if (req.has("quietEnd")) cfg.quietEnd = req.optInt("quietEnd", 420)
                 if (req.has("photoSource")) { cfg.photoSource = req.str("photoSource"); cfg.photoSourceName = req.str("photoSourceName") }
@@ -354,6 +355,7 @@ class WebServer(private val app: App) {
                 .put("battery", cfg.showBattery)
                 .put("noticeSeconds", cfg.noticeSeconds)
                 .put("quietEnabled", cfg.quietEnabled).put("quietStart", cfg.quietStart).put("quietEnd", cfg.quietEnd)
+                .put("soundsEnabled", cfg.soundsEnabled)
                 .put("photoSource", cfg.photoSource).put("photoSourceName", cfg.photoSourceName).put("photoSeconds", cfg.photoSeconds)
                 .put("immichUrl", cfg.immichUrl).put("hasImmichKey", cfg.immichKey.isNotEmpty())
                 .put("unreadNotices", app.notices.count)

@@ -119,6 +119,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             "veille" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimMinutes = it.coerceIn(0, 240); configChanged = true }
             "veille_style" -> { cfg.dimStyle = when (v) { tr("Écran noir") -> "black"; tr("Cadre photo") -> "photos"; else -> "clock" }; configChanged = true }
             "heures_calmes" -> { cfg.quietEnabled = v == "ON"; configChanged = true }
+            "sons" -> { cfg.soundsEnabled = v == "ON"; configChanged = true }
             "veille_luminosite" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimBrightness = it.coerceIn(1, 100); configChanged = true }
             "luminosite" -> v.toDoubleOrNull()?.toInt()?.let { cfg.brightness = it.coerceIn(5, 100); configChanged = true }
             "regrouper" -> { cfg.groupByCategory = v == "ON"; configChanged = true }
@@ -145,6 +146,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         st("luminosite", effectiveBrightness().toString())
         st("veille_style", when (c.dimStyle) { "black" -> tr("Écran noir"); "photos" -> tr("Cadre photo"); else -> tr("Heure et météo") })
         st("heures_calmes", if (c.quietEnabled) "ON" else "OFF")
+        st("sons", if (c.soundsEnabled) "ON" else "OFF")
         st("veille_luminosite", c.dimBrightness.toString())
         st("regrouper", if (c.groupByCategory) "ON" else "OFF")
         st("horloge", if (c.showClock) "ON" else "OFF")
@@ -262,6 +264,9 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         entity("select", "veille_style", tr("Écran de veille"), "mdi:sleep") {
             put("state_topic", "$base/veille_style"); put("command_topic", "$base/veille_style/set")
             put("options", JSONArray(listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir"))))
+        }
+        entity("switch", "sons", tr("Sons des notifications"), "mdi:volume-high") {
+            put("state_topic", "$base/sons"); put("command_topic", "$base/sons/set")
         }
         entity("switch", "heures_calmes", tr("Heures calmes"), "mdi:weather-night") {
             put("state_topic", "$base/heures_calmes"); put("command_topic", "$base/heures_calmes/set")

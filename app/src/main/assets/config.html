@@ -213,13 +213,14 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
   </section>
   <section class="card">
-    <h2>Heures calmes</h2>
+    <h2>Sons et heures calmes</h2>
+    <label class="check"><input type="checkbox" id="soundsEnabled"> Sons des notifications (désactivé = silence en tout temps)</label>
     <label class="check"><input type="checkbox" id="quietEnabled"> Activer les heures calmes</label>
     <div class="row">
       <div style="flex:1"><label class="f" for="quietStart">Début</label><input type="time" id="quietStart"></div>
       <div style="flex:1"><label class="f" for="quietEnd">Fin</label><input type="time" id="quietEnd"></div>
     </div>
-    <p class="muted">Pendant les heures calmes, les notifications n'ont pas de son (sauf les alertes rouges : fuite, serrure, fenêtre…) et l'écran de veille est noir.</p>
+    <p class="muted">Pendant les heures calmes, les notifications n'ont pas de son (sauf les alertes rouges : fuite, serrure, fenêtre…) et l'écran de veille est noir. Les minuteries sonnent toujours.</p>
   </section>
   <section class="card">
     <h2>Notifications</h2>
@@ -228,11 +229,11 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <p class="muted">Une notification qui n'a pas été confirmée par OK reste non lue : une clochette apparaît sur la tablette avec leur nombre. <span id="unreadInfo"></span></p>
   </section>
   <section class="card">
-    <h2>Caméras</h2>
+    <h2>Alertes des caméras</h2>
     <label class="check"><input type="checkbox" id="personAlert"> Alerte personne détectée : live plein écran</label>
-    <label class="check"><input type="checkbox" id="doorbellAlert"> Alerte sonnette : live quand quelqu'un sonne</label>
     <label class="f" for="alertTrigger">Déclencher sur</label>
     <select id="alertTrigger"><option value="person">Personne seulement</option><option value="motion">Tout mouvement</option></select>
+    <label class="check"><input type="checkbox" id="doorbellAlert"> Alerte sonnette : live quand quelqu'un sonne</label>
     <label class="f" for="alertSeconds">Durée de l'alerte</label>
     <select id="alertSeconds"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
     <p class="muted">Quand le détecteur de personne d'une caméra des pièces s'active, la tablette affiche son live. Toucher l'écran garde le live ouvert.</p>
@@ -673,6 +674,7 @@ function renderSettings() {
   $("noticeSeconds").value = String(st.noticeSeconds);
   const hm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
   $("quietEnabled").checked = st.quietEnabled;
+  $("soundsEnabled").checked = st.soundsEnabled;
   $("quietStart").value = hm(st.quietStart); $("quietEnd").value = hm(st.quietEnd);
   $("photoRow").hidden = st.dimStyle !== "photos";
   $("photoSeconds").value = String(st.photoSeconds);
@@ -721,6 +723,7 @@ $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
 $("clock").onchange = () => saveSettings({clock: $("clock").checked});
 const toMin = v => { const [h, m] = v.split(":").map(Number); return h * 60 + m; };
+$("soundsEnabled").onchange = () => saveSettings({soundsEnabled: $("soundsEnabled").checked});
 $("quietEnabled").onchange = () => saveSettings({quietEnabled: $("quietEnabled").checked});
 $("quietStart").onchange = () => saveSettings({quietStart: toMin($("quietStart").value)});
 $("quietEnd").onchange = () => saveSettings({quietEnd: toMin($("quietEnd").value)});

@@ -170,7 +170,8 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         frame.animate().scaleX(1f).scaleY(1f).setDuration(260).setInterpolator(DecelerateInterpolator()).start()
 
         // Heures calmes : silence, sauf pour les alertes rouges (fuite, serrure…).
-        if (n.sound && (n.isUrgent || !App.instance.config.isQuietNow())) try {
+        val cfg = App.instance.config
+        if (n.sound && cfg.soundsEnabled && (n.isUrgent || !cfg.isQuietNow())) try {
             RingtoneManager.getRingtone(ctx, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))?.play()
         } catch (_: Exception) {}
 

@@ -12,6 +12,9 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Kitchen timers: timer button next to the time, quick durations (1 min to 1 h) or a custom one, several timers at once with +1 min, pause and cancel; the remaining time shows in the header; when one ends, an alarm rings (up to 2 min) with a large card until OK.
 - Collection chips on the home screen: "Recycling tomorrow / today" (blue bin) and "Garbage tomorrow / today" (green bin), from a calendar and a keyword chosen for each on the web page (Home tab).
 - Photo frame screen saver: photos from an Immich album or your favourites, read directly from Immich with an API key of the app (encrypted on the tablet), changing every 30 s (10 s–5 min), with the time and weather in a corner. Videos are skipped.
+- Notification sounds switch: turn every notification sound off at all times (timers still ring). Also a switch in Home Assistant.
+- Settings reorganised: a new **Sleep & sounds** tab (sleep, screen saver, sounds and quiet hours, notifications, camera alerts); the Display tab keeps appearance and dashboard options. The web page uses the same groups.
+- When Home Assistant does not respond: the tiles are greyed out (last known state) under the "Offline · retrying…" banner, and tapping a device says the command can't be sent instead of doing nothing. The app reconnects by itself (tested: about 15 s after the network came back, MQTT a few seconds later).
 - Fix: the agenda showed some events one day early ("Today" for tomorrow evening), and the forecast labelled tomorrow as "Today" in the evening.
 
 ## 2026.11.4

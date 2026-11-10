@@ -47,6 +47,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
   - [Backup and restore](#backup-and-restore)
   - [Languages](#languages)
 - [Updating over Wi‑Fi](#updating-over-wifi)
+- [When Home Assistant is unreachable](#when-home-assistant-is-unreachable)
 - [Security and privacy](#security-and-privacy)
 - [Performance](#performance)
 - [Building from source](#building-from-source)
@@ -287,7 +288,7 @@ browser), the page reloads it instead of overwriting it. Deep links work too: `h
 
 The same options are available on the tablet itself (⋮ menu → settings), protected by the PIN if you set one.
 
-**Screen saver** (Display): after the idle delay the screen shows the **time, date and current weather** (moving a little every
+**Screen saver** (Sleep & sounds): after the idle delay the screen shows the **time, date and current weather** (moving a little every
 minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
 The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
 weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Display → Screen saver → Photo
@@ -295,12 +296,15 @@ frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API ke
 access to albums and assets is enough), then pick the album. The key is encrypted on the tablet and never shown again. Only photos
 are shown (videos are skipped), in Immich's "preview" size.
 
-**Quiet hours** (Display, default 22:00–07:00): notifications make no sound, except red alerts (leak, lock, window…), and the
+**Notification sounds** (Sleep & sounds): turn it off and no notification makes a sound, at any time. Timers still ring, since you
+started them yourself.
+
+**Quiet hours** (Sleep & sounds, default 22:00–07:00): notifications make no sound, except red alerts (leak, lock, window…), and the
 screen saver is black whatever style you chose. Also available as the switch *Quiet hours* in Home Assistant.
 
 <img src="docs/screenshots/screensaver.png" width="860" alt="Screen saver with the time and weather">
 
-**Wake on motion** (Display, only on tablets with a front camera, off by default): the front camera watches the room at very low
+**Wake on motion** (Sleep & sounds, only on tablets with a front camera, off by default): the front camera watches the room at very low
 resolution (about 2 frames per second) and treats someone passing in front of the tablet like a touch, so the screen doesn't dim,
 or wakes up if it already has. Frames are compared in memory and thrown away; nothing is saved or sent. Android asks for the camera
 permission when you turn it on.
@@ -311,6 +315,9 @@ Home Assistant version and connection, and memory use.
 | Rooms | Display |
 |---|---|
 | <img src="docs/screenshots/settings-rooms.png" alt="Settings — rooms"> | <img src="docs/screenshots/settings-display.png" alt="Settings — display"> |
+
+The **Sleep & sounds** tab gathers sleep, the screen saver, sounds and quiet hours, notification duration and camera alerts; **Display**
+keeps the language, theme, wallpaper and dashboard options.
 
 | Connection | Kiosk |
 |---|---|
@@ -341,7 +348,7 @@ Assistant*), and the device appears under *Settings → Devices & services → M
 | Group by category, Show clock, Show battery | switches | |
 | Screen saver, Screen saver brightness | select, number | time and weather or black screen; brightness of the time screen |
 | Unread notifications, Notification duration | sensor, number | number of unread notifications; how long a notification stays on screen |
-| Quiet hours | switch | turn quiet hours on or off (e.g. on holidays) |
+| Quiet hours, Notification sounds | switches | quiet hours on or off (e.g. on holidays); all notification sounds on or off |
 | Back to home | button | |
 | Message | notify | show a notification card in the middle of the screen (`notify.send_message`) |
 | TileHouse | update | installed / latest version, **Install** button |
@@ -448,6 +455,16 @@ TileHouse reopens by itself once the update is installed.
 > (export your configuration before).
 
 ---
+
+## When Home Assistant is unreachable
+
+- A red **"Offline · retrying…"** banner appears and the tiles are greyed out: they show the last known state, which may be out of date.
+- Tapping a device shows "Home Assistant is not responding" instead of silently doing nothing; nothing is queued, so a command
+  is never sent late by surprise.
+- TileHouse reconnects by itself (after 2 s, then up to every 30 s); a dead connection is detected within about 25 s. Back on
+  line, the states are refreshed and the MQTT device comes back a few seconds later.
+- Timers, the clock, the screen saver (except weather) and the web page keep working; camera live views, alerts and
+  notifications need Home Assistant.
 
 ## Security and privacy
 

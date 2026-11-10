@@ -134,6 +134,14 @@ fun Activity.settingRow(
     }
 }
 
+/** Affiche ou masque une ligne de carte, avec son séparateur (sinon deux traits se suivent). */
+fun View.rowVisible(show: Boolean) {
+    visibility = if (show) View.VISIBLE else View.GONE
+    val p = parent as? android.view.ViewGroup ?: return
+    val i = p.indexOfChild(this)
+    if (i > 0) p.getChildAt(i - 1).visibility = visibility
+}
+
 /** Remplace le sous-titre d'une ligne créée par [settingRow]. */
 fun View.setSubtitle(text: String) { (findViewWithTag<TextView>("subtitle"))?.text = text }
 
