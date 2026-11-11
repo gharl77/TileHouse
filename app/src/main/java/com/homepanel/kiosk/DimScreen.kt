@@ -33,7 +33,7 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
     }
     private val box = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
     private val time = ctx.label(150f, 0xE6FFFFFF.toInt()).apply {
-        typeface = Typeface.create("sans-serif-thin", Typeface.NORMAL)
+        typeface = Skin.clockFace
         includeFontPadding = false
     }
     private val date = ctx.label(26f, 0xB3FFFFFF.toInt())

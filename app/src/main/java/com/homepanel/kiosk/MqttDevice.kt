@@ -39,6 +39,8 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         }
     private val base get() = "homepanel/$id"
 
+    private val COMMANDS = setOf("ecran_veille", "accueil", "message", "update")
+
     // Commandes reçues de HA, traitées par l'écran principal
     var onScreenOff: ((Boolean) -> Unit)? = null
     var onHome: (() -> Unit)? = null
@@ -53,7 +55,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     // Batterie
     private var level = -1
     private var charging = false
-    private var plugType = ""
+    private var plug = 0
     private var temperature = 0.0
 
     private val batteryReceiver = object : BroadcastReceiver() {
@@ -114,6 +116,10 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
                 val k = if (v == tr("Aucun")) "" else Themes.all.firstOrNull { it.name == v }?.key
                 if (k != null && k != cfg.theme) { cfg.theme = k; configChanged = true }
             }
+            "skin" -> {
+                val i = Skin.names.indexOf(v)
+                if (i >= 0 && Skin.keys[i] != cfg.skin) { cfg.skin = Skin.keys[i]; configChanged = true }
+            }
             "fond" -> {
                 val i = Wallpapers.names.indexOf(v)
                 if (i >= 0) { cfg.wallpaper = Wallpapers.keys[i]; configChanged = true }
@@ -133,16 +139,28 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             "duree_notifications" -> v.toDoubleOrNull()?.toInt()?.let { cfg.noticeSeconds = it; configChanged = true }
             "update" -> if (v == "install") app.updater.installLatest()
         }
-        if (configChanged) app.notifyConfigChanged() else publishAll()
+        // Un réglage refusé (valeur inconnue) : on republie l'état pour que HA revienne à la vraie valeur.
+        // Une simple commande (message, accueil, veille, mise à jour) ne republie rien.
+        if (configChanged) app.notifyConfigChanged() else if (key !in COMMANDS) publishSettings()
     }
 
     // ------------------------------------------------------------ publication
 
-    /** Publie l'état des réglages (appelé à chaque changement de configuration). */
+    /** Tout l'état, à la connexion : réglages, batterie, diagnostic, mise à jour. */
     fun publishAll() {
+        if (!client.connected) return
+        publishSettings()
+        publishBattery()
+        publishDiagnostics()
+        publishUpdate()
+    }
+
+    /** État des réglages et de l'écran (appelé à chaque changement de configuration). */
+    fun publishSettings() {
         if (!client.connected) return
         val c = cfg
         st(sel("theme"), Themes.get(c.theme)?.name ?: tr("Aucun"))
+        st(sel("skin"), Skin.names.getOrNull(Skin.keys.indexOf(c.skin)) ?: Skin.names[0])
         st(sel("fond"), Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
         st("veille", c.dimMinutes.toString())
         st("luminosite", effectiveBrightness().toString())
@@ -157,9 +175,6 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         publishNotices()
         st("ecran_veille", if (screenOff) "ON" else "OFF")
         st("ecran", currentScreen)
-        publishBattery()
-        publishDiagnostics()
-        publishUpdate()
     }
 
     /** Entité « update » de HA : version installée, dernière version, bouton Installer. */
@@ -196,24 +211,28 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         val newLevel = i.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) * 100 / scale
         val status = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
         val newCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
-        plugType = when (i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)) {
-            BatteryManager.BATTERY_PLUGGED_AC -> tr("secteur")
-            BatteryManager.BATTERY_PLUGGED_USB -> "usb"
-            BatteryManager.BATTERY_PLUGGED_WIRELESS -> tr("sans fil")
-            else -> tr("débranché")
-        }
+        val newPlug = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
         temperature = i.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) / 10.0
-        val changed = newLevel != level || newCharging != charging
+        val changed = newLevel != level || newCharging != charging || newPlug != plug
         level = newLevel
         charging = newCharging
+        plug = newPlug
         if (changed) publishBattery()
+    }
+
+    private val plugCodes = listOf(BatteryManager.BATTERY_PLUGGED_AC, BatteryManager.BATTERY_PLUGGED_USB, BatteryManager.BATTERY_PLUGGED_WIRELESS, 0)
+    private fun plugName(code: Int) = when (code) {
+        BatteryManager.BATTERY_PLUGGED_AC -> tr("secteur")
+        BatteryManager.BATTERY_PLUGGED_USB -> "USB"
+        BatteryManager.BATTERY_PLUGGED_WIRELESS -> tr("sans fil")
+        else -> tr("débranché")
     }
 
     private fun publishBattery() {
         if (!client.connected || level < 0) return
         st("batterie", level.toString())
         st("en_charge", if (charging) "ON" else "OFF")
-        st("alimentation", plugType)
+        st(sel("alimentation"), plugName(plug))
     }
 
     private fun publishDiagnostics() {
@@ -236,111 +255,100 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             .put("name", cfg.deviceName)
             .put("manufacturer", Build.MANUFACTURER.replaceFirstChar { it.uppercase() })
             .put("model", "${Build.MODEL} · TileHouse")
-            .put("sw_version", try { app.packageManager.getPackageInfo(app.packageName, 0).versionName } catch (_: Exception) { "1" })
+            .put("sw_version", version)
         app.web.url()?.let { d.put("configuration_url", it) }
         return d
     }
 
-    private fun entity(component: String, key: String, name: String, icon: String?, extra: JSONObject.() -> Unit) {
+    private val version get() = try { app.packageManager.getPackageInfo(app.packageName, 0).versionName } catch (_: Exception) { "1" }
+
+    /**
+     * Déclare une entité (découverte MQTT). [category] suit la convention de Home Assistant :
+     * "config" pour un réglage de l'appareil, "diagnostic" pour une information technique,
+     * null pour ce qu'on utilise au quotidien (commandes, capteurs principaux).
+     */
+    private fun entity(component: String, key: String, name: String, icon: String?, category: String? = null, extra: JSONObject.() -> Unit) {
         val o = JSONObject()
             .put("name", name)
             .put("unique_id", "${id}_$key")
             .put("availability_topic", "$base/status")
             .put("device", device())
+            .put("origin", JSONObject().put("name", "TileHouse").put("sw_version", version).put("support_url", About.REPO_URL))
         if (icon != null) o.put("icon", icon)
+        if (category != null) o.put("entity_category", category)
         o.extra()
         client.publish("homeassistant/$component/$id/$key/config", o.toString(), retain = true)
     }
 
     private fun publishDiscovery() {
-        // Réglages
-        entity("select", "theme", tr("Thème"), "mdi:palette") {
-            put("state_topic", "$base/${sel("theme")}"); put("command_topic", "$base/theme/set")
-            put("options", JSONArray(listOf(tr("Aucun")) + Themes.all.map { it.name }))
-        }
-        entity("select", "fond", tr("Fond d'écran"), "mdi:image-filter-hdr") {
-            put("state_topic", "$base/${sel("fond")}"); put("command_topic", "$base/fond/set")
-            put("options", JSONArray(Wallpapers.names))
-        }
-        entity("number", "veille", tr("Veille après"), "mdi:timer-sand") {
-            put("state_topic", "$base/veille"); put("command_topic", "$base/veille/set")
-            put("min", 0); put("max", 60); put("step", 1); put("unit_of_measurement", "min"); put("mode", "slider")
-        }
+        fun JSONObject.state(key: String) = put("state_topic", "$base/$key")
+        fun JSONObject.command(key: String) = put("command_topic", "$base/$key/set")
+        fun JSONObject.both(key: String, stateKey: String = key) { state(stateKey); command(key) }
+
+        // ---- Commandes et capteurs du quotidien (sans catégorie)
         entity("number", "luminosite", tr("Luminosité de l'écran"), "mdi:brightness-6") {
-            put("state_topic", "$base/luminosite"); put("command_topic", "$base/luminosite/set")
-            put("min", 5); put("max", 100); put("step", 5); put("unit_of_measurement", "%"); put("mode", "slider")
+            both("luminosite"); put("min", 5); put("max", 100); put("step", 5); put("unit_of_measurement", "%"); put("mode", "slider")
         }
-        entity("select", "veille_style", tr("Écran de veille"), "mdi:sleep") {
-            put("state_topic", "$base/${sel("veille_style")}"); put("command_topic", "$base/veille_style/set")
-            put("options", JSONArray(listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir"))))
-        }
-        entity("switch", "sons", tr("Sons des notifications"), "mdi:volume-high") {
-            put("state_topic", "$base/sons"); put("command_topic", "$base/sons/set")
-        }
-        entity("switch", "heures_calmes", tr("Heures calmes"), "mdi:weather-night") {
-            put("state_topic", "$base/heures_calmes"); put("command_topic", "$base/heures_calmes/set")
-        }
-        entity("number", "veille_luminosite", tr("Luminosité en veille"), "mdi:brightness-4") {
-            put("state_topic", "$base/veille_luminosite"); put("command_topic", "$base/veille_luminosite/set")
-            put("min", 1); put("max", 60); put("step", 1); put("unit_of_measurement", "%"); put("mode", "slider")
-        }
-        entity("switch", "regrouper", tr("Regrouper par catégorie"), "mdi:format-list-group") {
-            put("state_topic", "$base/regrouper"); put("command_topic", "$base/regrouper/set"); put("entity_category", "config")
-        }
-        entity("switch", "horloge", tr("Afficher l'heure"), "mdi:clock-outline") {
-            put("state_topic", "$base/horloge"); put("command_topic", "$base/horloge/set"); put("entity_category", "config")
-        }
+        entity("switch", "ecran_veille", tr("Écran en veille"), "mdi:monitor-off") { both("ecran_veille") }
+        entity("button", "accueil", tr("Retour à l'accueil"), "mdi:home") { command("accueil") }
+        entity("notify", "message", "Message", "mdi:message-text") { command("message") }
+        entity("sensor", "ecran", tr("Écran affiché"), "mdi:view-dashboard") { state("ecran") }
         entity("sensor", "notifications_non_lues", tr("Notifications non lues"), "mdi:bell-badge") {
-            put("state_topic", "$base/notifications_non_lues"); put("state_class", "measurement")
+            state("notifications_non_lues"); put("state_class", "measurement")
         }
-        entity("number", "duree_notifications", tr("Durée des notifications"), "mdi:timer-outline") {
-            put("state_topic", "$base/duree_notifications"); put("command_topic", "$base/duree_notifications/set")
-            put("min", 5); put("max", 300); put("step", 5); put("unit_of_measurement", "s"); put("mode", "box"); put("entity_category", "config")
+
+        // ---- Réglages de l'appareil (catégorie « Configuration » dans Home Assistant)
+        entity("select", "skin", tr("Skin"), "mdi:brush-variant", "config") {
+            both("skin", sel("skin")); put("options", JSONArray(Skin.names))
         }
-        entity("switch", "afficher_batterie", tr("Afficher la batterie"), "mdi:battery-outline") {
-            put("state_topic", "$base/afficher_batterie"); put("command_topic", "$base/afficher_batterie/set"); put("entity_category", "config")
+        entity("select", "theme", tr("Thème"), "mdi:palette", "config") {
+            both("theme", sel("theme")); put("options", JSONArray(listOf(tr("Aucun")) + Themes.all.map { it.name }))
         }
-        // Commandes
-        entity("switch", "ecran_veille", tr("Écran en veille"), "mdi:monitor-off") {
-            put("state_topic", "$base/ecran_veille"); put("command_topic", "$base/ecran_veille/set")
+        entity("select", "fond", tr("Fond d'écran"), "mdi:image-filter-hdr", "config") {
+            both("fond", sel("fond")); put("options", JSONArray(Wallpapers.names))
         }
-        entity("button", "accueil", tr("Retour à l'accueil"), "mdi:home") {
-            put("command_topic", "$base/accueil/set")
+        entity("switch", "regrouper", tr("Regrouper par catégorie"), "mdi:format-list-group", "config") { both("regrouper") }
+        entity("switch", "horloge", tr("Afficher l'heure"), "mdi:clock-outline", "config") { both("horloge") }
+        entity("switch", "afficher_batterie", tr("Afficher la batterie"), "mdi:battery-outline", "config") { both("afficher_batterie") }
+        entity("number", "veille", tr("Veille après"), "mdi:timer-sand", "config") {
+            both("veille"); put("min", 0); put("max", 60); put("step", 1)
+            put("device_class", "duration"); put("unit_of_measurement", "min"); put("mode", "slider")
         }
-        entity("notify", "message", "Message", "mdi:message-text") {
-            put("command_topic", "$base/message/set")
+        entity("select", "veille_style", tr("Écran de veille"), "mdi:sleep", "config") {
+            both("veille_style", sel("veille_style")); put("options", JSONArray(listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir"))))
         }
-        entity("sensor", "ecran", tr("Écran affiché"), "mdi:view-dashboard") {
-            put("state_topic", "$base/ecran")
+        entity("number", "veille_luminosite", tr("Luminosité en veille"), "mdi:brightness-4", "config") {
+            both("veille_luminosite"); put("min", 1); put("max", 60); put("step", 1); put("unit_of_measurement", "%"); put("mode", "slider")
         }
-        // Batterie
-        entity("sensor", "batterie", tr("Batterie"), null) {
-            put("state_topic", "$base/batterie"); put("device_class", "battery"); put("unit_of_measurement", "%"); put("state_class", "measurement")
+        entity("switch", "sons", tr("Sons des notifications"), "mdi:volume-high", "config") { both("sons") }
+        entity("switch", "heures_calmes", tr("Heures calmes"), "mdi:weather-night", "config") { both("heures_calmes") }
+        entity("number", "duree_notifications", tr("Durée des notifications"), "mdi:timer-outline", "config") {
+            both("duree_notifications"); put("min", 5); put("max", 300); put("step", 5)
+            put("device_class", "duration"); put("unit_of_measurement", "s"); put("mode", "box")
         }
-        entity("binary_sensor", "en_charge", tr("En charge"), null) {
-            put("state_topic", "$base/en_charge"); put("device_class", "battery_charging")
+        entity("update", "update", "TileHouse", null, "config") {
+            both("update"); put("payload_install", "install"); put("device_class", "firmware")
         }
-        entity("sensor", "alimentation", tr("Alimentation"), "mdi:power-plug") {
-            put("state_topic", "$base/alimentation")
+
+        // ---- Informations techniques (catégorie « Diagnostic »)
+        entity("sensor", "batterie", tr("Batterie"), null, "diagnostic") {
+            state("batterie"); put("device_class", "battery"); put("unit_of_measurement", "%"); put("state_class", "measurement")
         }
-        // Diagnostic
-        entity("sensor", "temperature_batterie", tr("Température batterie"), null) {
-            put("state_topic", "$base/temperature_batterie"); put("device_class", "temperature"); put("unit_of_measurement", "°C")
-            put("state_class", "measurement"); put("entity_category", "diagnostic")
+        entity("binary_sensor", "en_charge", tr("En charge"), null, "diagnostic") {
+            state("en_charge"); put("device_class", "battery_charging")
         }
-        entity("sensor", "wifi", tr("Signal Wi-Fi"), null) {
-            put("state_topic", "$base/wifi"); put("device_class", "signal_strength"); put("unit_of_measurement", "dBm")
-            put("state_class", "measurement"); put("entity_category", "diagnostic")
+        entity("sensor", "alimentation", tr("Alimentation"), "mdi:power-plug", "diagnostic") {
+            state(sel("alimentation")); put("device_class", "enum"); put("options", JSONArray(plugCodes.map { plugName(it) }))
         }
-        entity("sensor", "ip", tr("Adresse IP"), "mdi:ip-network") {
-            put("state_topic", "$base/ip"); put("entity_category", "diagnostic")
+        entity("sensor", "temperature_batterie", tr("Température batterie"), null, "diagnostic") {
+            state("temperature_batterie"); put("device_class", "temperature"); put("unit_of_measurement", "°C"); put("state_class", "measurement")
         }
-        entity("update", "update", "TileHouse", null) {
-            put("state_topic", "$base/update"); put("command_topic", "$base/update/set"); put("payload_install", "install")
-            put("device_class", "firmware"); put("entity_category", "config")
+        entity("sensor", "wifi", tr("Signal Wi-Fi"), null, "diagnostic") {
+            state("wifi"); put("device_class", "signal_strength"); put("unit_of_measurement", "dBm"); put("state_class", "measurement")
         }
-        entity("sensor", "memoire", tr("Mémoire utilisée"), "mdi:memory") {
-            put("state_topic", "$base/memoire"); put("unit_of_measurement", "Mo"); put("state_class", "measurement"); put("entity_category", "diagnostic")
+        entity("sensor", "ip", tr("Adresse IP"), "mdi:ip-network", "diagnostic") { state("ip") }
+        entity("sensor", "memoire", tr("Mémoire utilisée"), "mdi:memory", "diagnostic") {
+            state("memoire"); put("device_class", "data_size"); put("unit_of_measurement", "MB"); put("state_class", "measurement")
         }
     }
 }

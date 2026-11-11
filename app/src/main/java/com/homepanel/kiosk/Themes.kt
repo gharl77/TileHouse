@@ -56,7 +56,7 @@ object Themes {
 
     /** Fond de l'écran : thème actif, sinon le fond d'écran choisi. */
     fun background(ctx: Context, cfg: ConfigStore): Drawable =
-        get(cfg.theme)?.let { ThemeDrawable(ctx, it) } ?: Wallpapers.drawable(cfg.wallpaper)
+        get(cfg.theme)?.let { ThemeDrawable(ctx, it) } ?: Wallpapers.skinned(cfg.wallpaper)
 
     /** Titre de l'accueil : vœu de fête, ou salutation + motif de saison. */
     fun greeting(cfg: ConfigStore, hour: Int): String {
@@ -67,8 +67,8 @@ object Themes {
 
 /** Dégradé + motifs semi-transparents, placés une fois pour toutes (pas d'animation). */
 private class ThemeDrawable(ctx: Context, private val theme: Themes.Theme) : Drawable() {
-    private val gradient = GradientDrawable(GradientDrawable.Orientation.TL_BR, theme.colors)
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = 46 }
+    private val gradient = GradientDrawable(GradientDrawable.Orientation.TL_BR, Skin.bgColors(theme.colors))
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = Skin.decorAlpha }
     private val density = ctx.resources.displayMetrics.density
     private class Item(val fx: Float, val fy: Float, val size: Float, val text: String)
     private val items: List<Item>

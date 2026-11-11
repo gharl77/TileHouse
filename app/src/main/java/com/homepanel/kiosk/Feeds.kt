@@ -30,6 +30,21 @@ object Feeds {
         App.instance.ha.http.newBuilder().readTimeout(20, TimeUnit.SECONDS).pingInterval(0, TimeUnit.SECONDS).build()
     }
     private const val TTL = 20 * 60_000L
+    private const val MAX_FEED = 3 * 1024 * 1024
+    private const val MAX_IMAGE = 6 * 1024 * 1024
+
+    /** Lit au plus [max] octets : un lien qui renvoie un fichier énorme ne doit pas remplir la mémoire. */
+    private fun limited(input: java.io.InputStream, max: Int): java.io.InputStream {
+        val out = java.io.ByteArrayOutputStream()
+        val buf = ByteArray(16 * 1024)
+        while (true) {
+            val n = input.read(buf)
+            if (n < 0) break
+            out.write(buf, 0, n)
+            if (out.size() > max) throw java.io.IOException("too large")
+        }
+        return java.io.ByteArrayInputStream(out.toByteArray())
+    }
 
     /** Dernière version connue (peut être vieille ou null). */
     fun cached(url: String): Feed? = cache[url]
@@ -46,19 +61,20 @@ object Feeds {
                 .header("Accept", "application/rss+xml, application/atom+xml, application/xml, text/xml, */*").build()
         } catch (_: Exception) { null }
         if (req == null) { finish(url, Feed(emptyList(), tr("Lien invalide"), System.currentTimeMillis())); return }
+        // Dernières nouvelles connues, lues ici (fil principal) : un flux en panne garde ses nouvelles.
+        val old = c?.items ?: emptyList()
         http.newCall(req).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
-                val old = cache[url]
-                main.post { finish(url, Feed(old?.items ?: emptyList(), e.message ?: tr("réseau"), System.currentTimeMillis())) }
+                main.post { finish(url, Feed(old, e.message ?: tr("réseau"), System.currentTimeMillis())) }
             }
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
                 val feed = response.use { r ->
-                    if (!r.isSuccessful) Feed(cache[url]?.items ?: emptyList(), "HTTP ${r.code}", System.currentTimeMillis())
+                    if (!r.isSuccessful) Feed(old, "HTTP ${r.code}", System.currentTimeMillis())
                     else try {
-                        val items = parse(r.body!!.byteStream())
+                        val items = parse(limited(r.body!!.byteStream(), MAX_FEED))
                         Feed(items, if (items.isEmpty()) tr("Aucune nouvelle dans ce flux") else null, System.currentTimeMillis())
                     } catch (e: Exception) {
-                        Feed(emptyList(), tr("Ce lien n'est pas un flux RSS ou Atom"), System.currentTimeMillis())
+                        Feed(old, tr("Ce lien n'est pas un flux RSS ou Atom"), System.currentTimeMillis())
                     }
                 }
                 main.post { finish(url, feed) }
@@ -194,7 +210,7 @@ object Feeds {
         http.newCall(req).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: java.io.IOException) { main.post { done(null) } }
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
-                val bytes = response.use { if (it.isSuccessful) it.body?.bytes() else null }
+                val bytes = try { response.use { if (it.isSuccessful) it.body?.byteStream()?.let { s -> limited(s, MAX_IMAGE).readBytes() } else null } } catch (_: Exception) { null }
                 val bmp = bytes?.let {
                     try {
                         val o = BitmapFactory.Options().apply { inJustDecodeBounds = true }

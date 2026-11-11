@@ -18,9 +18,27 @@ class App : Application() {
     /** Prévenus (thread principal) quand la configuration change depuis la page web. */
     val configListeners = ArrayList<() -> Unit>()
 
+    /**
+     * Filet de sécurité : une course connue d'OkHttp (écriture WebSocket pendant une fermeture) lève une
+     * NullPointerException dans son propre fil. Sans ceci, elle fermait toute l'application (un kiosque
+     * ne doit pas disparaître de l'écran). On l'ignore seulement dans ce cas précis ; la connexion se
+     * rétablit d'elle-même. Tout autre plantage suit le chemin normal.
+     */
+    private fun guardNetworkThreads() {
+        val previous = Thread.getDefaultUncaughtExceptionHandler()
+        val okThreads = okhttp3.OkHttpClient::class.java.name.removePrefix("okhttp3.").removeSuffix("Client") + " TaskRunner"
+        val okioBuffer = okio.Buffer::class.java.name
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            val libraryRace = t.name.startsWith(okThreads) && e is NullPointerException && e.stackTrace.firstOrNull()?.className == okioBuffer
+            if (libraryRace) android.util.Log.w("TileHouse", "OkHttp : écriture interrompue par une fermeture, ignorée", e)
+            else previous?.uncaughtException(t, e)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
+        guardNetworkThreads()
         config = ConfigStore(this)
         config.migrateSecrets()
         I18n.apply(config.language)
@@ -127,7 +145,7 @@ class App : Application() {
         if (wasEnglish != I18n.english && config.demo) { config.resetDemo(); catalog = null; ha.configureDemo() }
         for (l in configListeners.toList()) l()
         if (::alerts.isInitialized) alerts.rescan()
-        mqtt.publishAll()
+        mqtt.publishSettings()
     }
 
     override fun onTrimMemory(level: Int) {

@@ -37,6 +37,8 @@ object Wallpapers {
     val keys = listOf("nuit", "aube", "ocean", "foret", "graphite")
     val names get() = listOf(tr("Nuit"), tr("Aube"), tr("Océan"), tr("Forêt"), "Graphite")
 
+    fun colorsOf(key: String): IntArray = colors(key)
+
     private fun colors(key: String): IntArray = when (key) {
         "aube" -> intArrayOf(0xFF2E2440.toInt(), 0xFF5B3A55.toInt(), 0xFF8A5048.toInt())
         "ocean" -> intArrayOf(0xFF0F3A5F.toInt(), 0xFF0B2236.toInt(), 0xFF07121D.toInt())
@@ -46,12 +48,15 @@ object Wallpapers {
     }
 
     fun drawable(key: String) = GradientDrawable(GradientDrawable.Orientation.TL_BR, colors(key))
+
+    /** Fond de l'app selon la skin (Papier : papier clair teinté par le fond choisi). */
+    fun skinned(key: String) = GradientDrawable(GradientDrawable.Orientation.TL_BR, Skin.bgColors(colors(key)))
 }
 
-fun Context.label(size: Float, color: Int = Color.WHITE, bold: Boolean = false, text: String = "") = TextView(this).apply {
-    textSize = size
+fun Context.label(size: Float, color: Int = Skin.ink, bold: Boolean = false, text: String = "") = TextView(this).apply {
+    textSize = size * Skin.textScale
     setTextColor(color)
-    if (bold) typeface = Typeface.create("sans-serif", Typeface.BOLD)
+    if (bold) typeface = Skin.bold
     this.text = text
 }
 
@@ -68,8 +73,8 @@ fun Context.roundIcon(iconRes: Int, sizeDp: Int, bg: Int, tint: Int, onClick: ()
 
 fun Context.pill(text: String, selected: Boolean, onClick: () -> Unit) = TextView(this).apply {
     this.text = text
-    textSize = 15f
-    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    textSize = 15f * Skin.textScale
+    typeface = Skin.medium
     setPadding(dp(18), dp(9), dp(18), dp(9))
     stylePill(this, selected)
     setOnClickListener { onClick() }
@@ -77,11 +82,14 @@ fun Context.pill(text: String, selected: Boolean, onClick: () -> Unit) = TextVie
 }
 
 fun stylePill(tv: TextView, selected: Boolean) {
-    tv.background = roundRect(if (selected) WHITE_TILE else GLASS_LIGHT, tv.context.dpf(40))
-    tv.setTextColor(if (selected) 0xFF1C1C1E.toInt() else Color.WHITE)
+    val (bg, fg) = Skin.pill(tv.context, selected)
+    tv.background = bg
+    tv.setTextColor(fg)
 }
 
-/** Tuile d'accessoire dessinée à la main (aucune image, très légère). */
+private val GLOW = intArrayOf(0x14, 0x22, 0x40)
+
+/** Tuile d'accessoire dessinée à la main (aucune image, très légère). L'apparence vient de la skin ([TileLook]). */
 class TileView(ctx: Context) : View(ctx) {
     private var name = ""
     private var status = ""
@@ -92,19 +100,23 @@ class TileView(ctx: Context) : View(ctx) {
     private val bg = Paint(Paint.ANTI_ALIAS_FLAG)
     private val circle = Paint(Paint.ANTI_ALIAS_FLAG)
     private val namePaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = ctx.dpf(15); typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        textSize = ctx.dpf(Skin.nameSize); typeface = Skin.medium
     }
-    private val statusPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = ctx.dpf(13) }
+    private val stroke = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = ctx.dpf(1) }
+    private val statusPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { textSize = ctx.dpf(Skin.statusSize) }
     private val rect = RectF()
-    private val radius = ctx.dpf(18)
-    private val pad = ctx.dpf(14)
-    private val iconD = ctx.dpf(38)
+    private val inner = RectF()
+    private var look: TileLook? = null
+    private val radius = ctx.dpf(Skin.tileRadius)
+    private val pad = ctx.dpf(Skin.tilePad)
+    private val iconD = ctx.dpf(Skin.iconD)
     private val textGap = ctx.dpf(3)
 
     init { isClickable = true; isLongClickable = true }
 
     fun bind(name: String, status: String, active: Boolean, unavailable: Boolean, accent: Int, iconRes: Int) {
         this.name = name; this.status = status; this.active = active; this.accent = accent
+        look = Skin.tile(active, accent)
         tooltipText = name // nom complet au survol (souris) 
         if (iconRes != this.iconRes) {
             this.iconRes = iconRes
@@ -125,26 +137,38 @@ class TileView(ctx: Context) : View(ctx) {
         val w = width.toFloat()
         val h = height.toFloat()
         rect.set(0f, 0f, w, h)
-        bg.color = if (active) WHITE_TILE else GLASS
-        c.drawRoundRect(rect, radius, radius, bg)
-
         val cy = h / 2f
         val cx = pad + iconD / 2f
-        circle.color = if (active) accent else 0x2EFFFFFF
-        c.drawCircle(cx, cy, iconD / 2f, circle)
+        val tx = pad + iconD + context.dpf(12)
+        val k = look ?: return
+        // Fond, lueur intérieure, contour ou simple ligne : selon la skin (voir TileLook)
+        if (k.fill != 0) { bg.color = k.fill; c.drawRoundRect(rect, radius, radius, bg) }
+        if (k.glow != 0) for ((i, al) in GLOW.withIndex()) {
+            stroke.strokeWidth = context.dpf(6 - i * 2); stroke.color = (k.glow and 0x00FFFFFF) or (al shl 24)
+            inner.set(rect); inner.inset(context.dpf(3 - i), context.dpf(3 - i))
+            c.drawRoundRect(inner, radius, radius, stroke)
+        }
+        if (k.stroke != 0) {
+            stroke.strokeWidth = context.dpf(k.strokeDp); stroke.color = k.stroke
+            inner.set(rect); inner.inset(stroke.strokeWidth / 2, stroke.strokeWidth / 2)
+            c.drawRoundRect(inner, radius, radius, stroke)
+        }
+        if (k.underline != 0) {
+            stroke.strokeWidth = context.dpf(1); stroke.color = k.underline
+            c.drawLine(context.dpf(4), h - stroke.strokeWidth, w - context.dpf(4), h - stroke.strokeWidth, stroke)
+        }
+        if (k.iconCircle != 0) { circle.color = k.iconCircle; c.drawCircle(cx, cy, iconD / 2f, circle) }
         icon?.let {
-            val s = (iconD * 0.56f).toInt()
-            val l = (cx - s / 2f).toInt()
-            val t = (cy - s / 2f).toInt()
-            it.setBounds(l, t, l + s, t + s)
-            it.setTint(if (active) Color.WHITE else 0xE6FFFFFF.toInt())
+            val s = (iconD * k.iconScale).toInt()
+            it.setBounds((cx - s / 2f).toInt(), (cy - s / 2f).toInt(), (cx + s / 2f).toInt(), (cy + s / 2f).toInt())
+            it.setTint(k.iconTint)
             it.draw(c)
         }
-
-        val tx = pad + iconD + context.dpf(12)
-        val avail = max(0f, w - tx - pad)
-        namePaint.color = if (active) 0xFF1C1C1E.toInt() else Color.WHITE
-        statusPaint.color = if (active) 0xFF6E6E73.toInt() else 0xA6FFFFFF.toInt()
+        if (k.dot != 0) { circle.color = k.dot; c.drawCircle(w - pad, cy, context.dpf(4), circle) }
+        val avail = max(0f, w - tx - pad - if (k.dot != 0) context.dpf(14) else 0f)
+        k.nameFace?.let { namePaint.typeface = it }
+        namePaint.color = k.name
+        statusPaint.color = k.status
         val n = TextUtils.ellipsize(name, namePaint, avail, TextUtils.TruncateAt.END).toString()
         val s = TextUtils.ellipsize(status, statusPaint, avail, TextUtils.TruncateAt.END).toString()
         val nh = -namePaint.ascent()
@@ -172,9 +196,9 @@ class TileView(ctx: Context) : View(ctx) {
 
 /** Grille simple à colonnes automatiques selon la largeur. */
 class TileGrid(ctx: Context) : ViewGroup(ctx) {
-    private val minW = ctx.dp(210)
-    private val tileH = ctx.dp(74)
-    private val gap = ctx.dp(12)
+    private val minW = ctx.dp(Skin.tileMinW)
+    private val tileH = ctx.dp(Skin.tileH)
+    private val gap = ctx.dp(Skin.tileGap)
     private var cols = 1
     private var tileW = 0
 
@@ -202,17 +226,16 @@ class TileGrid(ctx: Context) : ViewGroup(ctx) {
 class VerticalSlider(ctx: Context) : View(ctx) {
     var value = 0f
         set(v) { field = v.coerceIn(0f, 100f); invalidate() }
-    var fillColor = Color.WHITE
-        set(v) { field = v; invalidate() }
     var onChange: ((Int) -> Unit)? = null
     var onRelease: ((Int) -> Unit)? = null
     var dragging = false
         private set
 
-    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x66808088 }
-    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_ATOP) }
+    private val track = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Skin.sliderTrack; xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN) }
+    private val mask = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
+    private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Skin.sliderFill; xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_IN) }
     private val rect = RectF()
-    private val radius = ctx.dpf(30)
+    private val radius = ctx.dpf(Skin.sliderRadius)
     private val slop = ctx.dpf(6)
     private var startY = 0f
     private var startV = 0f
@@ -221,9 +244,11 @@ class VerticalSlider(ctx: Context) : View(ctx) {
     override fun onDraw(c: Canvas) {
         rect.set(0f, 0f, width.toFloat(), height.toFloat())
         val sc = c.saveLayer(rect, null)
-        c.drawRoundRect(rect, radius, radius, track)
-        fill.color = fillColor
-        c.drawRect(0f, height * (1f - value / 100f), width.toFloat(), height.toFloat(), fill)
+        // Forme arrondie comme masque, puis le fond et le niveau peints dedans, chacun avec sa propre opacité.
+        c.drawRoundRect(rect, radius, radius, mask)
+        val level = height * (1f - value / 100f)
+        c.drawRect(0f, 0f, width.toFloat(), level, track)
+        c.drawRect(0f, level, width.toFloat(), height.toFloat(), fill)
         c.restoreToCount(sc)
     }
 
@@ -257,23 +282,22 @@ class VerticalSlider(ctx: Context) : View(ctx) {
 
 /** Pastille de l'en-tête (icône + texte). */
 fun Context.chipView(c: Present.Chip) = TextView(this).apply {
+    val (bg, fg) = Skin.chip(this@chipView, c.level)
     text = c.text
-    textSize = 15f
-    setTextColor(Color.WHITE)
-    typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    textSize = 15f * Skin.textScale
+    setTextColor(fg)
+    typeface = Skin.medium
     gravity = android.view.Gravity.CENTER_VERTICAL
     if (c.icon != 0) getDrawable(c.icon)?.mutate()?.let { d ->
-        val s = dp(if (c.iconTint != null) 22 else 18)
+        val s = dp((if (c.iconTint != null) 22 else 18) * Skin.textScale)
         d.setBounds(0, 0, s, s)
-        d.setTint(c.iconTint ?: Color.WHITE)
+        d.setTint(c.iconTint ?: fg)
         setCompoundDrawables(d, null, null, null)
     }
     compoundDrawablePadding = dp(6)
-    setPadding(dp(10), dp(6), dp(14), dp(6))
-    background = roundRect(
-        when (c.level) { 2 -> 0xE6FF3B30.toInt(); 1 -> 0xD9FF9F0A.toInt(); else -> GLASS_LIGHT },
-        dpf(40)
-    )
+    val k = Skin.textScale
+    setPadding(dp(10 * k), dp(6 * k), dp(14 * k), dp(6 * k))
+    background = bg
 }
 
 /** Disposition en lignes qui passent à la ligne suivante si nécessaire. */

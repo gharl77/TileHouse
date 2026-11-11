@@ -72,7 +72,7 @@ object KitchenTimers {
 /** Panneau des minuteries : choix rapide de la durée et minuteries en cours. */
 class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
     private val running = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-    private val customView = act.label(44f, Color.WHITE).apply { gravity = Gravity.CENTER; typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
+    private val customView = act.label(44f, Skin.ink).apply { gravity = Gravity.CENTER; typeface = Skin.light }
     private var customMin = 5
     private val onChange: () -> Unit = { if (showing) renderRunning() }
     val showing get() = visibility == View.VISIBLE
@@ -86,13 +86,13 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
 
         val panel = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply { setColor(0xF51C222D.toInt()); cornerRadius = act.dpf(26); setStroke(act.dp(1), 0x26FFFFFF) }
+            background = GradientDrawable().apply { setColor(Skin.panel); cornerRadius = act.dpf(26); setStroke(act.dp(1), Skin.fg(0x26)) }
             setPadding(act.dp(28), act.dp(22), act.dp(28), act.dp(24))
             isClickable = true
         }
         val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(act.label(26f, Color.WHITE, true, "⏱  " + tr("Minuteries")), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        head.addView(act.roundIcon(R.drawable.ic_close, 44, 0x1FFFFFFF, Color.WHITE) { hide() }.apply {
+        head.addView(act.label(26f, Skin.ink, true, "⏱  " + tr("Minuteries")), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        head.addView(act.roundIcon(R.drawable.ic_close, 44, Skin.fg(0x1F), Skin.ink) { hide() }.apply {
             layoutParams = LinearLayout.LayoutParams(act.dp(44), act.dp(44))
         })
         panel.addView(head)
@@ -111,18 +111,18 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
 
         // Durée personnalisée : − 5 min +, puis Démarrer
         val custom = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, act.dp(10), 0, act.dp(6)) }
-        custom.addView(act.roundIcon(R.drawable.ic_minus, 56, 0x24FFFFFF, Color.WHITE) { customMin = maxOf(1, customMin - if (customMin > 10) 5 else 1); renderCustom() })
+        custom.addView(act.roundIcon(R.drawable.ic_minus, 56, Skin.fg(0x24), Skin.ink) { customMin = maxOf(1, customMin - if (customMin > 10) 5 else 1); renderCustom() })
         custom.addView(customView, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        custom.addView(act.roundIcon(R.drawable.ic_plus, 56, 0x24FFFFFF, Color.WHITE) { customMin = minOf(240, customMin + if (customMin >= 10) 5 else 1); renderCustom() })
-        custom.addView(act.label(18f, 0xFF1C1C1E.toInt(), true, tr("Démarrer")).apply {
+        custom.addView(act.roundIcon(R.drawable.ic_plus, 56, Skin.fg(0x24), Skin.ink) { customMin = minOf(240, customMin + if (customMin >= 10) 5 else 1); renderCustom() })
+        custom.addView(act.label(18f, Skin.onPrimary, true, tr("Démarrer")).apply {
             gravity = Gravity.CENTER
-            background = roundRect(Ui.ACCENT, act.dpf(16))
+            background = roundRect(Skin.accent, act.dpf(16))
             setPadding(act.dp(26), act.dp(14), act.dp(26), act.dp(14))
             setOnClickListener { KitchenTimers.start(customMin) }
         }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = act.dp(12) })
         panel.addView(custom)
 
-        panel.addView(View(act).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(MATCH_PARENT, 1).apply { topMargin = act.dp(10) })
+        panel.addView(View(act).apply { setBackgroundColor(Skin.line) }, LinearLayout.LayoutParams(MATCH_PARENT, 1).apply { topMargin = act.dp(10) })
         panel.addView(ScrollView(act).apply { addView(running) }, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
 
         val dm = act.resources.displayMetrics
@@ -130,10 +130,10 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
         renderCustom()
     }
 
-    private fun chip(text: String, onClick: () -> Unit) = act.label(19f, Color.WHITE).apply {
+    private fun chip(text: String, onClick: () -> Unit) = act.label(19f, Skin.ink).apply {
         this.text = text; gravity = Gravity.CENTER
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        background = roundRect(0x24FFFFFF, act.dpf(16))
+        typeface = Skin.medium
+        background = roundRect(Skin.fg(0x24), act.dpf(16))
         setOnClickListener { onClick() }
     }
 
@@ -162,23 +162,23 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
         if (!built || rows.keys != list.map { it.id }.toSet()) {
             built = true
             running.removeAllViews(); rows.clear()
-            if (list.isEmpty()) running.addView(act.label(16f, Ui.MUTE, text = tr("Aucune minuterie en cours. Touchez une durée pour en démarrer une.")).apply {
+            if (list.isEmpty()) running.addView(act.label(16f, Skin.mute, text = tr("Aucune minuterie en cours. Touchez une durée pour en démarrer une.")).apply {
                 gravity = Gravity.CENTER; setPadding(0, act.dp(24), 0, act.dp(8))
             }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             for (t in list) {
-                val time = act.label(40f, Color.WHITE).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
+                val time = act.label(40f, Skin.ink).apply { typeface = Skin.light }
                 val r = LinearLayout(act).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(act.dp(18), act.dp(10), act.dp(12), act.dp(10))
-                    background = roundRect(0x14FFFFFF, act.dpf(18))
+                    background = roundRect(Skin.fg(0x14), act.dpf(18))
                 }
                 val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
                 col.addView(time)
-                col.addView(act.label(14f, Ui.MUTE, text = tr("Minuterie de") + " " + t.label))
+                col.addView(act.label(14f, Skin.mute, text = tr("Minuterie de") + " " + t.label))
                 r.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
                 r.addView(chip("+1 min") { KitchenTimers.add(t, 60_000L) }, LinearLayout.LayoutParams(act.dp(96), act.dp(52)).apply { marginEnd = act.dp(8) })
-                r.addView(act.roundIcon(if (t.paused) R.drawable.ic_play else R.drawable.ic_pause, 52, 0x24FFFFFF, Color.WHITE) { KitchenTimers.toggle(t); rows.clear(); renderRunning() })
-                r.addView(act.roundIcon(R.drawable.ic_close, 52, 0x40FF453A, Color.WHITE) { KitchenTimers.cancel(t) })
+                r.addView(act.roundIcon(if (t.paused) R.drawable.ic_play else R.drawable.ic_pause, 52, Skin.fg(0x24), Skin.ink) { KitchenTimers.toggle(t); rows.clear(); renderRunning() })
+                r.addView(act.roundIcon(R.drawable.ic_close, 52, 0x40FF453A, Skin.ink) { KitchenTimers.cancel(t) })
                 running.addView(r, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = act.dp(10) })
                 rows[t.id] = r to time
             }

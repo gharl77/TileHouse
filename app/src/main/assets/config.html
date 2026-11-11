@@ -90,14 +90,15 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   <svg class="logo" viewBox="0 0 130 130" aria-hidden="true"><rect width="130" height="130" rx="30" fill="#0F2E4A"/><path d="M36 46 L65 26 L94 46" fill="none" stroke="#F2F2F7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="56" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="56" width="26" height="26" rx="7" fill="#FFB300"/><rect x="36" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/></svg>
   <h1>TileHouse</h1>
   <span id="status" class="badge">…</span>
-  <span id="saved" class="saved"></span>
+  <span id="saved" class="saved" role="status" aria-live="polite"></span>
 </header>
-<nav class="tabs" id="tabs">
-  <button data-tab="rooms">Pièces</button>
-  <button data-tab="home">Accueil</button>
-  <button data-tab="display">Affichage</button>
-  <button data-tab="conn">Connexion et sécurité</button>
-  <button data-tab="about">À propos</button>
+<nav class="tabs" id="tabs" role="tablist" aria-label="Sections des réglages">
+  <button data-tab="rooms" role="tab">Pièces</button>
+  <button data-tab="home" role="tab">Accueil</button>
+  <button data-tab="display" role="tab">Affichage</button>
+  <button data-tab="sound" role="tab">Sons et alertes</button>
+  <button data-tab="conn" role="tab">Connexion et sécurité</button>
+  <button data-tab="about" role="tab">À propos</button>
 </nav>
 
 <!-- ============ Pièces ============ -->
@@ -110,6 +111,9 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <button id="addRoom">+ Ajouter une pièce</button>
       <button id="import">Importer les zones HA</button>
     </div>
+    <h2 style="margin-top:24px">Paliers</h2>
+    <p class="muted">Sur l'accueil, les pièces sont regroupées selon les paliers (étages) de Home Assistant, dans cet ordre. Glissez ⠿ pour le changer.</p>
+    <ul class="rooms" id="floorList"></ul>
   </section>
 
   <section class="card">
@@ -144,7 +148,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
 <!-- ============ Accueil ============ -->
 <main class="panel grid2" data-panel="home" hidden>
   <nav class="jump" style="grid-column:1/-1">
-    <button data-jump="g-top">En-tête</button><button data-jump="g-chips">Pastilles</button><button data-jump="g-cards">Météo et agenda</button><button data-jump="g-buttons">Raccourcis et pièces</button><button data-jump="g-morning">Ce matin</button>
+    <button data-jump="g-top">En-tête</button><button data-jump="g-chips">Pastilles</button><button data-jump="g-cards">Météo et agenda</button><button data-jump="g-buttons">Raccourcis</button><button data-jump="g-morning">Ce matin</button>
   </nav>
 
   <h3 class="group" id="g-top">En-tête de l'accueil</h3>
@@ -200,17 +204,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <div id="calList" class="muted">Connexion requise…</div>
   </section>
 
-  <h3 class="group" id="g-buttons">Raccourcis et pièces</h3>
-  <section class="card">
+  <h3 class="group" id="g-buttons">Raccourcis</h3>
+  <section class="card" style="grid-column:1/-1">
     <h2>▶️ Raccourcis</h2>
     <p class="muted">Scripts, scènes et boutons affichés en gros boutons sous les cartes, dans l'ordre où vous les cochez.</p>
     <input id="scQ" placeholder="Rechercher…">
     <ul class="ents pick" id="scList" style="max-height:260px"></ul>
-  </section>
-  <section class="card">
-    <h2>🏠 Paliers</h2>
-    <p class="muted">Les pièces sont regroupées selon les paliers (étages) de Home Assistant. Glissez ⠿ pour changer l'ordre.</p>
-    <ul class="rooms" id="floorList"></ul>
   </section>
 
   <h3 class="group" id="g-morning">Ce matin (icône ☀️)</h3>
@@ -239,24 +238,38 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <option value="fr">Français</option>
       <option value="en">English</option>
     </select>
+    <label class="f" for="skin">Skin (style d'affichage)</label>
+    <select id="skin"></select>
+    <p class="muted">La skin change la façon de dessiner l'accueil, les pièces et les fenêtres. HomeKit : tuiles en verre. Épuré : lignes fines et texte léger. Papier : papier clair et titres à empattements. Pastel : grandes cartes douces aux couleurs du thème. Néon : contours lumineux de la couleur du thème. Compact : plus d'appareils par ligne. Grand confort : très gros texte, 3 tuiles par ligne. Le thème et le fond d'écran restent respectés. Les réglages de la tablette ne changent pas.</p>
     <label class="f" for="theme">Thème de saison ou de fête</label>
     <select id="theme"></select>
     <p class="muted">Un thème remplace le fond d'écran et adapte la salutation de l'accueil. Choisissez « Aucun » pour revenir au fond habituel.</p>
     <label class="f" for="wallpaper">Fond d'écran</label>
     <select id="wallpaper"></select>
+  </section>
+  <section class="card">
+    <h2>Tableau de bord</h2>
     <label class="check"><input type="checkbox" id="group"> Regrouper les appareils par catégorie (Lumières, Climat…)</label>
     <label class="check"><input type="checkbox" id="clock"> Afficher l'heure et la date</label>
     <label class="check"><input type="checkbox" id="battery"> Afficher la batterie de la tablette à côté de l'heure</label>
   </section>
   <section class="card">
-    <h2>Mise en veille</h2>
-    <label class="f" for="dim">Assombrir l'écran après</label>
+    <h2>Écran</h2>
+    <label class="f" for="brightness">Luminosité</label>
+    <select id="brightness"><option value="-1">Celle de la tablette</option><option value="10">10 %</option><option value="20">20 %</option><option value="30">30 %</option><option value="40">40 %</option><option value="50">50 %</option><option value="60">60 %</option><option value="70">70 %</option><option value="80">80 %</option><option value="90">90 %</option><option value="100">100 %</option></select>
+    <label class="f" for="dim">Mise en veille après</label>
     <select id="dim">
       <option value="0">Jamais</option><option value="1">1 min</option><option value="2">2 min</option>
       <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option>
       <option value="30">30 min</option><option value="60">60 min</option>
     </select>
-    <label class="f" for="dimStyle">Écran de veille</label>
+    <label class="check" id="motionWakeRow"><input type="checkbox" id="motionWake"> Réveil par mouvement (caméra avant de la tablette)</label>
+    <p class="muted" id="motionWakeInfo" hidden></p>
+    <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
+  </section>
+  <section class="card">
+    <h2>Écran de veille</h2>
+    <label class="f" for="dimStyle">Affichage pendant la veille</label>
     <select id="dimStyle"><option value="clock">Heure et météo</option><option value="photos">Cadre photo</option><option value="black">Écran noir</option></select>
     <div id="photoRow">
       <div class="row">
@@ -274,10 +287,11 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <label class="f" for="dimBrightness">Luminosité en veille : <span id="dimBrightVal"></span> %</label>
       <input type="range" id="dimBrightness" min="1" max="60" step="1">
     </div>
-    <label class="check" id="motionWakeRow"><input type="checkbox" id="motionWake"> Réveil par mouvement (caméra avant de la tablette)</label>
-    <p class="muted" id="motionWakeInfo" hidden></p>
-    <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
   </section>
+</main>
+
+<!-- ============ Sons et alertes ============ -->
+<main class="panel grid2" data-panel="sound" hidden>
   <section class="card">
     <h2>Sons et heures calmes</h2>
     <label class="check"><input type="checkbox" id="soundsEnabled"> Sons des notifications (désactivé = silence en tout temps)</label>
@@ -311,7 +325,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   <section class="card">
     <h2>Home Assistant</h2>
     <label class="f" for="url">Adresse</label>
-    <input id="url" placeholder="http://192.168.1.10:8123" autocomplete="off">
+    <input id="url" type="url" inputmode="url" placeholder="http://192.168.1.10:8123" autocomplete="off">
     <label class="f" for="token">Jeton d'accès longue durée</label>
     <input id="token" type="password" placeholder="Coller le jeton ici" autocomplete="off">
     <p class="muted">Dans Home Assistant : votre profil (en bas à gauche) → onglet Sécurité → Jetons d'accès longue durée → Créer un jeton.</p>
@@ -323,7 +337,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <h2>Code PIN</h2>
     <p class="muted">Protège les réglages de la tablette et cette page.</p>
     <div class="row">
-      <input id="pin" type="password" inputmode="numeric" placeholder="Nouveau code (chiffres)" style="flex:1;width:auto">
+      <input id="pin" type="password" inputmode="numeric" autocomplete="new-password" aria-label="Nouveau code PIN" placeholder="Nouveau code (chiffres)" style="flex:1;width:auto">
       <button id="savePin">Changer</button>
     </div>
     <p class="muted" id="pinInfo"></p>
@@ -346,7 +360,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <label class="check"><input type="checkbox" id="mqttEnabled"> Activer MQTT</label>
     <div class="row">
       <div style="flex:3"><label class="f" for="mqttHost">Broker</label><input id="mqttHost" placeholder="192.168.1.10"></div>
-      <div style="flex:1"><label class="f" for="mqttPort">Port</label><input id="mqttPort" type="number" placeholder="1883"></div>
+      <div style="flex:1"><label class="f" for="mqttPort">Port</label><input id="mqttPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="1883"></div>
     </div>
     <label class="f" for="mqttUser">Utilisateur</label>
     <input id="mqttUser" autocomplete="off">
@@ -430,16 +444,18 @@ async function initI18n() {
 }
 
 function showTab(name) {
-  for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === name);
+  for (const b of document.querySelectorAll("#tabs button")) { b.classList.toggle("on", b.dataset.tab === name); b.setAttribute("aria-selected", b.dataset.tab === name); }
   for (const p of document.querySelectorAll(".panel")) p.hidden = p.dataset.panel !== name;
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
 let savedTab = "rooms";
 try { savedTab = localStorage.getItem("tab") || "rooms"; } catch (e) {}
-// Lien direct vers un onglet : #rooms, #home, #display, #conn (ou #rooms/2 pour la 3e pièce)
+// Lien direct vers un onglet : #rooms, #home, #display, #sound, #conn (ou #rooms/2 pour la 3e pièce)
 const HASH = location.hash.slice(1).split("/");
-if (["rooms", "home", "display", "conn", "about"].includes(HASH[0])) savedTab = HASH[0];
+const TABS = ["rooms", "home", "display", "sound", "conn", "about"];
+if (!TABS.includes(savedTab)) savedTab = "rooms";
+if (TABS.includes(HASH[0])) savedTab = HASH[0];
 showTab(savedTab);
 const TYPES = [
   [t("Tous les types"), []], [t("Caméras"), ["camera"]], [t("Lumières"), ["light"]], [t("Prises et interrupteurs"), ["switch", "input_boolean"]],
@@ -571,7 +587,7 @@ function renderAbout(a) {
 }
 
 
-// ---- Accueil : pointes, alertes météo, raccourcis, pastilles, carte du matin
+// ---- Accueil : pointes, alertes météo, raccourcis, pastilles, Ce matin
 const hmm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
 const mins = v => { const [a, b] = (v || "0:0").split(":").map(Number); return a * 60 + b; };
 let H = null, EX = null;
@@ -701,7 +717,7 @@ function renderSources() {
     const at = el("select", {});
     const fill = async () => {
       const list = await attrsOf(ent.value.trim());
-      at.replaceChildren(el("option", {value: "", textContent: t("État")}), ...list.filter(a => !a.feed).map(a => el("option", {value: a.name, textContent: a.name})));
+      at.replaceChildren(el("option", {value: "", textContent: t("État")}), ...list.map(a => el("option", {value: a.name, textContent: a.name})));
       if (s.attribute && !list.some(a => a.name === s.attribute)) at.append(el("option", {value: s.attribute, textContent: s.attribute}));
       at.value = s.attribute || "";
     };
@@ -742,7 +758,7 @@ async function loadSuggestions() {
   for (const [name, url] of FEEDS) add("📰 " + name, {type: "rss", title: name.replace(" · ", " — "), url, count: 8});
   // Textes de résumés générés dans Home Assistant (ex. sensor.resume_matinal) : chaque attribut texte
   const cands = EX.all.filter(e => e.id.startsWith("sensor.") && /resume|résumé|briefing|summary/i.test(e.id + " " + e.name)).slice(0, 10);
-  for (const c of cands) for (const a of await attrsOf(c.id)) if (!a.feed) add("📝 " + c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name});
+  for (const c of cands) for (const a of await attrsOf(c.id)) add("📝 " + c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name});
 }
 
 // ---- Mise à jour
@@ -921,6 +937,9 @@ function renderSettings() {
   const w = $("wallpaper");
   if (!w.options.length) for (const [k, n] of S.wallpapers) w.append(el("option", {value: k, textContent: n}));
   w.value = st.wallpaper;
+  const sk = $("skin");
+  if (!sk.options.length) for (const [k, n] of S.skins || []) sk.append(el("option", {value: k, textContent: n}));
+  sk.value = st.skin || "homekit";
   const th = $("theme");
   if (!th.options.length) {
     th.append(el("option", {value: "", textContent: t("Aucun")}));
@@ -960,6 +979,8 @@ function renderSettings() {
   $("alertSeconds").value = String(st.alertSeconds);
   $("alertTrigger").value = st.alertTrigger;
   $("doorbellAlert").checked = st.doorbellAlert;
+  $("brightness").value = String(st.brightness > 0 ? Math.min(100, Math.max(10, Math.round(st.brightness / 10) * 10)) : -1);
+  dependents();
   $("pinInfo").textContent = st.pinSet ? t("Un code PIN est défini. Laissez vide puis « Changer » pour le retirer.")
     : t("Aucun code : toute personne sur votre Wi-Fi peut ouvrir cette page. Un code est recommandé.");
 }
@@ -984,13 +1005,24 @@ async function saveSettings(data) {
 }
 $("wallpaper").onchange = () => saveSettings({wallpaper: $("wallpaper").value});
 $("theme").onchange = () => saveSettings({theme: $("theme").value});
+$("skin").onchange = () => saveSettings({skin: $("skin").value});
 $("language").onchange = async () => { await saveSettings({language: $("language").value}); location.reload(); };
 $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
 $("clock").onchange = () => saveSettings({clock: $("clock").checked});
 const toMin = v => { const [h, m] = v.split(":").map(Number); return h * 60 + m; };
 $("soundsEnabled").onchange = () => saveSettings({soundsEnabled: $("soundsEnabled").checked});
-$("quietEnabled").onchange = () => saveSettings({quietEnabled: $("quietEnabled").checked});
+// Un réglage qui dépend d'une case n'est modifiable que si elle est cochée (grisé sinon).
+function dependents() {
+  const dis = (ids, off) => { for (const id of ids) { $(id).disabled = off; const l = document.querySelector('label[for="' + id + '"]'); if (l) l.style.opacity = off ? .45 : ""; } };
+  dis(["quietStart", "quietEnd"], !$("quietEnabled").checked);
+  dis(["alertTrigger"], !$("personAlert").checked);
+  dis(["alertSeconds"], !$("personAlert").checked && !$("doorbellAlert").checked);
+  dis(["mqttHost", "mqttPort", "mqttUser", "mqttPass", "devName"], !$("mqttEnabled").checked);
+}
+$("mqttEnabled").addEventListener("change", dependents);
+$("brightness").onchange = () => saveSettings({brightness: +$("brightness").value});
+$("quietEnabled").onchange = () => { dependents(); saveSettings({quietEnabled: $("quietEnabled").checked}); };
 $("quietStart").onchange = () => saveSettings({quietStart: toMin($("quietStart").value)});
 $("quietEnd").onchange = () => saveSettings({quietEnd: toMin($("quietEnd").value)});
 $("photoSeconds").onchange = () => saveSettings({photoSeconds: +$("photoSeconds").value});
@@ -1030,8 +1062,8 @@ $("dimStyle").onchange = () => {
 $("dimBrightness").oninput = () => { $("dimBrightVal").textContent = $("dimBrightness").value; };
 $("dimBrightness").onchange = () => saveSettings({dimBrightness: +$("dimBrightness").value});
 $("motionWake").onchange = () => saveSettings({motionWake: $("motionWake").checked});
-$("personAlert").onchange = () => saveSettings({personAlert: $("personAlert").checked});
-$("doorbellAlert").onchange = () => saveSettings({doorbellAlert: $("doorbellAlert").checked});
+$("personAlert").onchange = () => { dependents(); saveSettings({personAlert: $("personAlert").checked}); };
+$("doorbellAlert").onchange = () => { dependents(); saveSettings({doorbellAlert: $("doorbellAlert").checked}); };
 $("alertTrigger").onchange = () => saveSettings({alertTrigger: $("alertTrigger").value});
 $("alertSeconds").onchange = () => saveSettings({alertSeconds: +$("alertSeconds").value});
 $("savePin").onclick = async () => {

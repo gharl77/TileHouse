@@ -110,16 +110,16 @@ object HomeText {
 
 /** Carte météo : conditions actuelles + prévisions sur 5 jours. */
 class WeatherCard(ctx: Context) : LinearLayout(ctx) {
-    private val emoji = ctx.label(46f, Color.WHITE)
-    private val temp = ctx.label(40f, Color.WHITE).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
-    private val cond = ctx.label(15f, 0xCCFFFFFF.toInt())
-    private val details = ctx.label(14f, 0xB3FFFFFF.toInt())
+    private val emoji = ctx.label(46f, Skin.ink)
+    private val temp = ctx.label(40f, Skin.ink).apply { typeface = Skin.light }
+    private val cond = ctx.label(15f, Skin.fg(0xCC))
+    private val details = ctx.label(14f, Skin.fg(0xB3))
     private val days = LinearLayout(ctx).apply { orientation = HORIZONTAL }
     private val dayFmt = SimpleDateFormat("EEE", I18n.locale)
 
     init {
         orientation = VERTICAL
-        background = roundRect(GLASS, ctx.dpf(22))
+        background = Skin.card(ctx, ctx.dpf(22))
         setPadding(ctx.dp(22), ctx.dp(18), ctx.dp(22), ctx.dp(18))
         val top = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(emoji, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = ctx.dp(14) })
@@ -155,11 +155,11 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
             // prévision peut déjà être celle de demain).
             val isToday = date != null && iso.format(date) == iso.format(Date())
             val dayName = if (isToday) tr("Auj.") else date?.let { dayFmt.format(it).replaceFirstChar { c -> c.uppercase() } } ?: ""
-            col.addView(context.label(13f, 0xB3FFFFFF.toInt(), text = dayName))
-            col.addView(context.label(22f, Color.WHITE, text = HomeText.emoji(f.str("condition"))))
+            col.addView(context.label(13f, Skin.fg(0xB3), text = dayName))
+            col.addView(context.label(22f, Skin.ink, text = HomeText.emoji(f.str("condition"))))
             val hi = f.dbl("temperature")?.let { Present.num(Math.round(it).toDouble()) + "°" } ?: ""
             val lo = f.dbl("templow")?.let { " / " + Present.num(Math.round(it).toDouble()) + "°" } ?: ""
-            col.addView(context.label(13f, Color.WHITE, text = hi + lo))
+            col.addView(context.label(13f, Skin.ink, text = hi + lo))
             days.addView(col, LayoutParams(0, WRAP_CONTENT, 1f))
         }
     }
@@ -175,17 +175,17 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
 
     init {
         orientation = VERTICAL
-        background = roundRect(GLASS, ctx.dpf(22))
+        background = Skin.card(ctx, ctx.dpf(22))
         setPadding(ctx.dp(22), ctx.dp(18), ctx.dp(22), ctx.dp(18))
-        addView(ctx.label(17f, Color.WHITE, true, tr("Agenda")))
+        addView(ctx.label(17f, Skin.ink, true, tr("Agenda")))
         addView(rows, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = ctx.dp(8) })
         setEvents(null)
     }
 
     fun setEvents(events: List<Event>?) {
         rows.removeAllViews()
-        if (events == null) { rows.addView(context.label(14f, 0xB3FFFFFF.toInt(), text = tr("Chargement…"))); return }
-        if (events.isEmpty()) { rows.addView(context.label(14f, 0xB3FFFFFF.toInt(), text = tr("Aucun événement ces prochains jours"))); return }
+        if (events == null) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Chargement…"))); return }
+        if (events.isEmpty()) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Aucun événement ces prochains jours"))); return }
         for (ev in events.take(6)) {
             val row = LinearLayout(context).apply {
                 orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -193,8 +193,8 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
             }
             row.addView(View(context).apply { background = oval(ev.color) }, LayoutParams(context.dp(10), context.dp(10)).apply { marginEnd = context.dp(12) })
             val col = LinearLayout(context).apply { orientation = VERTICAL }
-            col.addView(context.label(15f, Color.WHITE, text = ev.title).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
-            col.addView(context.label(13f, 0xB3FFFFFF.toInt(), text = whenText(ev)))
+            col.addView(context.label(15f, Skin.ink, text = ev.title).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
+            col.addView(context.label(13f, Skin.fg(0xB3), text = whenText(ev)))
             row.addView(col, LayoutParams(0, WRAP_CONTENT, 1f))
             rows.addView(row)
         }

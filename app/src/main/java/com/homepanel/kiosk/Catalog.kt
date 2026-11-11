@@ -86,7 +86,7 @@ object CatalogLoader {
                 val o = arr.getJSONObject(i)
                 val id = o.optString("entity_id")
                 val dom = id.substringBefore('.')
-                // Toutes les entités (nom + id) : pastilles personnalisées, sources de la carte du matin.
+                // Toutes les entités (nom + id) : pastilles personnalisées, sources de Ce matin.
                 val fname = o.optJSONObject("attributes")?.str("friendly_name")?.ifEmpty { id } ?: id
                 extras.getOrPut("all") { ArrayList() }.add(id to fname)
                 // Alertes météo (Environnement Canada : warnings, watches, advisory, statements)

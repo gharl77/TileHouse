@@ -113,6 +113,7 @@ class MainActivity : Activity(), HaClient.Listener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        Skin.load(cfg)
         buildUi()
     }
 
@@ -127,16 +128,16 @@ class MainActivity : Activity(), HaClient.Listener {
         val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.TOP }
         backBtn = ImageView(this).apply {
             setImageResource(R.drawable.ic_back)
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-            background = oval(GLASS_LIGHT)
+            imageTintList = android.content.res.ColorStateList.valueOf(Skin.ink)
+            background = oval(Skin.soft)
             setPadding(dp(8), dp(8), dp(10), dp(8))
             setOnClickListener { goHome() }
             visibility = View.GONE
         }
         header.addView(backBtn, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginEnd = dp(16); topMargin = dp(2) })
         val titles = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        titleView = label(34f, Color.WHITE, true)
-        subtitleView = label(16f, 0xCCFFFFFF.toInt())
+        titleView = label(34f, Skin.ink, true)
+        subtitleView = label(16f, Skin.fg(0xCC))
         chipsView = FlowLayout(this)
         titles.addView(titleView)
         titles.addView(subtitleView)
@@ -144,8 +145,8 @@ class MainActivity : Activity(), HaClient.Listener {
         header.addView(titles, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
 
         val clockBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
-        clockView = label(30f, Color.WHITE).apply { typeface = Typeface.create("sans-serif-light", Typeface.NORMAL) }
-        dateView = label(14f, 0xB3FFFFFF.toInt()).apply { gravity = Gravity.END }
+        clockView = label(30f, Skin.ink).apply { typeface = Skin.light }
+        dateView = label(14f, Skin.fg(0xB3)).apply { gravity = Gravity.END }
         // Heure, avec la batterie de la tablette à sa gauche (selon les réglages)
         batteryView = BatteryView(this)
         val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END }
@@ -155,9 +156,9 @@ class MainActivity : Activity(), HaClient.Listener {
             setPadding(dp(8), dp(4), dp(10), dp(4))
             addView(ImageView(context).apply {
                 setImageResource(R.drawable.ic_timer)
-                imageTintList = android.content.res.ColorStateList.valueOf(0xE6FFFFFF.toInt())
+                imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0xE6))
             }, LinearLayout.LayoutParams(dp(28), dp(28)))
-            timerText = label(17f, Color.WHITE, true).apply { setPadding(dp(6), 0, 0, 0); visibility = View.GONE }
+            timerText = label(17f, Skin.ink, true).apply { setPadding(dp(6), 0, 0, 0); visibility = View.GONE }
             addView(timerText)
             isClickable = true
             setOnClickListener { openTimers() }
@@ -175,14 +176,14 @@ class MainActivity : Activity(), HaClient.Listener {
 
         val menu = ImageView(this).apply {
             setImageResource(R.drawable.ic_more)
-            imageTintList = android.content.res.ColorStateList.valueOf(0xB3FFFFFF.toInt())
+            imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0xB3))
             setPadding(dp(10), dp(10), dp(10), dp(10))
             setOnClickListener { openSettings() }
         }
         header.addView(menu, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(12) })
         col.addView(header)
 
-        statusView = label(14f, Color.WHITE).apply {
+        statusView = label(14f, Skin.ink).apply {
             setPadding(dp(14), dp(6), dp(14), dp(6))
             visibility = View.GONE
         }
@@ -195,7 +196,7 @@ class MainActivity : Activity(), HaClient.Listener {
         root.addView(col, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         emptyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
-        emptyText = label(20f, Color.WHITE).apply { gravity = Gravity.CENTER }
+        emptyText = label(20f, Skin.ink).apply { gravity = Gravity.CENTER }
         emptyBox.addView(emptyText, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         emptyBox.addView(pill(tr("Ouvrir les réglages"), true) { openSettings() }.apply {
             (layoutParams as LinearLayout.LayoutParams).apply { topMargin = dp(20); marginEnd = 0 }
@@ -213,16 +214,21 @@ class MainActivity : Activity(), HaClient.Listener {
 
     /** Appelé quand la configuration change (page web, paliers HA). */
     private val onConfigChanged: () -> Unit = {
-        homeDataAt = 0L // météo/calendriers peuvent avoir changé : on recharge
-        if (!dimmed) applyBrightness() else { shownDimStyle = ""; updateDimScreen() }
-        updateMotion()
-        root.background = Themes.background(this, cfg)
-        rebuild()
-        updateStatus(app.ha.status)
+        // Nouvelle skin : on reconstruit tout l'écran avec le nouveau dessin (le nouvel écran fera le reste).
+        if (Skin.signatureOf(cfg) != Skin.signature) recreate()
+        else {
+            homeDataAt = 0L // météo/calendriers peuvent avoir changé : on recharge
+            if (!dimmed) applyBrightness() else { shownDimStyle = ""; updateDimScreen() }
+            updateMotion()
+            root.background = Themes.background(this, cfg)
+            rebuild()
+            updateStatus(app.ha.status)
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        if (Skin.signatureOf(cfg) != Skin.signature) { recreate(); return }
         hideSystemUi()
         root.background = Themes.background(this, cfg)
         app.ha.setEntities(cfg.allEntityIds())
@@ -276,6 +282,9 @@ class MainActivity : Activity(), HaClient.Listener {
         app.onNotice = null
         app.onNoticeCleared = null
         app.notices.listeners.remove(onNoticesChanged)
+        // Sans ceci, chaque écran reconstruit (changement de skin) restait en mémoire et recevait encore les minuteries.
+        KitchenTimers.listeners.remove(onTimers)
+        handler.removeCallbacks(headerUpdate)
         handler.removeCallbacks(tick)
         handler.removeCallbacks(snapshotTick)
         dialog?.dismiss()
@@ -308,6 +317,7 @@ class MainActivity : Activity(), HaClient.Listener {
     // ------------------------------------------------------------ navigation
 
     private fun rebuild() {
+        houseCache = null
         clockView.visibility = if (cfg.showClock) View.VISIBLE else View.GONE
         dateView.visibility = clockView.visibility
         batteryView.visibility = if (cfg.showBattery) View.VISIBLE else View.GONE
@@ -358,11 +368,14 @@ class MainActivity : Activity(), HaClient.Listener {
     // ------------------------------------------------------------ accueil
 
     /** Pièce virtuelle regroupant toutes les entités, pour la vue d'ensemble. */
-    private fun wholeHouse(): Room {
-        val r = Room("__home", tr("Maison"))
+    private val headerUpdate = Runnable { if (roomIndex == HOME) updateHomeHeader() }
+    private var houseCache: Room? = null
+
+    /** Toutes les entités de la maison, une seule fois chacune (recalculé quand la configuration change). */
+    private fun wholeHouse(): Room = houseCache ?: Room("__home", tr("Maison")).also { r ->
         val seen = HashSet<String>()
         for (room in cfg.rooms) for (e in room.entities) if (seen.add(e.id)) r.entities.add(e)
-        return r
+        houseCache = r
     }
 
     private fun showHome() {
@@ -410,7 +423,7 @@ class MainActivity : Activity(), HaClient.Listener {
     }
 
     private fun addFloorSection(title: String, indexes: List<Int>) {
-        content.addView(label(17f, 0xE6FFFFFF.toInt(), true, title).apply { setPadding(dp(2), dp(22), 0, dp(10)) })
+        content.addView(label(17f, Skin.fg(0xE6), true, title).apply { setPadding(dp(2), dp(22), 0, dp(10)) })
         val grid = TileGrid(this)
         for (i in indexes) {
             val t = TileView(this)
@@ -424,7 +437,7 @@ class MainActivity : Activity(), HaClient.Listener {
 
     /** Tuile de pièce sobre : icône de la pièce et son nom. */
     private fun bindRoomTile(t: TileView, room: Room) {
-        t.bind(room.name, "", false, false, 0xFFFFB300.toInt(), HomeText.roomIcon(room.name))
+        t.bind(room.name, "", false, false, Skin.accent, HomeText.roomIcon(room.name))
     }
 
     private fun updateHomeHeader() {
@@ -566,11 +579,11 @@ class MainActivity : Activity(), HaClient.Listener {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(30), dp(24), dp(30), dp(24))
-            background = roundRect(0xF21C1C1E.toInt(), dpf(22))
+            background = roundRect(Skin.panel, dpf(22))
         }
-        box.addView(label(22f, Color.WHITE, true, title).apply { setPadding(0, 0, 0, dp(12)) })
+        box.addView(label(22f, Skin.ink, true, title).apply { setPadding(0, 0, 0, dp(12)) })
         box.addView(ScrollView(this).apply {
-            addView(label(16f, 0xE6FFFFFF.toInt()).apply { text = body; setLineSpacing(0f, 1.15f) })
+            addView(label(16f, Skin.fg(0xE6)).apply { text = body; setLineSpacing(0f, 1.15f) })
         }, LinearLayout.LayoutParams(MATCH_PARENT, (resources.displayMetrics.heightPixels * 0.7f).toInt()))
         d.setContentView(box)
         d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
@@ -682,7 +695,7 @@ class MainActivity : Activity(), HaClient.Listener {
 
         for ((title, list) in groups) {
             if (title != null && (groups.size > 1 || cams.isNotEmpty())) {
-                content.addView(label(17f, 0xE6FFFFFF.toInt(), true, title).apply { setPadding(dp(2), dp(16), 0, dp(10)) })
+                content.addView(label(17f, Skin.fg(0xE6), true, title).apply { setPadding(dp(2), dp(16), 0, dp(10)) })
             }
             val grid = TileGrid(this)
             for (re in list) {
@@ -697,7 +710,7 @@ class MainActivity : Activity(), HaClient.Listener {
             content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(6) })
         }
         if (room.entities.isEmpty()) {
-            content.addView(label(16f, 0xB3FFFFFF.toInt(), text = tr("Cette pièce est vide. Ajoutez des appareils dans les réglages.")).apply { setPadding(0, dp(24), 0, 0) })
+            content.addView(label(16f, Skin.fg(0xB3), text = tr("Cette pièce est vide. Ajoutez des appareils dans les réglages.")).apply { setPadding(0, dp(24), 0, 0) })
         }
         updateChips(room)
     }
@@ -751,10 +764,10 @@ class MainActivity : Activity(), HaClient.Listener {
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(28), dp(22), dp(28), dp(22))
-            background = roundRect(0xF21C1C1E.toInt(), dpf(22))
+            background = roundRect(Skin.panel, dpf(22))
             minimumWidth = dp(460)
         }
-        box.addView(label(20f, Color.WHITE, true, room.name).apply { setPadding(0, 0, 0, dp(12)) })
+        box.addView(label(20f, Skin.ink, true, room.name).apply { setPadding(0, 0, 0, dp(12)) })
         val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         // Nom de la pièce d'origine, utile dans la vue d'ensemble
         val roomOf = HashMap<String, Room>()
@@ -765,7 +778,7 @@ class MainActivity : Activity(), HaClient.Listener {
         fun build() {
             rows.removeAllViews()
             if (list.isEmpty()) {
-                rows.addView(label(16f, 0xB3FFFFFF.toInt(), text = tr("Tout est fermé")).apply { setPadding(0, dp(8), 0, dp(8)) })
+                rows.addView(label(16f, Skin.fg(0xB3), text = tr("Tout est fermé")).apply { setPadding(0, dp(8), 0, dp(8)) })
                 return
             }
             for (re in list) {
@@ -780,15 +793,15 @@ class MainActivity : Activity(), HaClient.Listener {
                 }
                 row.addView(ImageView(this).apply {
                     setImageResource(Present.icon(re.id, e))
-                    imageTintList = android.content.res.ColorStateList.valueOf(if (on) Present.accent(e) else 0xB3FFFFFF.toInt())
+                    imageTintList = android.content.res.ColorStateList.valueOf(if (on) Present.accent(e) else Skin.fg(0xB3))
                 }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(14) })
                 val name = Present.displayName(re, e, src.name) + if (home) "  ·  ${src.name}" else ""
-                row.addView(label(16f, Color.WHITE, text = name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-                row.addView(label(16f, 0xCCFFFFFF.toInt(), text = Present.status(e)).apply { setPadding(dp(16), 0, 0, 0) })
+                row.addView(label(16f, Skin.ink, text = name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                row.addView(label(16f, Skin.fg(0xCC), text = Present.status(e)).apply { setPadding(dp(16), 0, 0, 0) })
                 val action = Present.quickAction(re.id, e)
                 if (action != null) {
-                    row.addView(label(15f, if (on) 0xFF1C1C1E.toInt() else Color.WHITE, true, action).apply {
-                        background = roundRect(if (on) 0xFFFFB300.toInt() else 0x33FFFFFF, dpf(16))
+                    row.addView(label(15f, if (on) Skin.onPrimary else Skin.ink, true, action).apply {
+                        background = roundRect(if (on) Skin.accent else Skin.fg(0x33), dpf(16))
                         setPadding(dp(14), dp(7), dp(14), dp(7))
                     }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(14) })
                     row.isClickable = true
@@ -837,7 +850,7 @@ class MainActivity : Activity(), HaClient.Listener {
         val e = app.ha.states[re.id]
         val status = when {
             e != null -> Present.status(e)
-            app.ha.status == HaClient.Status.CONNECTED -> "Introuvable"
+            app.ha.status == HaClient.Status.CONNECTED -> tr("Introuvable")
             else -> "…"
         }
         t.bind(Present.displayName(re, e, room.name), status, Present.active(e), Present.unavailable(e), Present.accent(e), Present.icon(re.id, e))
@@ -875,7 +888,9 @@ class MainActivity : Activity(), HaClient.Listener {
         if ((0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) updateMorningButton()
         if (roomIndex == HOME) {
             if (ids.contains(cfg.weatherEntity)) weatherCard?.update(app.ha.states[cfg.weatherEntity])
-            updateHomeHeader()
+            // Plusieurs capteurs changent souvent en rafale : un seul recalcul de l'en-tête pour le lot.
+            handler.removeCallbacks(headerUpdate)
+            handler.postDelayed(headerUpdate, 120)
             return
         }
         val room = cfg.rooms.getOrNull(roomIndex) ?: return

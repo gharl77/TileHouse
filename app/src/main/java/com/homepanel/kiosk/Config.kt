@@ -48,6 +48,10 @@ class ConfigStore(ctx: Context) {
     var wallpaper: String
         get() = p.getString("wallpaper", "nuit") ?: "nuit"
         set(v) = p.edit().putString("wallpaper", v).apply()
+    /** Skin : façon d'afficher l'app ("homekit", "epure", "papier"). */
+    var skin: String
+        get() = p.getString("skin", "homekit") ?: "homekit"
+        set(v) = p.edit().putString("skin", v).apply()
     /** Thème de fête/saison activé manuellement ("" = aucun, on garde le fond d'écran). */
     var theme: String
         get() = p.getString("theme", "") ?: ""
@@ -162,11 +166,11 @@ class ConfigStore(ctx: Context) {
         set(v) = p.edit().putString("shortcuts", v.joinToString(",")).apply()
     /** Pastilles personnalisées : [{entity, states:[..], text, color}] (JSON). */
     var customChips: JSONArray
-        get() = if (demo) JSONArray().put(JSONObject().put("entity", "input_select.washer").put("states", JSONArray().put(if (I18n.english) "To empty" else "À vider")).put("text", if (I18n.english) "🧺 Washer to empty" else "🧺 Laveuse à vider").put("color", "orange")) else try { JSONArray(p.getString("customChips", "[]")) } catch (_: Exception) { JSONArray() }
+        get() = if (demo) JSONArray().put(JSONObject().put("entity", "input_select.washer").put("states", JSONArray().put(if (I18n.english) "To empty" else "À vider")).put("text", if (I18n.english) "🧺 Washer to empty" else "🧺 Laveuse à vider").put("color", "orange")) else json("customChips")
         set(v) = p.edit().putString("customChips", v.toString()).apply()
-    /** Carte du matin : sources [{entity, attribute, title}] (JSON) et plage horaire (minutes). */
+    /** Ce matin : sources [{type:"rss", title, url, count} ou {entity, attribute, title}] (JSON) et plage horaire (minutes). */
     var morningSources: JSONArray
-        get() = if (demo) JSONArray().put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "weather").put("title", if (I18n.english) "Weather" else "Météo")).put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "commute").put("title", if (I18n.english) "Commute" else "Trajet")).put(JSONObject().put("type", "rss").put("url", "demo:news").put("count", 6).put("title", if (I18n.english) "Local news" else "Nouvelles locales")) else try { JSONArray(p.getString("morningSources", "[]")) } catch (_: Exception) { JSONArray() }
+        get() = if (demo) JSONArray().put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "weather").put("title", if (I18n.english) "Weather" else "Météo")).put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "commute").put("title", if (I18n.english) "Commute" else "Trajet")).put(JSONObject().put("type", "rss").put("url", "demo:news").put("count", 6).put("title", if (I18n.english) "Local news" else "Nouvelles locales")) else json("morningSources")
         set(v) = p.edit().putString("morningSources", v.toString()).apply()
     var morningStart: Int
         get() = if (demo) 0 else p.getInt("morningStart", 5 * 60)
@@ -240,6 +244,19 @@ class ConfigStore(ctx: Context) {
     var persons: List<String>
         get() = if (demo) demoPersons else csv("persons")
         set(v) { if (demo) demoPersons = v else p.edit().putString("persons", v.joinToString(",")).apply() }
+
+    /**
+     * Liste JSON d'un réglage, décodée une seule fois tant que le texte enregistré ne change pas
+     * (ces listes sont relues à chaque changement d'état d'une entité). À lire seulement, sans la modifier.
+     */
+    private val jsonCache = HashMap<String, Pair<String, JSONArray>>()
+    private fun json(k: String): JSONArray {
+        val raw = p.getString(k, "[]") ?: "[]"
+        jsonCache[k]?.let { if (it.first == raw) return it.second }
+        val arr = try { JSONArray(raw) } catch (_: Exception) { JSONArray() }
+        jsonCache[k] = raw to arr
+        return arr
+    }
 
     private fun csv(k: String) = (p.getString(k, "") ?: "").split(',').map { it.trim() }.filter { it.isNotEmpty() }
 
@@ -374,7 +391,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
+                .put("theme", theme).put("skin", skin).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
@@ -402,6 +419,7 @@ class ConfigStore(ctx: Context) {
         o.optJSONArray("rooms")?.let { val r = parseRooms(it); rooms.clear(); rooms.addAll(r); saveRooms() }
         o.optJSONObject("display")?.let { d ->
             if (d.has("theme")) theme = d.str("theme")
+            if (d.has("skin")) skin = d.str("skin")
             if (d.has("wallpaper")) wallpaper = d.str("wallpaper")
             if (d.has("dim")) dimMinutes = d.optInt("dim")
             if (d.has("motionWake")) motionWake = d.optBoolean("motionWake")
@@ -471,7 +489,7 @@ class ConfigStore(ctx: Context) {
         // Accueil : météo et personnes
         if (weatherEntity.isNotEmpty()) s.add(weatherEntity)
         s.addAll(persons)
-        // Accueil : alertes météo, raccourcis, pastilles personnalisées, carte du matin
+        // Accueil : alertes météo, raccourcis, pastilles personnalisées, Ce matin
         s.addAll(weatherAlerts)
         s.addAll(shortcuts)
         for (a in listOf(customChips, morningSources)) for (i in 0 until a.length()) a.optJSONObject(i)?.optString("entity")?.takeIf { it.isNotEmpty() }?.let { s.add(it) }

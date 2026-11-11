@@ -88,6 +88,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         roomsBox = Card(this)
         rooms.addView(roomsBox)
         rooms.addView(footnote(tr("Touchez une pièce pour choisir ses appareils. Glissez ≡ pour changer l'ordre.")))
+        rooms.addView(footnote(tr("L'ordre des paliers de l'accueil se règle dans la page web (onglet Pièces).")))
         rooms.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(14), 0, 0)
@@ -105,6 +106,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
             listOf(tr("Automatique"), "Français", "English"), langKeys.indexOf(cfg.language).coerceAtLeast(0)) {
             if (langKeys[it] != cfg.language) { cfg.language = langKeys[it]; app.notifyConfigChanged(); recreate() }
         }))
+        look.addRow(settingRow(R.drawable.ic_grid, Ui.GREEN, tr("Skin"), tr("Façon d'afficher l'accueil, les pièces et les fenêtres"), choice(
+            Skin.names, Skin.keys.indexOf(cfg.skin).coerceAtLeast(0)) { cfg.skin = Skin.keys[it]; app.notifyConfigChanged() }))
         val themeKeys = listOf("") + Themes.all.map { it.key }
         val themeNames = listOf(tr("Aucun")) + Themes.all.map { "${it.emoji}  ${it.name}" }
         look.addRow(settingRow(R.drawable.ic_star, Ui.ORANGE, tr("Thème"), tr("Saison ou fête, remplace le fond d'écran"), choice(
@@ -120,10 +123,15 @@ class SettingsActivity : Activity(), HaClient.Listener {
         board.addRow(settingRow(R.drawable.ic_bolt, Ui.GREEN, tr("Afficher la batterie"), tr("Niveau de la batterie de la tablette, à côté de l'heure"),
             toggle(cfg.showBattery) { cfg.showBattery = it; app.notifyConfigChanged() }))
 
-        // ================= Veille et sons
-        val sleep = section()
-        sleep.addView(groupLabel(tr("Mise en veille")))
-        val sleepCard = Card(this).also { sleep.addView(it) }
+        // ---- Écran : luminosité, mise en veille, écran de veille (toujours dans Affichage, comme sur Android)
+        display.addView(groupLabel(tr("Écran")))
+        val sleepCard = Card(this).also { display.addView(it) }
+        val brightChoices = listOf(-1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+        sleepCard.addRow(settingRow(R.drawable.ic_light, Ui.ORANGE, tr("Luminosité"), tr("Luminosité de l'écran quand la tablette est active"), choice(
+            brightChoices.map { if (it < 0) tr("Celle de la tablette") else "$it %" },
+            brightChoices.indexOfFirst { it >= cfg.brightness }.coerceAtLeast(0).let { if (cfg.brightness <= 0) 0 else it }) {
+            cfg.brightness = brightChoices[it]; app.notifyConfigChanged()
+        }))
         sleepCard.addRow(settingRow(R.drawable.ic_moon, Ui.GRAY, tr("Mise en veille"), tr("Assombrir après une période d'inactivité ; un toucher réveille l'écran"), choice(
             dimChoices.map { if (it == 0) tr("Jamais") else "$it min" }, dimChoices.indexOf(cfg.dimMinutes).coerceAtLeast(0)) {
             cfg.dimMinutes = dimChoices[it]; app.notifyConfigChanged()
@@ -137,8 +145,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
                 tr("La caméra avant détecte quelqu'un devant la tablette et empêche ou annule la mise en veille. Les images ne sont ni enregistrées ni envoyées."), motionToggle))
         }
 
-        sleep.addView(groupLabel(tr("Écran de veille")))
-        val saver = Card(this).also { sleep.addView(it) }
+        display.addView(groupLabel(tr("Écran de veille")))
+        val saver = Card(this).also { display.addView(it) }
         val styleKeys = listOf("clock", "photos", "black")
         saver.addRow(settingRow(R.drawable.ic_clock, Ui.BLUE, tr("Écran de veille"), trailing = choice(
             listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
@@ -150,7 +158,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         val photoChoices = listOf(10, 20, 30, 60, 120, 300)
         photoTimeRow = settingRow(R.drawable.ic_clock, Ui.PINK, tr("Changer de photo toutes les"), trailing = choice(
             photoChoices.map { if (it < 60) "$it s" else "${it / 60} min" }, photoChoices.indexOf(cfg.photoSeconds).let { if (it < 0) 2 else it }) {
-            cfg.photoSeconds = photoChoices[it]
+            cfg.photoSeconds = photoChoices[it]; app.notifyConfigChanged()
         })
         saver.addRow(photoTimeRow)
         val dimLevels = listOf(1, 3, 5, 10, 15, 20, 30, 40, 50)
@@ -160,26 +168,33 @@ class SettingsActivity : Activity(), HaClient.Listener {
         })
         saver.addRow(dimLevelRow)
         updatePhotoRow()
-        sleep.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (onglet Affichage).")))
+        display.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (onglet Affichage).")))
 
-        sleep.addView(groupLabel(tr("Sons et heures calmes")))
-        val sound = Card(this).also { sleep.addView(it) }
+
+        display.addView(footnote(tr("La météo, l'agenda, les personnes et les autres éléments de l'accueil se règlent dans la page web (onglet Accueil).")))
+
+        // ================= Sons et alertes
+        val alertsPage = section()
+        alertsPage.addView(groupLabel(tr("Sons et heures calmes")))
+        val sound = Card(this).also { alertsPage.addView(it) }
         sound.addRow(settingRow(R.drawable.ic_bell, Ui.ORANGE, tr("Sons des notifications"), tr("Désactivé : aucune notification ne fait de son, en tout temps"),
             toggle(cfg.soundsEnabled) { cfg.soundsEnabled = it; app.notifyConfigChanged() }))
         val hours = (0 until 48).map { it * 30 }
         fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
         sound.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Heures calmes"), tr("Pas de son (sauf alertes rouges) et écran de veille noir"),
-            toggle(cfg.quietEnabled) { cfg.quietEnabled = it; app.notifyConfigChanged() }))
-        sound.addRow(settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Début"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietStart).let { if (it < 0) 44 else it }) {
+            toggle(cfg.quietEnabled) { cfg.quietEnabled = it; app.notifyConfigChanged(); updateDependentRows() }))
+        quietStartRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Début"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietStart).let { if (it < 0) 44 else it }) {
             cfg.quietStart = hours[it]; app.notifyConfigChanged()
-        }))
-        sound.addRow(settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Fin"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietEnd).let { if (it < 0) 14 else it }) {
+        })
+        quietEndRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Fin"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietEnd).let { if (it < 0) 14 else it }) {
             cfg.quietEnd = hours[it]; app.notifyConfigChanged()
-        }))
-        sleep.addView(footnote(tr("Les minuteries sonnent toujours : vous les avez lancées vous-même.")))
+        })
+        sound.addRow(quietStartRow)
+        sound.addRow(quietEndRow)
+        alertsPage.addView(footnote(tr("Les minuteries sonnent toujours : vous les avez lancées vous-même.")))
 
-        sleep.addView(groupLabel(tr("Notifications")))
-        val notCard = Card(this).also { sleep.addView(it) }
+        alertsPage.addView(groupLabel(tr("Notifications")))
+        val notCard = Card(this).also { alertsPage.addView(it) }
         val noticeChoices = listOf(10, 15, 20, 30, 45, 60, 120, 300)
         notCard.addRow(settingRow(R.drawable.ic_bell, Ui.RED, tr("Durée des notifications"),
             tr("Temps d'affichage maximal. Sans OK, la notification reste non lue dans la clochette."), choice(
@@ -187,20 +202,22 @@ class SettingsActivity : Activity(), HaClient.Listener {
             cfg.noticeSeconds = noticeChoices[it]; app.notifyConfigChanged()
         }))
 
-        sleep.addView(groupLabel(tr("Alertes des caméras")))
-        val camCard = Card(this).also { sleep.addView(it) }
+        alertsPage.addView(groupLabel(tr("Alertes des caméras")))
+        val camCard = Card(this).also { alertsPage.addView(it) }
         val alertChoices = listOf(10, 20, 30, 60)
         camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.RED, tr("Alerte personne détectée"),
-            tr("Affiche le live de la caméra en plein écran quand elle détecte une personne"), toggle(cfg.personAlert) { cfg.personAlert = it }))
+            tr("Affiche le live de la caméra en plein écran quand elle détecte une personne"), toggle(cfg.personAlert) { cfg.personAlert = it; app.notifyConfigChanged(); updateDependentRows() }))
         val trigKeys = listOf("person", "motion")
-        camCard.addRow(settingRow(R.drawable.ic_monitor, Ui.PURPLE, tr("Déclencher sur"), trailing = choice(
-            listOf(tr("Personne seulement"), tr("Tout mouvement")), trigKeys.indexOf(cfg.alertTrigger).coerceAtLeast(0)) { cfg.alertTrigger = trigKeys[it] }))
+        alertTrigRow = settingRow(R.drawable.ic_monitor, Ui.PURPLE, tr("Déclencher sur"), trailing = choice(
+            listOf(tr("Personne seulement"), tr("Tout mouvement")), trigKeys.indexOf(cfg.alertTrigger).coerceAtLeast(0)) { cfg.alertTrigger = trigKeys[it]; app.notifyConfigChanged() })
+        camCard.addRow(alertTrigRow)
         camCard.addRow(settingRow(R.drawable.ic_door, Ui.BLUE, tr("Alerte sonnette"),
-            tr("Affiche le live de la sonnette quand quelqu'un sonne"), toggle(cfg.doorbellAlert) { cfg.doorbellAlert = it }))
-        camCard.addRow(settingRow(R.drawable.ic_clock, Ui.ORANGE, tr("Durée de l'alerte"), tr("Touchez l'écran pendant l'alerte pour garder le live ouvert"), choice(
-            alertChoices.map { "$it s" }, alertChoices.indexOf(cfg.alertSeconds).coerceAtLeast(1)) { cfg.alertSeconds = alertChoices[it] }))
+            tr("Affiche le live de la sonnette quand quelqu'un sonne"), toggle(cfg.doorbellAlert) { cfg.doorbellAlert = it; app.notifyConfigChanged(); updateDependentRows() }))
+        alertTimeRow = settingRow(R.drawable.ic_clock, Ui.ORANGE, tr("Durée de l'alerte"), tr("Touchez l'écran pendant l'alerte pour garder le live ouvert"), choice(
+            alertChoices.map { "$it s" }, alertChoices.indexOf(cfg.alertSeconds).coerceAtLeast(1)) { cfg.alertSeconds = alertChoices[it]; app.notifyConfigChanged() })
+        camCard.addRow(alertTimeRow)
+        updateDependentRows()
 
-        display.addView(footnote(tr("La météo, l'agenda, les personnes et l'ordre des paliers de l'accueil se règlent dans la page web (onglet Accueil).")))
 
         // ================= Connexion
         val conn = section()
@@ -299,8 +316,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
         aboutPage.addView(footnote(tr("Logiciel libre sous licence MIT. TileHouse n'est affilié ni à Apple ni à Home Assistant.")))
 
         // --- Assemblage : en-tête et onglets fixes, contenu défilant
-        val all = listOf(rooms, display, sleep, conn, kiosk, aboutPage)
-        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Affichage"), tr("Veille et sons"), tr("Connexion"), tr("Kiosque"), tr("À propos"))) { i ->
+        val all = listOf(rooms, display, alertsPage, conn, kiosk, aboutPage)
+        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Affichage"), tr("Sons et alertes"), tr("Connexion"), tr("Sécurité"), tr("À propos"))) { i ->
             pages.removeAllViews(); pages.addView(all[i])
             if (i == 5) updateMemory()
             scroll?.scrollTo(0, 0)
@@ -373,13 +390,25 @@ class SettingsActivity : Activity(), HaClient.Listener {
 
     private fun updateMqtt() {
         val st = app.mqtt.status
-        mqttRow.setSubtitle(cfg.deviceName + " · " + st)
+        mqttRow.setSubtitle((if (cfg.demo) tr("Tablette de la cuisine") else cfg.deviceName) + " · " + st)
     }
 
     private lateinit var photoRow: View
     private lateinit var photoTimeRow: View
 
     private lateinit var dimLevelRow: View
+    private lateinit var quietStartRow: View
+    private lateinit var quietEndRow: View
+    private lateinit var alertTrigRow: View
+    private lateinit var alertTimeRow: View
+
+    /** Un réglage qui dépend d'un interrupteur n'est montré que si cet interrupteur est activé. */
+    private fun updateDependentRows() {
+        quietStartRow.rowVisible(cfg.quietEnabled)
+        quietEndRow.rowVisible(cfg.quietEnabled)
+        alertTrigRow.rowVisible(cfg.personAlert)
+        alertTimeRow.rowVisible(cfg.personAlert || cfg.doorbellAlert)
+    }
 
     /** Lignes propres au cadre photo, et luminosité (inutile pour l'écran noir). */
     private fun updatePhotoRow() {

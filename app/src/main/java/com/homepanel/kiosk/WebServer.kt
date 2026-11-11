@@ -198,10 +198,12 @@ class WebServer(private val app: App) {
                 if (req.has("wallpaper")) cfg.wallpaper = req.str("wallpaper")
                 if (req.has("language")) cfg.language = req.str("language").let { if (it in setOf("auto", "fr", "en")) it else "auto" }
                 if (req.has("theme")) cfg.theme = req.str("theme").let { k -> if (Themes.get(k) != null) k else "" }
+                if (req.has("skin")) cfg.skin = req.str("skin").let { k -> if (k in Skin.keys) k else "homekit" }
                 if (req.has("dim")) cfg.dimMinutes = req.optInt("dim", 0).coerceIn(0, 240)
                 if (req.has("motionWake")) cfg.motionWake = req.optBoolean("motionWake")
                 if (req.has("dimStyle")) cfg.dimStyle = req.str("dimStyle")
                 if (req.has("dimBrightness")) cfg.dimBrightness = req.optInt("dimBrightness", 10)
+                if (req.has("brightness")) cfg.brightness = req.optInt("brightness", -1).let { if (it <= 0) -1 else it.coerceIn(5, 100) }
                 if (req.has("group")) cfg.groupByCategory = req.optBoolean("group")
                 if (req.has("clock")) cfg.showClock = req.optBoolean("clock")
                 if (req.has("battery")) cfg.showBattery = req.optBoolean("battery")
@@ -240,15 +242,18 @@ class WebServer(private val app: App) {
                 req.optJSONArray("floorOrder")?.let { a -> cfg.setFloorOrder((0 until a.length()).map { a.getString(it) }) }
                 if (subs || homeExtras) app.ha.setEntities(cfg.allEntityIds())
                 // MQTT : connexion au broker (le mot de passe n'est jamais renvoyé)
+                // En démo, ces champs affichent des valeurs d'exemple : on ne les enregistre pas par-dessus les vraies.
                 var mqttRestart = false
-                if (req.has("mqttEnabled")) { cfg.mqttEnabled = req.optBoolean("mqttEnabled"); mqttRestart = true }
-                if (req.has("mqttHost")) { cfg.mqttHost = req.str("mqttHost").trim(); mqttRestart = true }
-                if (req.has("mqttPort")) { cfg.mqttPort = req.optInt("mqttPort", 1883).coerceIn(1, 65535); mqttRestart = true }
-                if (req.has("mqttUser")) { cfg.mqttUser = req.str("mqttUser").trim(); mqttRestart = true }
-                if (req.str("mqttPass").isNotEmpty()) { cfg.mqttPass = req.str("mqttPass"); mqttRestart = true }
-                if (req.has("deviceName")) {
-                    val n = req.str("deviceName").trim().take(60)
-                    if (n.isNotEmpty() && n != cfg.deviceName) { cfg.deviceName = n; mqttRestart = true }
+                if (!cfg.demo) {
+                    if (req.has("mqttEnabled")) { cfg.mqttEnabled = req.optBoolean("mqttEnabled"); mqttRestart = true }
+                    if (req.has("mqttHost")) { cfg.mqttHost = req.str("mqttHost").trim(); mqttRestart = true }
+                    if (req.has("mqttPort")) { cfg.mqttPort = req.optInt("mqttPort", 1883).coerceIn(1, 65535); mqttRestart = true }
+                    if (req.has("mqttUser")) { cfg.mqttUser = req.str("mqttUser").trim(); mqttRestart = true }
+                    if (req.str("mqttPass").isNotEmpty()) { cfg.mqttPass = req.str("mqttPass"); mqttRestart = true }
+                    if (req.has("deviceName")) {
+                        val n = req.str("deviceName").trim().take(60)
+                        if (n.isNotEmpty() && n != cfg.deviceName) { cfg.deviceName = n; mqttRestart = true }
+                    }
                 }
                 if (mqttRestart) app.mqtt.restart()
                 app.notifyConfigChanged()
@@ -296,7 +301,7 @@ class WebServer(private val app: App) {
                     .put("first", first?.title ?: "").put("images", f.items.count { it.image != null }))
             }
             "POST /api/attrs" -> {
-                // Attributs d'une entité (carte du matin) : nom, type (texte ou flux) et aperçu.
+                // Attributs texte d'une entité (sources « texte » de Ce matin) : nom et aperçu.
                 val id = req.str("entity")
                 val cfg = app.config
                 if (id.isEmpty() || app.ha.demo) return ok(JSONObject().put("attributes", JSONArray()))
@@ -309,10 +314,8 @@ class WebServer(private val app: App) {
                     val a = JSONObject(text ?: "{}").optJSONObject("attributes") ?: JSONObject()
                     for (k in a.keys()) {
                         val v = a.opt(k)
-                        val feed = v is JSONArray && (v.optJSONObject(0)?.has("title") == true)
                         if (k in setOf("friendly_name", "icon", "attribution", "unit_of_measurement", "device_class", "state_class")) continue
-                        if (v is String && v.length >= 40 || feed)
-                            attrs.put(JSONObject().put("name", k).put("feed", feed).put("preview", if (feed) "" else (v as String).take(80)))
+                        if (v is String && v.length >= 40) attrs.put(JSONObject().put("name", k).put("preview", v.take(80)))
                     }
                 } catch (_: Exception) {}
                 ok(JSONObject().put("attributes", attrs))
@@ -367,15 +370,17 @@ class WebServer(private val app: App) {
             .put("rev", cfg.roomsRev)
             .put("mqtt", JSONObject()
                 .put("enabled", cfg.mqttEnabled)
-                .put("host", cfg.mqttHost)
+                // Démo : valeurs d'exemple, pour ne montrer ni l'adresse du serveur, ni le compte, ni le nom de l'appareil.
+                .put("host", if (cfg.demo) "192.168.1.10" else cfg.mqttHost)
                 .put("port", cfg.mqttPort)
-                .put("user", cfg.mqttUser)
+                .put("user", if (cfg.demo) "" else cfg.mqttUser)
                 .put("hasPass", cfg.mqttPass.isNotEmpty())
                 .put("connected", app.mqtt.client.connected)
                 .put("status", app.mqtt.status)
                 .put("deviceId", app.mqtt.id)
-                .put("name", cfg.deviceName))
+                .put("name", if (cfg.demo) tr("Tablette de la cuisine") else cfg.deviceName))
             .put("wallpapers", wp)
+            .put("skins", JSONArray().also { a -> Skin.keys.forEachIndexed { i, k -> a.put(JSONArray().put(k).put(Skin.names[i])) } })
             .put("themes", JSONArray().also { a -> for (t in Themes.all) a.put(JSONObject().put("key", t.key).put("name", t.name).put("group", t.group).put("emoji", t.emoji)) })
             .put("home", JSONObject()
                 .put("weather", cfg.weatherEntity)
@@ -391,11 +396,13 @@ class WebServer(private val app: App) {
             .put("settings", JSONObject()
                 .put("wallpaper", cfg.wallpaper)
                 .put("theme", cfg.theme)
+                .put("skin", cfg.skin)
                 .put("language", cfg.language)
                 .put("dim", cfg.dimMinutes)
                 .put("motionWake", cfg.motionWake)
                 .put("dimStyle", cfg.dimStyle)
                 .put("dimBrightness", cfg.dimBrightness)
+                .put("brightness", cfg.brightness)
                 .put("frontCamera", MotionWake.hasFrontCamera(app))
                 .put("cameraPermission", MotionWake.hasPermission(app))
                 .put("group", cfg.groupByCategory)

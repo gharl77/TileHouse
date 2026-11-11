@@ -140,7 +140,7 @@ class CameraTileView(ctx: Context) : View(ctx) {
     private val icon = ctx.getDrawable(R.drawable.ic_camera)?.mutate()?.apply { setTint(0x80FFFFFF.toInt()) }
     private val rect = RectF()
     private val m = Matrix()
-    private val radius = ctx.dpf(18)
+    private val radius = ctx.dpf(Skin.mediaRadius)
 
     init { isClickable = true }
 

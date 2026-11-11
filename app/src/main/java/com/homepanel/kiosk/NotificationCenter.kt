@@ -18,7 +18,7 @@ import android.widget.TextView
 
 /** Clochette de l'en-tête : icône + pastille rouge avec le nombre de notifications non lues. */
 class BellView(ctx: Context) : FrameLayout(ctx) {
-    private val badge = ctx.label(12f, Color.WHITE, true).apply {
+    private val badge = ctx.label(12f, Skin.ink, true).apply {
         gravity = Gravity.CENTER
         background = roundRect(0xFFFF3B30.toInt(), ctx.dpf(10))
         setPadding(ctx.dp(5), 0, ctx.dp(5), 0)
@@ -28,12 +28,12 @@ class BellView(ctx: Context) : FrameLayout(ctx) {
     init {
         addView(ImageView(ctx).apply {
             setImageResource(R.drawable.ic_bell)
-            imageTintList = ColorStateList.valueOf(0xE6FFFFFF.toInt())
+            imageTintList = ColorStateList.valueOf(Skin.fg(0xE6))
         }, LayoutParams(ctx.dp(30), ctx.dp(30), Gravity.CENTER))
         addView(badge, LayoutParams(WRAP_CONTENT, ctx.dp(20), Gravity.TOP or Gravity.END))
         setPadding(ctx.dp(6), ctx.dp(4), ctx.dp(4), ctx.dp(4))
         isClickable = true
-        background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(0x33FFFFFF), null, oval(Color.WHITE))
+        background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(Skin.fg(0x33)), null, oval(Skin.ink))
         visibility = View.GONE
     }
 
@@ -61,11 +61,11 @@ fun relativeTime(t: Long): String {
  */
 class NotificationCenter(private val act: MainActivity, private val store: NoticeStore, private val open: (StoredNotice) -> Unit) : FrameLayout(act) {
     private val list = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
-    private val countView = act.label(15f, Ui.MUTE)
+    private val countView = act.label(15f, Skin.mute)
     private val selectBtn = smallButton(tr("Sélectionner")) { selecting = !selecting; selected.clear(); render() }
     private val allBtn = smallButton(tr("Tout marquer comme lu")) { selecting = false; store.markAllRead() }
     private val footer = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, act.dp(14), 0, 0) }
-    private val markSel = act.label(17f, 0xFF1C1C1E.toInt(), true).apply {
+    private val markSel = act.label(17f, Skin.onPrimary, true).apply {
         gravity = Gravity.CENTER
         setPadding(act.dp(28), act.dp(12), act.dp(28), act.dp(12))
         setOnClickListener {
@@ -91,23 +91,23 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
 
         val panel = LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            background = GradientDrawable().apply { setColor(0xF51C222D.toInt()); cornerRadius = act.dpf(26); setStroke(act.dp(1), 0x26FFFFFF) }
+            background = GradientDrawable().apply { setColor(Skin.panel); cornerRadius = act.dpf(26); setStroke(act.dp(1), Skin.fg(0x26)) }
             setPadding(act.dp(26), act.dp(22), act.dp(26), act.dp(22))
             isClickable = true
         }
         val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         head.addView(LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            addView(act.label(26f, Color.WHITE, true, tr("Notifications")))
+            addView(act.label(26f, Skin.ink, true, tr("Notifications")))
             addView(countView)
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         head.addView(selectBtn)
         head.addView(allBtn, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = act.dp(10) })
-        head.addView(act.roundIcon(R.drawable.ic_close, 44, 0x1FFFFFFF, Color.WHITE) { hide() }.apply {
+        head.addView(act.roundIcon(R.drawable.ic_close, 44, Skin.fg(0x1F), Skin.ink) { hide() }.apply {
             layoutParams = LinearLayout.LayoutParams(act.dp(44), act.dp(44)).apply { marginStart = act.dp(12) }
         })
         panel.addView(head)
-        panel.addView(View(act).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(MATCH_PARENT, 1).apply { topMargin = act.dp(16) })
+        panel.addView(View(act).apply { setBackgroundColor(Skin.line) }, LinearLayout.LayoutParams(MATCH_PARENT, 1).apply { topMargin = act.dp(16) })
         panel.addView(ScrollView(act).apply { addView(list); isVerticalScrollBarEnabled = false },
             LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
         footer.addView(markSel)
@@ -117,10 +117,10 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         addView(panel, LayoutParams(minOf(dm.widthPixels - act.dp(64), act.dp(760)), (dm.heightPixels * 0.82f).toInt(), Gravity.CENTER))
     }
 
-    private fun smallButton(text: String, onClick: () -> Unit) = act.label(15f, Color.WHITE).apply {
+    private fun smallButton(text: String, onClick: () -> Unit) = act.label(15f, Skin.ink).apply {
         this.text = text
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        background = roundRect(0x24FFFFFF, act.dpf(18))
+        typeface = Skin.medium
+        background = roundRect(Skin.fg(0x24), act.dpf(18))
         setPadding(act.dp(16), act.dp(9), act.dp(16), act.dp(9))
         setOnClickListener { onClick() }
     }
@@ -158,7 +158,7 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         allBtn.visibility = if (items.isEmpty() || selecting) View.GONE else View.VISIBLE
         footer.visibility = if (selecting) View.VISIBLE else View.GONE
         markSel.text = tr("Marquer comme lu") + if (selected.isNotEmpty()) " (${selected.size})" else ""
-        markSel.background = roundRect(if (selected.isEmpty()) 0x33FFB300 else Ui.ACCENT, act.dpf(14))
+        markSel.background = roundRect(if (selected.isEmpty()) 0x33FFB300 else Skin.accent, act.dpf(14))
 
         list.removeAllViews()
         for (b in thumbs) b.recycle()
@@ -166,7 +166,7 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         if (items.isEmpty()) {
             // Tout est lu : le centre se ferme de lui-même un instant après.
             postDelayed({ if (showing && store.count == 0) hide() }, 1200)
-            list.addView(act.label(18f, Ui.MUTE, text = "🔔  " + tr("Tout est lu.")).apply {
+            list.addView(act.label(18f, Skin.mute, text = "🔔  " + tr("Tout est lu.")).apply {
                 gravity = Gravity.CENTER; setPadding(0, act.dp(60), 0, act.dp(60))
             }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             return
@@ -181,7 +181,7 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(act.dp(12), act.dp(12), act.dp(12), act.dp(12))
-            background = roundRect(if (sel) 0x33FFB300 else 0x0FFFFFFF, act.dpf(16))
+            background = roundRect(if (sel) 0x33FFB300 else Skin.fg(0x0F), act.dpf(16))
             isClickable = true
             setOnClickListener {
                 if (selecting) { if (!selected.remove(s.id)) selected.add(s.id); render() }
@@ -189,26 +189,26 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
             }
             setOnLongClickListener { if (!selecting) { selecting = true; selected.add(s.id); render() }; true }
         }
-        if (selecting) r.addView(act.label(20f, if (sel) 0xFF1C1C1E.toInt() else Color.TRANSPARENT, true, "✓").apply {
+        if (selecting) r.addView(act.label(20f, if (sel) Skin.onPrimary else Color.TRANSPARENT, true, "✓").apply {
             gravity = Gravity.CENTER
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                setColor(if (sel) Ui.ACCENT else Color.TRANSPARENT)
-                setStroke(act.dp(2), if (sel) Ui.ACCENT else 0x80FFFFFF.toInt())
+                setColor(if (sel) Skin.accent else Color.TRANSPARENT)
+                setStroke(act.dp(2), if (sel) Skin.accent else Skin.fg(0x80))
             }
         }, LinearLayout.LayoutParams(act.dp(30), act.dp(30)).apply { marginEnd = act.dp(14) })
-        r.addView(act.label(24f, Color.WHITE, text = n.icon).apply {
+        r.addView(act.label(24f, Skin.ink, text = n.icon).apply {
             gravity = Gravity.CENTER
             background = oval((n.color and 0x00FFFFFF) or 0x40000000)
         }, LinearLayout.LayoutParams(act.dp(50), act.dp(50)).apply { marginEnd = act.dp(14) })
         val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
         val top = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(act.label(17f, Color.WHITE, true, n.title.ifEmpty { tr("Notification") }).apply {
+        top.addView(act.label(17f, Skin.ink, true, n.title.ifEmpty { tr("Notification") }).apply {
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        top.addView(act.label(13.5f, Ui.MUTE, text = relativeTime(s.time)).apply { setPadding(act.dp(10), 0, 0, 0) })
+        top.addView(act.label(13.5f, Skin.mute, text = relativeTime(s.time)).apply { setPadding(act.dp(10), 0, 0, 0) })
         col.addView(top)
-        if (n.message.isNotEmpty()) col.addView(act.label(15f, 0xCCFFFFFF.toInt(), text = n.message).apply {
+        if (n.message.isNotEmpty()) col.addView(act.label(15f, Skin.fg(0xCC), text = n.message).apply {
             maxLines = 2; ellipsize = TextUtils.TruncateAt.END; setPadding(0, act.dp(3), 0, 0)
         })
         r.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))

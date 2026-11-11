@@ -43,6 +43,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
   - [Sleep, screen saver and sounds](#sleep-screen-saver-and-sounds)
   - [Header sensors](#header-sensors)
   - [Themes and wallpapers](#themes-and-wallpapers)
+  - [Skins](#skins)
   - [Web configuration page](#web-configuration-page)
   - [Tablet settings](#tablet-settings)
   - [The tablet as a Home Assistant device (MQTT)](#the-tablet-as-a-home-assistant-device-mqtt)
@@ -141,7 +142,7 @@ adb install TileHouse-<version>.apk
    enter your Home Assistant address (for example `http://homeassistant.local:8123`) and paste the token.
 3. **Add rooms.** Click **Import HA areas** to create one room per Home Assistant area with its main devices, or **+ Add a room** to build
    them by hand. Then pick devices from the list on the right.
-4. **Set up the home screen** (weather, calendars, people, floor order) in the **Home** tab.
+4. **Set up the home screen** (weather, calendars, people) in the **Home** tab, and the floor order in the **Rooms** tab.
 5. **Set a PIN** in **Connection & security** so nobody else on your network can change the configuration.
 
 Everything can also be done directly on the tablet, from the ⋮ menu in the top‑right corner.
@@ -439,6 +440,40 @@ decorations and a matching greeting. Themes are switched manually (from the tabl
 
 Nothing is animated, so themes cost nothing in battery or CPU.
 
+### Skins
+
+A skin changes **how everything is drawn**: tiles, chips, cards, control windows, notifications, timers and *This morning*.
+The structure stays the same, and so do the theme and wallpaper you chose. The tablet's settings screens are not affected.
+
+- **HomeKit** (default): glass tiles; a device that is on turns its tile white.
+- **Minimal**: no filled tiles, thin lines under each device, light typography; a device that is on gets a coloured icon and
+  a dot. Chips are outlined.
+- **Paper**: warm, light paper tinted by the theme or wallpaper, bordered white cards, serif titles and clock; a device that is
+  on turns butter yellow. Control windows sit on a sheet of paper.
+- **Pastel**: large, very rounded cards in soft tones taken from the theme's colour; a device that is on turns pastel with dark
+  text. Warning chips use soft orange and red.
+- **Neon**: a very dark background, outlined tiles and cards; a device that is on glows in the theme's colour (e.g. orange for
+  Halloween or Autumn). Monospaced clock and temperatures, easy to read in the evening.
+- **Compact**: the HomeKit look, smaller, with more devices per row (7 instead of 5 on a 10" tablet), for rooms with many devices.
+- **Large print**: the HomeKit look with very large, high-contrast text and 3 tiles per row, readable from across the room.
+
+Pastel and Neon follow the active theme (or wallpaper): changing it changes their colour.
+
+| Minimal | Paper |
+|---|---|
+| <img src="docs/screenshots/skin-epure.png" alt="Minimal skin"> | <img src="docs/screenshots/skin-papier.png" alt="Paper skin"> |
+
+| Pastel | Neon |
+|---|---|
+| <img src="docs/screenshots/skin-pastel.png" alt="Pastel skin"> | <img src="docs/screenshots/skin-neon.png" alt="Neon skin"> |
+
+| Compact | Large print |
+|---|---|
+| <img src="docs/screenshots/skin-compact.png" alt="Compact skin"> | <img src="docs/screenshots/skin-confort.png" alt="Large print skin"> |
+
+Choose it in the tablet's settings (*Display → Appearance*), on the web page (*Display*), or with the **Skin** select in
+Home Assistant (e.g. an automation that switches to Paper during the day).
+
 ### Web configuration page
 
 The tablet runs a small web server (port **8080**). Open the address shown in the settings from any browser on the same network.
@@ -447,14 +482,15 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
 
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
-  **Import HA areas** creates rooms from your areas automatically.
+  **Import HA areas** creates rooms from your areas automatically. Below the rooms, **Floors** sets the order of the floors the
+  home screen groups the rooms by.
 - **Home**: organised like the home screen, top to bottom, with quick links at the top: **Header** (who's home), **Chips**
-  (collections, electricity peaks, weather alerts, custom chips), **Weather and calendar** cards, **Shortcuts and rooms** (order
-  of floors) and **This morning** (time range and sources). For who's home, the people from the companion app and the per-person
+  (collections, electricity peaks, weather alerts, custom chips), **Weather and calendar** cards, **Shortcuts** and **This morning** (time range and sources). For who's home, the people from the companion app and the per-person
   presence sensors are listed side by side with the current selection on top; room detectors and tracked devices are folded
   under *Other sources*, with a search field.
-- **Display**: language, theme, wallpaper, dashboard options, sleep and screen saver (including the Immich photo frame), sounds and
-  quiet hours, notifications, and camera alerts.
+- **Display**: appearance (language, skin, theme, wallpaper), dashboard options, screen (brightness, sleep delay, wake on motion)
+  and screen saver (including the Immich photo frame).
+- **Sounds & alerts**: notification sounds and quiet hours, notification duration, and camera alerts.
 - **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
   Hover a device in the room editor to see its full name and ID.
@@ -477,20 +513,22 @@ The same options are available on the tablet itself (⋮ menu → settings), pro
 The **About** tab shows the version, GitHub links (repository, release notes, issues), the tablet and Android version, the
 Home Assistant version and connection, and memory use.
 
-Six tabs: **Rooms**, **Display** (language, theme, wallpaper, dashboard options), **Sleep & sounds** (sleep, screen saver,
-sounds and quiet hours, notifications, camera alerts), **Connection**, **Kiosk** and **About**.
+Six tabs, named and grouped like the web page: **Rooms**, **Display** (appearance, dashboard options, screen brightness and
+sleep, screen saver), **Sounds & alerts** (sounds and quiet hours, notifications, camera alerts), **Connection**, **Security**
+(web page, PIN, kiosk mode) and **About**. A setting that depends on a switch (quiet-hours times, alert trigger and duration)
+only shows when that switch is on; on the web page it is greyed out.
 
 | Rooms | Display |
 |---|---|
 | <img src="docs/screenshots/settings-rooms.png" alt="Settings — rooms"> | <img src="docs/screenshots/settings-display.png" alt="Settings — display"> |
 
-| Sleep & sounds | Connection |
+| Sounds & alerts | Connection |
 |---|---|
-| <img src="docs/screenshots/settings-sleep.png" alt="Settings — sleep and sounds"> | <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> |
+| <img src="docs/screenshots/settings-sleep.png" alt="Settings — sounds and alerts"> | <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> |
 
-| Kiosk | About |
+| Security | About |
 |---|---|
-| <img src="docs/screenshots/settings-kiosk.png" alt="Settings — kiosk"> | <img src="docs/screenshots/settings-about.png" alt="Settings — about"> |
+| <img src="docs/screenshots/settings-kiosk.png" alt="Settings — security"> | <img src="docs/screenshots/settings-about.png" alt="Settings — about"> |
 
 ### The tablet as a Home Assistant device (MQTT)
 
@@ -498,25 +536,31 @@ If you use MQTT (for example the **Mosquitto broker** add‑on), TileHouse regis
 integration or YAML needed: enter the broker address, user and password in the web page (*Connection & security → Tablet in Home
 Assistant*), and the device appears under *Settings → Devices & services → MQTT*. Its **Visit** link opens the web configuration page.
 
+The entities follow Home Assistant's conventions: what you use every day is shown first, the tablet's settings are under
+**Configuration** and technical information under **Diagnostic** on the device page.
+
 | Entity | Type | Use |
 |---|---|---|
-| Battery | sensor (%) | e.g. smart charging: turn a smart plug on below 30 %, off above 80 % |
-| Charging | binary sensor | |
-| Power source | sensor | AC / USB / battery |
-| Battery temperature | sensor (diagnostic) | |
-| Wi‑Fi signal, IP address, Memory used | sensors (diagnostic) | |
-| Screen shown | sensor | which screen/room is displayed |
-| Screen asleep | switch | turn the screen off/on (e.g. at night or when nobody is home) |
+| **Controls and sensors** | | |
 | Screen brightness | number (5–100 %) | |
-| Dim after | number (min) | |
-| Theme / Wallpaper | select | e.g. switch to the Christmas theme on December 1st |
-| Group by category, Show clock, Show battery | switches | |
-| Screen saver, Screen saver brightness | select, number | time and weather, photo frame or black screen; its brightness |
-| Unread notifications, Notification duration | sensor, number | number of unread notifications; how long a notification stays on screen |
-| Quiet hours, Notification sounds | switches | quiet hours on or off (e.g. on holidays); all notification sounds on or off |
+| Screen asleep | switch | turn the screen off/on (e.g. at night or when nobody is home) |
 | Back to home | button | |
 | Message | notify | show a notification card in the middle of the screen (`notify.send_message`, see [Notifications](#notifications)) |
+| Screen shown | sensor | which screen/room is displayed |
+| Unread notifications | sensor | number of unread notifications |
+| **Configuration** | | |
+| Skin / Theme / Wallpaper | selects | e.g. switch to the Christmas theme on December 1st |
+| Group by category, Show clock, Show battery | switches | |
+| Dim after | number (min) | |
+| Screen saver, Screen saver brightness | select, number | time and weather, photo frame or black screen; its brightness |
+| Notification sounds, Quiet hours | switches | all notification sounds on or off; quiet hours on or off (e.g. on holidays) |
+| Notification duration | number (s) | how long a notification stays on screen |
 | TileHouse | update | installed / latest version, **Install** button |
+| **Diagnostic** | | |
+| Battery | sensor (%) | e.g. smart charging: turn a smart plug on below 30 %, off above 80 % |
+| Charging | binary sensor | |
+| Power source | sensor (AC / USB / wireless / unplugged) | |
+| Battery temperature, Wi‑Fi signal, IP address, Memory used (MB) | sensors | |
 
 The device stays the same even if you reinstall the app or move your configuration to another tablet (its ID is kept in backups).
 
@@ -626,6 +670,13 @@ keyPassword=…
 then build with `./gradlew assembleRelease -Pdistribution`.
 
 The version is set in [`app/build.gradle.kts`](app/build.gradle.kts) (`appVersion`); the version code is derived from it.
+
+**Adding a skin**: write one `SkinDef` in [`Skin.kt`](app/src/main/java/com/homepanel/kiosk/Skin.kt) (colours, fonts, sizes,
+surfaces and the look of a tile, on or off) and add it to the list. The screens only read the current skin, so nothing else changes.
+
+**Testing on a tablet that is in use**: `tools/tablet-snapshot.sh save http://TABLET:8080 file.json` copies its configuration
+(without secrets) before you switch to demo mode, another language or another skin, and `… restore …` puts it back and checks
+the result.
 
 ---
 

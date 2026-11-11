@@ -219,7 +219,10 @@ class HaClient {
     private fun disconnect() {
         gen++
         main.removeCallbacks(reconnectRunnable)
-        ws?.cancel()
+        // Fermeture propre (trame de fermeture), pas cancel() : couper la connexion pendant qu'OkHttp écrit
+        // dessus pouvait faire planter son fil d'écriture, et l'app avec lui. Les rappels de cette ancienne
+        // connexion sont ignorés (gen a changé) ; sans réponse du serveur, OkHttp la ferme lui-même après 60 s.
+        try { ws?.close(1000, null) } catch (_: Exception) {}
         ws = null
         subscriptionId = -1
         failPending()

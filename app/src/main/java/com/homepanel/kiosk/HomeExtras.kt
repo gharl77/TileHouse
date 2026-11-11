@@ -93,24 +93,15 @@ object HomeExtras {
         return out
     }
 
-    // ------------------------------------------------------------ carte du matin
+    // ------------------------------------------------------------ Ce matin
 
-    /** Texte d'une source : attribut ou état ; un flux (attribut « entries ») donne la liste des titres. */
+    /** Texte d'une source « entité » : son état, ou un de ses attributs texte (les nouvelles viennent des flux, voir [Feeds]). */
     fun sourceText(src: org.json.JSONObject, states: Map<String, EntityState>): String? {
         val e = states[src.optString("entity")] ?: return null
         val attr = src.optString("attribute")
-        if (attr.isEmpty()) {
-            (e.attrs.opt("entries") as? JSONArray)?.let { return feed(it) }
-            return e.state.takeIf { it != "unknown" && it != "unavailable" }
-        }
-        val v = e.attrs.opt(attr) ?: return null
-        if (v is JSONArray) return feed(v)
-        return v.toString().takeIf { it.isNotBlank() }
+        if (attr.isEmpty()) return e.state.takeIf { it != "unknown" && it != "unavailable" }
+        return (e.attrs.opt(attr) as? String)?.takeIf { it.isNotBlank() }
     }
-
-    private fun feed(a: JSONArray): String = (0 until minOf(6, a.length())).mapNotNull { i ->
-        a.optJSONObject(i)?.optString("title")?.takeIf { it.isNotBlank() }?.let { "- **$it**" }
-    }.joinToString("\n")
 
     /** Markdown simple (titres, gras, liens, puces) vers du texte mis en forme. Les liens restent du texte (kiosque). */
     fun markdown(md: String): CharSequence {
@@ -135,12 +126,12 @@ object HomeExtras {
         init {
             addView(android.widget.ImageView(ctx).apply {
                 setImageResource(R.drawable.ic_morning)
-                imageTintList = android.content.res.ColorStateList.valueOf(0xE6FFFFFF.toInt())
+                imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0xE6))
             }, LayoutParams(ctx.dp(30), ctx.dp(30), Gravity.CENTER))
             addView(dot, LayoutParams(ctx.dp(11), ctx.dp(11), Gravity.TOP or Gravity.END))
             setPadding(ctx.dp(6), ctx.dp(4), ctx.dp(4), ctx.dp(4))
             isClickable = true
-            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33FFFFFF), null, oval(Color.WHITE))
+            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Skin.fg(0x33)), null, oval(Skin.ink))
             contentDescription = tr("Ce matin")
             visibility = View.GONE
         }
@@ -168,17 +159,17 @@ object HomeExtras {
     // ------------------------------------------------------------ raccourcis
 
     /** Bouton de raccourci : icône + nom (script, scène, bouton). */
-    fun shortcut(ctx: Context, id: String, e: EntityState?, onTap: (TextView) -> Unit): TextView = ctx.label(16f, Color.WHITE).apply {
+    fun shortcut(ctx: Context, id: String, e: EntityState?, onTap: (TextView) -> Unit): TextView = ctx.label(16f, Skin.ink).apply {
         text = e?.name ?: id.substringAfter('.').replace('_', ' ')
-        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        typeface = Skin.medium
         gravity = Gravity.CENTER_VERTICAL
         maxLines = 1; ellipsize = TextUtils.TruncateAt.END
         ctx.getDrawable(Present.icon(id, e))?.mutate()?.let { d ->
-            val s = ctx.dp(20); d.setBounds(0, 0, s, s); d.setTint(Color.WHITE); setCompoundDrawables(d, null, null, null)
+            val s = ctx.dp(20); d.setBounds(0, 0, s, s); d.setTint(Skin.ink); setCompoundDrawables(d, null, null, null)
         }
         compoundDrawablePadding = ctx.dp(10)
         setPadding(ctx.dp(18), ctx.dp(14), ctx.dp(22), ctx.dp(14))
-        background = roundRect(GLASS, ctx.dpf(18))
+        background = Skin.card(ctx, ctx.dpf(18))
         isClickable = true
         setOnClickListener { onTap(this) }
     }

@@ -114,8 +114,8 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         val frame = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable().apply {
-                setColor(0xF2202733.toInt()); cornerRadius = ctx.dpf(28)
-                setStroke(ctx.dp(1), 0x26FFFFFF)
+                setColor(Skin.panel); cornerRadius = ctx.dpf(28)
+                setStroke(ctx.dp(1), Skin.fg(0x26))
             }
             isClickable = true // ne ferme pas en touchant l'encadré lui-même
             clipToOutline = true
@@ -127,14 +127,14 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         }
         frame.addView(card, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         // Pastille d'icône colorée
-        card.addView(ctx.label(40f, Color.WHITE, text = n.icon).apply {
+        card.addView(ctx.label(40f, Skin.ink, text = n.icon).apply {
             gravity = Gravity.CENTER
             background = oval((n.color and 0x00FFFFFF) or 0x33000000)
         }, LinearLayout.LayoutParams(ctx.dp(84), ctx.dp(84)).apply { bottomMargin = ctx.dp(16) })
-        if (n.title.isNotEmpty()) card.addView(ctx.label(28f, Color.WHITE, true, n.title).apply {
+        if (n.title.isNotEmpty()) card.addView(ctx.label(28f, Skin.ink, true, n.title).apply {
             gravity = Gravity.CENTER
         }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { bottomMargin = ctx.dp(8) })
-        if (n.message.isNotEmpty()) card.addView(ctx.label(20f, 0xE6FFFFFF.toInt(), text = n.message).apply {
+        if (n.message.isNotEmpty()) card.addView(ctx.label(20f, Skin.fg(0xE6), text = n.message).apply {
             gravity = Gravity.CENTER
             setLineSpacing(0f, 1.15f)
         })
@@ -165,13 +165,13 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         }
         // Boutons d'action (ex. « Verrouiller »), puis OK
         val buttons = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        for (a in n.actions) buttons.addView(ctx.label(17f, Color.WHITE, true, a.optString("title")).apply {
+        for (a in n.actions) buttons.addView(ctx.label(17f, Skin.ink, true, a.optString("title")).apply {
             gravity = Gravity.CENTER
-            background = roundRect(0x33FFFFFF, ctx.dpf(14))
+            background = roundRect(Skin.fg(0x33), ctx.dpf(14))
             setPadding(ctx.dp(26), ctx.dp(12), ctx.dp(26), ctx.dp(12))
             setOnClickListener { runAction(a) }
         }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = ctx.dp(12) })
-        buttons.addView(ctx.label(18f, 0xFF1C1C1E.toInt(), true, "OK").apply {
+        buttons.addView(ctx.label(18f, Skin.onPrimary, true, "OK").apply {
             gravity = Gravity.CENTER
             background = roundRect(n.color, ctx.dpf(14))
             setPadding(ctx.dp(48), ctx.dp(12), ctx.dp(48), ctx.dp(12))
@@ -180,7 +180,7 @@ class NotificationCard(private val act: MainActivity) : FrameLayout(act) {
         card.addView(buttons, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = ctx.dp(24); bottomMargin = ctx.dp(24) })
         // Barre de temps restant, collée au bas de l'encadré
         if (seconds > 0) {
-            val track = FrameLayout(ctx).apply { setBackgroundColor(0x1AFFFFFF) }
+            val track = FrameLayout(ctx).apply { setBackgroundColor(Skin.fg(0x1A)) }
             val b = View(ctx).apply { setBackgroundColor(n.color); pivotX = 0f }
             track.addView(b, LayoutParams(MATCH_PARENT, MATCH_PARENT))
             frame.addView(track, LinearLayout.LayoutParams(MATCH_PARENT, ctx.dp(5)))

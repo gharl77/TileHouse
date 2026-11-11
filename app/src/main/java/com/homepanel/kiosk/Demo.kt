@@ -198,7 +198,7 @@ object Demo {
         st("calendar.school", "off", n("École", "School")),
         st("calendar.holidays", "off", n("Jours fériés", "Holidays")),
         st("calendar.collection", "off", n("Collectes", "Collections")),
-        // Accueil : pointes, alerte météo, raccourcis, pastille personnalisée, carte du matin
+        // Accueil : pointes, alerte météo, raccourcis, pastille personnalisée, Ce matin
         st("calendar.peaks", "off", n("Pointes d'électricité", "Electricity peaks")),
         st("sensor.weather_advisories", "1", n("Avis météo", "Weather advisories"),
             "alert_1" to n("Avis de pluie verglaçante : chaussées glissantes ce soir.", "Freezing rain advisory: slippery roads this evening.")),
@@ -208,10 +208,6 @@ object Demo {
             "weather" to n("Nuageux, max **12 °C**, averses en fin de journée.\n\n☂️ **À prévoir** : un parapluie pour le retour.",
                 "Cloudy, high of **12 °C**, showers late in the day.\n\n☂️ **Plan for**: an umbrella for the trip home."),
             "commute" to n("Environ 25 minutes jusqu'au bureau. Aucun ralentissement signalé.", "About 25 minutes to the office. No slowdowns reported.")),
-        st("sensor.local_news", "5", n("Nouvelles locales", "Local news"), "entries" to listOf(
-            mapOf("title" to n("Le marché fermier ouvre samedi", "Farmers' market opens on Saturday")),
-            mapOf("title" to n("Travaux sur la rue Principale cette semaine", "Main Street roadwork this week")),
-            mapOf("title" to n("La bibliothèque prolonge ses heures", "Library extends its opening hours")))),
     )
 
     // ------------------------------------------------------------ actions

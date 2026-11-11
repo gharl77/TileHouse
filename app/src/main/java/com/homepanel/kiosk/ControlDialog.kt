@@ -45,9 +45,11 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(act.dp(32), act.dp(24), act.dp(32), act.dp(24))
+            // Papier : les contrôles sont posés sur une feuille (texte foncé) au lieu de flotter sur le voile sombre.
+            if (Skin.dialogOnSheet) { background = Skin.panelBg(act, act.dpf(26)); setPadding(act.dp(44), act.dp(30), act.dp(44), act.dp(34)) }
         }
-        box.addView(act.label(26f, Color.WHITE, true, title).apply { gravity = Gravity.CENTER })
-        statusView = act.label(16f, 0xCCFFFFFF.toInt()).apply { gravity = Gravity.CENTER; setPadding(0, act.dp(4), 0, 0) }
+        box.addView(act.label(26f, Skin.ink, true, title).apply { gravity = Gravity.CENTER })
+        statusView = act.label(16f, Skin.fg(0xCC)).apply { gravity = Gravity.CENTER; setPadding(0, act.dp(4), 0, 0) }
         box.addView(statusView)
 
         val e = ha.states[id]
@@ -61,7 +63,7 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
         }
         setContentView(box)
         window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        window?.setDimAmount(0.78f)
+        window?.setDimAmount(Skin.dialogDim)
         setCanceledOnTouchOutside(true)
         setOnDismissListener {
             ha.removeListener(this)
@@ -108,11 +110,11 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
         }
         val r = row()
         if (domain == "cover") {
-            r.addView(act.roundIcon(R.drawable.ic_up, 64, GLASS_LIGHT, Color.WHITE) { ha.callService("cover", "open_cover", id) })
-            r.addView(act.roundIcon(R.drawable.ic_stop, 64, GLASS_LIGHT, Color.WHITE) { ha.callService("cover", "stop_cover", id) })
-            r.addView(act.roundIcon(R.drawable.ic_down, 64, GLASS_LIGHT, Color.WHITE) { ha.callService("cover", "close_cover", id) })
+            r.addView(act.roundIcon(R.drawable.ic_up, 64, Skin.soft, Skin.ink) { ha.callService("cover", "open_cover", id) })
+            r.addView(act.roundIcon(R.drawable.ic_stop, 64, Skin.soft, Skin.ink) { ha.callService("cover", "stop_cover", id) })
+            r.addView(act.roundIcon(R.drawable.ic_down, 64, Skin.soft, Skin.ink) { ha.callService("cover", "close_cover", id) })
         } else {
-            powerBtn = act.roundIcon(R.drawable.ic_power, if (withSlider) 64 else 120, GLASS_LIGHT, Color.WHITE) {
+            powerBtn = act.roundIcon(R.drawable.ic_power, if (withSlider) 64 else 120, Skin.soft, Skin.ink) {
                 ha.callService(domain, "toggle", id)
             }
             r.addView(powerBtn)
@@ -127,14 +129,14 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
 
     private fun buildClimate(box: LinearLayout, e: EntityState?) {
         val r = row()
-        r.addView(act.roundIcon(R.drawable.ic_minus, 64, GLASS_LIGHT, Color.WHITE) { adjust(-1) })
-        targetView = act.label(72f, Color.WHITE).apply {
-            typeface = Typeface.create("sans-serif-light", Typeface.NORMAL)
+        r.addView(act.roundIcon(R.drawable.ic_minus, 64, Skin.soft, Skin.ink) { adjust(-1) })
+        targetView = act.label(72f, Skin.ink).apply {
+            typeface = Skin.light
             gravity = Gravity.CENTER
             minWidth = act.dp(200)
         }
         r.addView(targetView)
-        r.addView(act.roundIcon(R.drawable.ic_plus, 64, GLASS_LIGHT, Color.WHITE) { adjust(1) })
+        r.addView(act.roundIcon(R.drawable.ic_plus, 64, Skin.soft, Skin.ink) { adjust(1) })
         box.addView(r)
 
         val modes = e?.attrs?.optJSONArray("hvac_modes") ?: return
@@ -175,11 +177,11 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
             volume = v
         }
         val r = row()
-        r.addView(act.roundIcon(R.drawable.ic_prev, 64, GLASS_LIGHT, Color.WHITE) { ha.callService("media_player", "media_previous_track", id) })
-        playBtn = act.roundIcon(R.drawable.ic_play, 80, WHITE_TILE, 0xFF1C1C1E.toInt()) { ha.callService("media_player", "media_play_pause", id) }
+        r.addView(act.roundIcon(R.drawable.ic_prev, 64, Skin.soft, Skin.ink) { ha.callService("media_player", "media_previous_track", id) })
+        playBtn = act.roundIcon(R.drawable.ic_play, 80, Skin.primary, Skin.onPrimary) { ha.callService("media_player", "media_play_pause", id) }
         r.addView(playBtn)
-        r.addView(act.roundIcon(R.drawable.ic_next, 64, GLASS_LIGHT, Color.WHITE) { ha.callService("media_player", "media_next_track", id) })
-        r.addView(act.roundIcon(R.drawable.ic_power, 64, GLASS_LIGHT, Color.WHITE) { ha.callService("media_player", "toggle", id) })
+        r.addView(act.roundIcon(R.drawable.ic_next, 64, Skin.soft, Skin.ink) { ha.callService("media_player", "media_next_track", id) })
+        r.addView(act.roundIcon(R.drawable.ic_power, 64, Skin.soft, Skin.ink) { ha.callService("media_player", "toggle", id) })
         box.addView(r)
     }
 
@@ -190,13 +192,13 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
                 orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
                 setPadding(act.dp(10), 0, act.dp(10), 0)
             }
-            val b = act.roundIcon(icon, 76, GLASS_LIGHT, Color.WHITE) {
+            val b = act.roundIcon(icon, 76, Skin.soft, Skin.ink) {
                 val e = ha.states[id]
                 // « Démarrer » reprend le nettoyage s'il est en pause.
                 ha.callService("vacuum", if (service == "start" && e?.state == "paused") "start" else service, id)
             }
             col.addView(b)
-            val t = act.label(15f, 0xCCFFFFFF.toInt(), text = label).apply { gravity = Gravity.CENTER; setPadding(0, act.dp(8), 0, 0) }
+            val t = act.label(15f, Skin.fg(0xCC), text = label).apply { gravity = Gravity.CENTER; setPadding(0, act.dp(8), 0, 0) }
             col.addView(t)
             r.addView(col)
             vacButtons.add(b to service)
@@ -222,7 +224,7 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
                 }
             }
         }
-        powerBtn?.background = oval(if (Present.active(e)) Present.accent(e) else GLASS_LIGHT)
+        powerBtn?.background = oval(if (Present.active(e)) Present.accent(e) else Skin.soft)
         volume?.let { v -> if (!v.dragging) v.value = ((e?.attrs?.dbl("volume_level") ?: 0.0) * 100).toFloat() }
         playBtn?.setImageResource(if (e?.state == "playing") R.drawable.ic_pause else R.drawable.ic_play)
         if (targetView != null && pendingTarget == null) {
@@ -234,7 +236,7 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
             val on = when (st) { "cleaning" -> "start"; "paused" -> "pause"; "idle" -> "stop"; "returning", "docked" -> "return_to_base"; else -> "" }
             for ((b, svc) in vacButtons) {
                 val sel = svc == on
-                b.background = oval(if (sel) Present.accent(e) else GLASS_LIGHT)
+                b.background = oval(if (sel) Present.accent(e) else Skin.soft)
             }
             vacStartLabel?.text = if (st == "paused") tr("Reprendre") else tr("Démarrer")
         }
