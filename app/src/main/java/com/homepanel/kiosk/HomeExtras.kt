@@ -17,7 +17,7 @@ import java.util.Date
 
 /**
  * Informations de l'accueil : pointes d'électricité, alertes météo, pastilles personnalisées,
- * raccourcis et carte du matin (sources choisies dans la page web).
+ * raccourcis et « Ce matin » (sources choisies dans la page web, ouvertes par une icône du bandeau).
  */
 object HomeExtras {
     private val hm get() = SimpleDateFormat("HH:mm", I18n.locale)
@@ -128,38 +128,35 @@ object HomeExtras {
         return Html.fromHtml(html)
     }
 
-    /** Carte du matin : une colonne par source (au plus 3 par rangée), texte coupé ; un toucher ouvre tout. */
-    fun morningCard(ctx: Context, sources: JSONArray, states: Map<String, EntityState>, onOpen: () -> Unit): View? {
-        val blocks = (0 until sources.length()).mapNotNull { i ->
-            val s = sources.optJSONObject(i) ?: return@mapNotNull null
-            val text = sourceText(s, states) ?: return@mapNotNull null
-            s.optString("title").ifEmpty { states[s.optString("entity")]?.name ?: "" } to text
-        }
-        if (blocks.isEmpty()) return null
-        val card = LinearLayout(ctx).apply {
-            orientation = LinearLayout.VERTICAL
-            background = roundRect(GLASS, ctx.dpf(22))
-            setPadding(ctx.dp(22), ctx.dp(18), ctx.dp(22), ctx.dp(18))
+    /** Icône « Ce matin » du bandeau (comme la cloche) : visible pendant la plage horaire, point bleu tant que le contenu n'a pas été lu. */
+    class MorningButton(ctx: Context) : android.widget.FrameLayout(ctx) {
+        private val dot = View(ctx).apply { background = oval(0xFF0A84FF.toInt()); visibility = View.GONE }
+
+        init {
+            addView(android.widget.ImageView(ctx).apply {
+                setImageResource(R.drawable.ic_morning)
+                imageTintList = android.content.res.ColorStateList.valueOf(0xE6FFFFFF.toInt())
+            }, LayoutParams(ctx.dp(30), ctx.dp(30), Gravity.CENTER))
+            addView(dot, LayoutParams(ctx.dp(11), ctx.dp(11), Gravity.TOP or Gravity.END))
+            setPadding(ctx.dp(6), ctx.dp(4), ctx.dp(4), ctx.dp(4))
             isClickable = true
-            setOnClickListener { onOpen() }
+            background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33FFFFFF), null, oval(Color.WHITE))
+            contentDescription = tr("Ce matin")
+            visibility = View.GONE
         }
-        card.addView(ctx.label(17f, Color.WHITE, true, "☀️  " + tr("Ce matin")))
-        for (row in blocks.chunked(3)) {
-            val r = LinearLayout(ctx).apply { orientation = LinearLayout.HORIZONTAL }
-            row.forEachIndexed { k, (title, text) ->
-                val col = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
-                col.addView(ctx.label(15f, Color.WHITE, true, title).apply { setPadding(0, ctx.dp(10), 0, ctx.dp(4)) })
-                col.addView(ctx.label(14f, 0xD9FFFFFF.toInt()).apply {
-                    this.text = markdown(text); maxLines = 9; ellipsize = TextUtils.TruncateAt.END
-                    setLineSpacing(0f, 1.1f)
-                })
-                r.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { if (k > 0) marginStart = ctx.dp(20) })
-            }
-            repeat(3 - row.size) { r.addView(View(ctx), LinearLayout.LayoutParams(0, 0, 1f)) }
-            card.addView(r)
+
+        fun set(visible: Boolean, unread: Boolean) {
+            visibility = if (visible) View.VISIBLE else View.GONE
+            dot.visibility = if (unread) View.VISIBLE else View.GONE
         }
-        return card
     }
+
+    /** Empreinte du contenu, pour savoir s'il a changé depuis la dernière lecture. */
+    fun morningHash(sources: JSONArray, states: Map<String, EntityState>): Int =
+        (0 until sources.length()).mapNotNull { i -> sources.optJSONObject(i)?.let { sourceText(it, states) } }.joinToString("\n").hashCode()
+
+    fun hasMorning(sources: JSONArray, states: Map<String, EntityState>): Boolean =
+        (0 until sources.length()).any { i -> sources.optJSONObject(i)?.let { sourceText(it, states) } != null }
 
     /** Texte complet de toutes les sources, pour la fenêtre de lecture. */
     fun morningFull(sources: JSONArray, states: Map<String, EntityState>): CharSequence {

@@ -102,10 +102,9 @@ class MainActivity : Activity(), HaClient.Listener {
             if (roomIndex != HOME && !dimmed && dialog?.isShowing != true &&
                 SystemClock.uptimeMillis() - lastTouch > AUTO_HOME_MS) goHome()
             if (roomIndex == HOME && System.currentTimeMillis() - homeDataAt > 15 * 60_000L) loadHomeData()
-            // Carte du matin : apparaît / disparaît à l'heure choisie ; pastille de pointe (« en cours ») à jour.
-            val morning = cfg.isMorningNow() && cfg.morningSources.length() > 0
-            if (roomIndex == HOME && morning != morningShown) showHome()
-            else if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
+            // Icône « Ce matin » : apparaît / disparaît à l'heure choisie ; pastille de pointe (« en cours ») à jour.
+            updateMorningButton()
+            if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
             checkPeakReminder()
             handler.postDelayed(this, 10_000)
         }
@@ -164,6 +163,8 @@ class MainActivity : Activity(), HaClient.Listener {
             setOnClickListener { openTimers() }
         }
         timeRow.addView(timerButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
+        morningButton = HomeExtras.MorningButton(this).apply { setOnClickListener { openMorning() } }
+        timeRow.addView(morningButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         bellView = BellView(this).apply { setOnClickListener { openCenter() } }
         timeRow.addView(bellView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
         timeRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
@@ -379,12 +380,6 @@ class MainActivity : Activity(), HaClient.Listener {
         cards.addView(c, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
         content.addView(cards, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
 
-        // Carte du matin (sources choisies dans la page web), pendant la plage horaire choisie.
-        morningShown = cfg.isMorningNow() && cfg.morningSources.length() > 0
-        if (morningShown) HomeExtras.morningCard(this, cfg.morningSources, app.ha.states) { openMorning() }?.let {
-            morningView = it
-            content.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
-        }
         // Raccourcis : scripts, scènes, boutons
         if (cfg.shortcuts.isNotEmpty()) {
             val row = FlowLayout(this)
@@ -484,8 +479,15 @@ class MainActivity : Activity(), HaClient.Listener {
     private var collectChips: List<Present.Chip> = emptyList()
 
     private var peaks: List<HomeExtras.Peak> = emptyList()
-    private var morningShown = false
-    private var morningView: View? = null
+    private lateinit var morningButton: HomeExtras.MorningButton
+
+    /** Icône « Ce matin » : pendant la plage horaire s'il y a du contenu ; point bleu tant que ce contenu n'a pas été ouvert. */
+    private fun updateMorningButton() {
+        if (!::morningButton.isInitialized) return
+        val visible = cfg.isMorningNow() && HomeExtras.hasMorning(cfg.morningSources, app.ha.states)
+        val read = getSharedPreferences("notices", MODE_PRIVATE).getInt("morning_read", 0)
+        morningButton.set(visible, visible && read != HomeExtras.morningHash(cfg.morningSources, app.ha.states))
+    }
     private val reminded = HashSet<Long>()
 
     /** Pointes d'électricité des 2 prochains jours (calendrier choisi). */
@@ -527,7 +529,11 @@ class MainActivity : Activity(), HaClient.Listener {
         showReader(tr("Alertes météo"), if (text.isEmpty()) tr("Aucune alerte en vigueur.") else android.text.Html.fromHtml(text))
     }
 
-    private fun openMorning() = showReader("☀️  " + tr("Ce matin"), HomeExtras.morningFull(cfg.morningSources, app.ha.states))
+    private fun openMorning() {
+        showReader("☀️  " + tr("Ce matin"), HomeExtras.morningFull(cfg.morningSources, app.ha.states))
+        getSharedPreferences("notices", MODE_PRIVATE).edit().putInt("morning_read", HomeExtras.morningHash(cfg.morningSources, app.ha.states)).apply()
+        updateMorningButton()
+    }
 
     /** Fenêtre de lecture (texte long, défilant). */
     private fun showReader(title: String, body: CharSequence) {
@@ -840,11 +846,11 @@ class MainActivity : Activity(), HaClient.Listener {
 
     override fun onHaEntities(ids: Set<String>) {
         chipDetailRefresh?.invoke()
+        // Une source de « Ce matin » a changé (ex. résumé publié à 5 h) : l'icône réapparaît avec son point.
+        val ms = cfg.morningSources
+        if ((0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) updateMorningButton()
         if (roomIndex == HOME) {
             if (ids.contains(cfg.weatherEntity)) weatherCard?.update(app.ha.states[cfg.weatherEntity])
-            // Une source de la carte du matin a changé (ex. résumé publié à 5 h) : on la redessine.
-            val ms = cfg.morningSources
-            if (morningShown && (0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) { showHome(); return }
             updateHomeHeader()
             return
         }

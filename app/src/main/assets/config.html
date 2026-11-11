@@ -186,8 +186,8 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <button id="addChip">+ Ajouter une pastille</button>
   </section>
   <section class="card" style="grid-column:1/-1">
-    <h2>Carte du matin</h2>
-    <p class="muted">Une carte sur l'accueil pendant la plage horaire, avec les sources de votre choix : un texte (état ou attribut d'une entité, Markdown accepté) ou un flux de nouvelles (liste des titres). Touchez la carte sur la tablette pour tout lire.</p>
+    <h2>Ce matin</h2>
+    <p class="muted">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : un texte (état ou attribut d'une entité, Markdown accepté) ou un flux de nouvelles (liste des titres).</p>
     <div class="row">
       <div style="flex:1"><label class="f" for="mStart">De</label><input type="time" id="mStart"></div>
       <div style="flex:1"><label class="f" for="mEnd">À</label><input type="time" id="mEnd"></div>
@@ -634,7 +634,7 @@ function renderSources() {
   box.replaceChildren();
   const src = H.morningSources;
   const save = () => saveSettings({morningSources: src});
-  if (!src.length) box.append(el("p", {class: "muted", textContent: t("Aucune source : la carte du matin n'est pas affichée.")}));
+  if (!src.length) box.append(el("p", {class: "muted", textContent: t("Aucune source : l'icône Ce matin n'est pas affichée.")}));
   src.forEach((s, i) => {
     const ent = el("input", {value: s.entity || "", placeholder: "sensor.resume_matinal"});
     ent.setAttribute("list", "allEnts");

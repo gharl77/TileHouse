@@ -173,13 +173,14 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Custom chips**: show a chip when an entity is in a given state, e.g. "🧺 Washer to empty" when the washer status is *To empty*
   (entity, states, text and colour on the web page).
 - **Shortcuts**: large buttons for the scripts, scenes and buttons you choose.
-- **Morning card**: during a time range (default 05:00–10:00), a card with the sources you choose: a text from any entity state or
-  attribute (Markdown, e.g. the sections of a generated morning summary) or a news feed (headlines of a feed sensor's `entries`).
-  The web page suggests the summaries and feeds it finds, and you can add any other entity. Tap the card to read everything.
+- **This morning** (☀️ next to the bell): during a time range (default 05:00–10:00), a sun icon appears at the top, with a blue
+  dot until you have read the content. Tap it to read the sources you choose: a text from any entity state or attribute (Markdown,
+  e.g. the sections of a generated morning summary) or a news feed (headlines of a feed sensor's `entries`). The web page suggests
+  the summaries and feeds it finds, and you can add any other entity. The dot comes back when a source changes.
 
-  <img src="docs/screenshots/morning-card.png" width="860" alt="Morning card opened: weather, commute and local news">
+  <img src="docs/screenshots/morning-card.png" width="860" alt="This morning: weather, commute and local news">
 
-- **Kitchen timers** (⏱ next to the time) and the **notification bell** with the number of unread notifications — see
+- **Kitchen timers** (⏱ next to the time), **This morning** (☀️) and the **notification bell** with the number of unread notifications — see
   [Kitchen timers](#kitchen-timers) and [Notifications](#notifications).
 - **Clock and date** (optional) in the top‑right corner, with the **tablet's battery** next to the time (optional; green with a bolt
   while charging, red under 20 %).
@@ -440,7 +441,7 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
   **Import HA areas** creates rooms from your areas automatically.
 - **Home**: weather entity, calendars, collection reminders (calendar + keyword), people and presence sensors, the **order of floors**,
-  electricity peaks, weather alerts, shortcuts, custom chips and the morning card sources.
+  electricity peaks, weather alerts, shortcuts, custom chips and the "This morning" sources.
 - **Display**: language, theme, wallpaper, dashboard options, sleep and screen saver (including the Immich photo frame), sounds and
   quiet hours, notifications, and camera alerts.
 - **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.
