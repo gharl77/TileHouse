@@ -2,33 +2,48 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
-## 2026.11.6 (in progress)
+## 2026.11.6
 
+**Skins**
+
+- Skins: a new way to draw the whole app while keeping the theme and wallpaper. **HomeKit** (the current look), **Minimal** (thin lines, light text, coloured icon and dot when on, outlined chips), **Paper** (light paper tinted by the theme, bordered cards, serif titles), **Pastel** (large soft cards in tones from the theme), **Neon** (dark, outlined, glowing in the theme's colour, monospaced digits), **Compact** (smaller, more devices per row) and **Large print** (very large high-contrast text, 3 tiles per row). Applies to the home screen, rooms, control windows, notifications, timers and This morning, not to the settings screens. Choose it on the tablet, the web page or with the new "Skin" select in Home Assistant. Each skin is one self-contained definition in the code, so adding one is simple.
+- Night skin: an optional second skin with its own time range (e.g. Paper by day, Neon in the evening). The tablet switches by itself, never under your finger or while a window is open. On the tablet, the web page and in Home Assistant ("Night skin" select).
+- Large print: the header keeps its chips on one row (alerts first) with a **+N** chip that opens the full list, so the rooms are visible again. Compact: long statuses are shortened (thermostat `20.5° → 21°`).
+
+**Home screen**
+
+- This morning: during a chosen time range, a ☀️ icon next to the bell (blue dot until read, back when a source changes) opens a full-screen panel with the sources you choose. No card on the home screen, so it takes no room.
+  - News feeds: a title and the link of any RSS / Atom feed (XML), read directly by the tablet; stories in two columns with picture, title, summary and time; tap to expand; 4–12 stories; **Test** button on the web page; one-tap suggestions for Québec news sites. Tolerates feeds that are not strict XML; a feed that fails keeps its last stories.
+  - Texts: an entity's state or attribute (Markdown), shown as cards side by side.
 - Electricity peaks (e.g. Hydro-Québec): chip "Peak tomorrow / today" then red "Peak now · ends HH:MM", from a chosen calendar, with an optional reminder (30 min–3 h before) in the notification center.
 - Weather alerts: chips from the alert-count sensors you pick (Environment Canada warnings, watches, advisories), with details on tap.
 - Custom chips: entity + states + text + colour (e.g. "🧺 Washer to empty").
 - Shortcuts: large buttons for chosen scripts, scenes and buttons on the home screen.
-- This morning: during a chosen time range, a ☀️ icon next to the bell (blue dot until read, back when a source changes) opens a full-screen panel with the sources you choose. No card on the home screen, so it takes no room.
-  - News feeds: a title and the link of any RSS / Atom feed (XML), read directly by the tablet; stories in two columns with picture, title, summary and time; tap to expand; 4–12 stories; **Test** button on the web page; one-tap suggestions for Québec news sites. Tolerates feeds that are not strict XML.
-  - Texts: an entity's state or attribute (Markdown), shown as cards side by side.
-- Notification action buttons: up to 3 buttons (`actions`: title, service, entity_id, data) that call a Home Assistant service and mark the notification read.
-- Demo mode shows examples of every new home-screen feature (peak, weather statement, collections, washer chip, This morning, shortcuts); help page updated with new screenshots.
-- Web page, Home tab reorganised like the home screen: quick links, then Header (who's home), Chips (collections, electricity peaks, weather alerts, custom chips), Weather and calendar, Shortcuts, This morning — one topic per card. The order of floors moved to the Rooms tab, under the list of rooms. Who's home lists only the companion-app people and per-person presence sensors, with the current selection on top; room detectors and tracked devices are folded under "Other sources" with a search field.
-- Skins: a new way to draw the whole app while keeping the theme and wallpaper. **HomeKit** (the current look), **Minimal** (thin lines, light text, coloured icon and dot when on, outlined chips), **Paper** (light paper tinted by the theme, bordered cards, serif titles), **Pastel** (large soft cards in tones from the theme), **Neon** (dark, outlined, glowing in the theme's colour, monospaced digits), **Compact** (smaller, more devices per row) and **Large print** (very large high-contrast text, 3 tiles per row). Applies to the home screen, rooms, control windows, notifications, timers and This morning, not to the settings screens. Choose it on the tablet, the web page or with the new "Skin" select in Home Assistant. Each skin is one self-contained definition in the code, so adding one is simple.
-- Settings reorganised the same way on the tablet and the web page: **Display** (appearance, dashboard, screen brightness and sleep, screen saver), **Sounds & alerts** (sounds and quiet hours, notifications, camera alerts), **Connection**, **Security**. New **Brightness** setting on the tablet and the web page (it was only in Home Assistant). Settings that depend on a switch are hidden (tablet) or greyed out (web) while it is off.
-- Home Assistant entities follow the conventions: the tablet's settings are in **Configuration**, battery and technical values in **Diagnostic**; durations, memory (now in MB) and the power source (a list of values) have proper device classes. Home Assistant may ask once to confirm the unit change of "Memory used" in its statistics.
-- Faster and lighter: the header is recalculated once per burst of sensor changes, saved lists are decoded once, and a command from Home Assistant no longer republishes every state.
-- Night skin: an optional second skin with its own time range (e.g. Paper by day, Neon in the evening). The tablet switches by itself, never under your finger or while a window is open. On the tablet, the web page and in Home Assistant ("Night skin" select).
-- Large print: the header keeps its chips on one row (alerts first) with a **+N** chip that opens the full list, so the rooms are visible again. Compact: long statuses are shortened (thermostat `20.5° → 21°`).
 - The weather alerts window takes the height of its text instead of most of the screen.
-- Fix: a timer that ended while the settings or a camera were open rang with no visible way to stop it; the dashboard now comes back to the front with the card. The alarm also survives a screen rebuild (skin change) with its OK button.
-- Fix: the "Screen shown" sensor kept the previous language after a language change.
-- Under the hood: unit tests (feeds, notifications, time ranges, translations, readability of every skin) run on every push on GitHub; the main screen's code is split by feature; two unused translations removed.
+
+**Notifications**
+
+- Notification action buttons: up to 3 buttons (`actions`: title, service, entity_id, data) that call a Home Assistant service and mark the notification read.
+
+**Settings**
+
+- Settings reorganised the same way on the tablet and the web page: **Display** (appearance, dashboard, screen brightness and sleep, screen saver), **Sounds & alerts** (sounds and quiet hours, notifications, camera alerts), **Connection**, **Security**. New **Brightness** setting on the tablet and the web page (it was only in Home Assistant). Settings that depend on a switch are hidden (tablet) or greyed out (web) while it is off.
+- Web page, Home tab reorganised like the home screen: quick links, then Header (who's home), Chips (collections, electricity peaks, weather alerts, custom chips), Weather and calendar, Shortcuts, This morning — one topic per card. The order of floors moved to the Rooms tab, under the list of rooms. Who's home lists only the companion-app people and per-person presence sensors, with the current selection on top; room detectors and tracked devices are folded under "Other sources" with a search field.
+- Home Assistant entities follow the conventions: the tablet's settings are in **Configuration**, battery and technical values in **Diagnostic**; durations, memory (now in MB) and the power source (a list of values) have proper device classes. Home Assistant may ask once to confirm the unit change of "Memory used" in its statistics.
+
+**Fixes**
+
 - Fix: the app could close by itself when the connection to Home Assistant was cut while it was writing to it (switching to demo mode right after another change, or changing the server). The connection is now closed cleanly, and this network-library error can no longer close the app.
-- Demo mode also hides the MQTT server, account and device name, and no longer lets the example values be saved over the real ones.
-- Fix: each skin change left the previous screen in memory, still receiving timer updates.
-- Fix: a news feed that fails or returns something unreadable keeps its last stories; oversized feeds and pictures are refused instead of filling the memory.
+- Fix: a timer that ended while the settings or a camera were open rang with no visible way to stop it; the dashboard now comes back to the front with the card.
 - Fix: changing the tablet's language no longer logs "Invalid option" errors in Home Assistant for the Theme, Wallpaper and Screen saver selects. Each language now has its own MQTT state topic for these lists, and the value is published before the list, so Home Assistant never reads a value in the other language.
+- Fix: the "Screen shown" sensor kept the previous language after a language change.
+
+**Also**
+
+- Faster and lighter: the header is recalculated once per burst of sensor changes, saved lists are decoded once, and a command from Home Assistant no longer republishes every state.
+- Demo mode shows examples of every new home-screen feature (peak, weather statement, collections, washer chip, This morning, shortcuts); help page updated with new screenshots.
+- Demo mode also hides the MQTT server, account and device name, and no longer lets the example values be saved over the real ones.
+- Under the hood: unit tests (feeds, notifications, time ranges, translations, readability of every skin) run on every push on GitHub; the main screen's code is split by feature; two unused translations removed.
 
 ## 2026.11.5
 
