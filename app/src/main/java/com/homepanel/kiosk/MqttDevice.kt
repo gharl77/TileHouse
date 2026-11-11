@@ -49,8 +49,9 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     // État publié
     var screenOff = false
         private set
-    var currentScreen = tr("Accueil")
-        private set
+    /** Pièce affichée (null = accueil). Le nom de l'accueil est traduit au moment de la publication, pas à l'avance. */
+    private var screenRoom: String? = null
+    val currentScreen get() = screenRoom ?: tr("Accueil")
 
     // Batterie
     private var level = -1
@@ -120,6 +121,10 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
                 val i = Skin.names.indexOf(v)
                 if (i >= 0 && Skin.keys[i] != cfg.skin) { cfg.skin = Skin.keys[i]; configChanged = true }
             }
+            "skin_nuit" -> {
+                val k = if (v == tr("Aucune")) "" else Skin.keys.getOrNull(Skin.names.indexOf(v))
+                if (k != null && k != cfg.nightSkin) { cfg.nightSkin = k; configChanged = true }
+            }
             "fond" -> {
                 val i = Wallpapers.names.indexOf(v)
                 if (i >= 0) { cfg.wallpaper = Wallpapers.keys[i]; configChanged = true }
@@ -161,6 +166,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         val c = cfg
         st(sel("theme"), Themes.get(c.theme)?.name ?: tr("Aucun"))
         st(sel("skin"), Skin.names.getOrNull(Skin.keys.indexOf(c.skin)) ?: Skin.names[0])
+        st(sel("skin_nuit"), Skin.names.getOrNull(Skin.keys.indexOf(c.nightSkin)) ?: tr("Aucune"))
         st(sel("fond"), Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
         st("veille", c.dimMinutes.toString())
         st("luminosite", effectiveBrightness().toString())
@@ -188,7 +194,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     fun publishNotices() { if (client.connected) st("notifications_non_lues", app.notices.count.toString()) }
 
     fun setScreenOff(off: Boolean) { screenOff = off; st("ecran_veille", if (off) "ON" else "OFF") }
-    fun setCurrentScreen(name: String) { currentScreen = name; st("ecran", name) }
+    fun setCurrentScreen(room: String?) { screenRoom = room; st("ecran", currentScreen) }
 
     private fun st(key: String, value: String) = client.publish("$base/$key", value, retain = true)
 
@@ -300,6 +306,9 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         // ---- Réglages de l'appareil (catégorie « Configuration » dans Home Assistant)
         entity("select", "skin", tr("Skin"), "mdi:brush-variant", "config") {
             both("skin", sel("skin")); put("options", JSONArray(Skin.names))
+        }
+        entity("select", "skin_nuit", tr("Skin de nuit"), "mdi:weather-night", "config") {
+            both("skin_nuit", sel("skin_nuit")); put("options", JSONArray(listOf(tr("Aucune")) + Skin.names))
         }
         entity("select", "theme", tr("Thème"), "mdi:palette", "config") {
             both("theme", sel("theme")); put("options", JSONArray(listOf(tr("Aucun")) + Themes.all.map { it.name }))

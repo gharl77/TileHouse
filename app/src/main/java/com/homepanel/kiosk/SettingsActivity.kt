@@ -108,6 +108,17 @@ class SettingsActivity : Activity(), HaClient.Listener {
         }))
         look.addRow(settingRow(R.drawable.ic_grid, Ui.GREEN, tr("Skin"), tr("Façon d'afficher l'accueil, les pièces et les fenêtres"), choice(
             Skin.names, Skin.keys.indexOf(cfg.skin).coerceAtLeast(0)) { cfg.skin = Skin.keys[it]; app.notifyConfigChanged() }))
+        val nightKeys = listOf("") + Skin.keys
+        val halfHours = (0 until 48).map { it * 30 }
+        fun clock(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+        look.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Skin de nuit"), tr("Remplace la skin pendant la plage horaire choisie"), choice(
+            listOf(tr("Aucune")) + Skin.names, nightKeys.indexOf(cfg.nightSkin).coerceAtLeast(0)) { cfg.nightSkin = nightKeys[it]; app.notifyConfigChanged(); updateDependentRows() }))
+        nightStartRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Début de la skin de nuit"), trailing = choice(halfHours.map { clock(it) },
+            halfHours.indexOf(cfg.nightSkinStart).let { if (it < 0) 38 else it }) { cfg.nightSkinStart = halfHours[it]; app.notifyConfigChanged() })
+        nightEndRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Fin de la skin de nuit"), trailing = choice(halfHours.map { clock(it) },
+            halfHours.indexOf(cfg.nightSkinEnd).let { if (it < 0) 14 else it }) { cfg.nightSkinEnd = halfHours[it]; app.notifyConfigChanged() })
+        look.addRow(nightStartRow)
+        look.addRow(nightEndRow)
         val themeKeys = listOf("") + Themes.all.map { it.key }
         val themeNames = listOf(tr("Aucun")) + Themes.all.map { "${it.emoji}  ${it.name}" }
         look.addRow(settingRow(R.drawable.ic_star, Ui.ORANGE, tr("Thème"), tr("Saison ou fête, remplace le fond d'écran"), choice(
@@ -397,6 +408,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
     private lateinit var photoTimeRow: View
 
     private lateinit var dimLevelRow: View
+    private lateinit var nightStartRow: View
+    private lateinit var nightEndRow: View
     private lateinit var quietStartRow: View
     private lateinit var quietEndRow: View
     private lateinit var alertTrigRow: View
@@ -404,6 +417,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
 
     /** Un réglage qui dépend d'un interrupteur n'est montré que si cet interrupteur est activé. */
     private fun updateDependentRows() {
+        nightStartRow.rowVisible(cfg.nightSkin.isNotEmpty())
+        nightEndRow.rowVisible(cfg.nightSkin.isNotEmpty())
         quietStartRow.rowVisible(cfg.quietEnabled)
         quietEndRow.rowVisible(cfg.quietEnabled)
         alertTrigRow.rowVisible(cfg.personAlert)

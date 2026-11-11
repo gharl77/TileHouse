@@ -199,6 +199,9 @@ class WebServer(private val app: App) {
                 if (req.has("language")) cfg.language = req.str("language").let { if (it in setOf("auto", "fr", "en")) it else "auto" }
                 if (req.has("theme")) cfg.theme = req.str("theme").let { k -> if (Themes.get(k) != null) k else "" }
                 if (req.has("skin")) cfg.skin = req.str("skin").let { k -> if (k in Skin.keys) k else "homekit" }
+                if (req.has("nightSkin")) cfg.nightSkin = req.str("nightSkin").let { k -> if (k in Skin.keys) k else "" }
+                if (req.has("nightSkinStart")) cfg.nightSkinStart = req.optInt("nightSkinStart", 19 * 60)
+                if (req.has("nightSkinEnd")) cfg.nightSkinEnd = req.optInt("nightSkinEnd", 7 * 60)
                 if (req.has("dim")) cfg.dimMinutes = req.optInt("dim", 0).coerceIn(0, 240)
                 if (req.has("motionWake")) cfg.motionWake = req.optBoolean("motionWake")
                 if (req.has("dimStyle")) cfg.dimStyle = req.str("dimStyle")
@@ -397,6 +400,7 @@ class WebServer(private val app: App) {
                 .put("wallpaper", cfg.wallpaper)
                 .put("theme", cfg.theme)
                 .put("skin", cfg.skin)
+                .put("nightSkin", cfg.nightSkin).put("nightSkinStart", cfg.nightSkinStart).put("nightSkinEnd", cfg.nightSkinEnd)
                 .put("language", cfg.language)
                 .put("dim", cfg.dimMinutes)
                 .put("motionWake", cfg.motionWake)

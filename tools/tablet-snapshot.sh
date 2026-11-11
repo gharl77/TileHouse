@@ -7,6 +7,8 @@
 #
 # La copie ne contient aucun secret (jeton, mots de passe, clé Immich) : ils restent sur la tablette.
 # « restore » quitte d'abord le mode démo, remet la copie, puis vérifie que la tablette correspond à la copie.
+# Prenez la copie APRÈS avoir installé la version à tester : un réglage ajouté par une nouvelle version
+# n'est pas dans une copie plus ancienne (le script le signale).
 set -eu
 cmd=${1:?save|restore}; url=${2:?adresse de la tablette}; file=${3:?fichier}
 H='Content-Type: application/json'
@@ -24,8 +26,16 @@ case "$cmd" in
     curl -fsS -X POST -H "$H" -d '{"secrets":false}' "$url/api/export" | python3 -c '
 import json,sys
 now=json.load(sys.stdin); want=json.load(open(sys.argv[1]))
-diff=[k for k in want if k not in ("exportedAt","version") and json.dumps(want[k],sort_keys=True)!=json.dumps(now.get(k),sort_keys=True)]
-print("Restauration vérifiée : identique à la copie." if not diff else "DIFFÉRENCES : "+", ".join(diff)); sys.exit(1 if diff else 0)' "$file"
+same=lambda a,b: json.dumps(a,sort_keys=True)==json.dumps(b,sort_keys=True)
+diff=[]; extra=[]
+for k,v in want.items():
+    if k in ("exportedAt","version"): continue
+    if isinstance(v,dict) and isinstance(now.get(k),dict):
+        diff+=[k+"."+kk for kk,vv in v.items() if not same(vv,now[k].get(kk))]
+        extra+=[k+"."+kk for kk in now[k] if kk not in v]
+    elif not same(v,now.get(k)): diff.append(k)
+if extra: print("ATTENTION : réglages absents de la copie (app mise à jour depuis ?), non restaurés : "+", ".join(extra))
+print("Restauration vérifiée : identique à la copie." if not diff else "DIFFÉRENCES : "+", ".join(diff)); sys.exit(1 if diff or extra else 0)' "$file"
     ;;
   *) echo "save|restore" >&2; exit 2;;
 esac

@@ -4,9 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
-import android.text.Html
 import android.util.LruCache
-import android.util.Xml
 import okhttp3.Request
 import org.xmlpull.v1.XmlPullParser
 import java.text.SimpleDateFormat
@@ -104,13 +102,13 @@ object Feeds {
 
     // ------------------------------------------------------------ lecture XML
 
-    private fun parse(input: java.io.InputStream): List<Item> {
+    internal fun parse(input: java.io.InputStream): List<Item> {
         // Beaucoup de flux ne sont pas du XML strict (« & » seuls dans les liens d'images) : on les corrige avant la lecture.
         val bytes = input.readBytes()
         val head = String(bytes, 0, minOf(bytes.size, 200), Charsets.ISO_8859_1)
         val cs = Regex("encoding=[\"']([\\w-]+)").find(head)?.groupValues?.get(1)?.let { try { charset(it) } catch (_: Exception) { null } } ?: Charsets.UTF_8
         val xml = String(bytes, cs).trimStart('\uFEFF').replace(Regex("&(?!#?[A-Za-z0-9]+;)"), "&amp;")
-        val p = Xml.newPullParser()
+        val p = org.xmlpull.v1.XmlPullParserFactory.newInstance().newPullParser()
         p.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false)
         try { p.setFeature("http://xmlpull.org/v1/doc/features.html#relaxed", true) } catch (_: Exception) {}
         p.setInput(java.io.StringReader(xml))
@@ -170,18 +168,36 @@ object Feeds {
         return sb.toString().trim()
     }
 
-    @Suppress("DEPRECATION")
-    private fun plain(s: String): String {
+    private val ENTITIES = mapOf(
+        "amp" to "&", "lt" to "<", "gt" to ">", "quot" to "\"", "apos" to "'", "nbsp" to " ",
+        "laquo" to "«", "raquo" to "»", "lsquo" to "‘", "rsquo" to "’", "ldquo" to "“", "rdquo" to "”",
+        "hellip" to "…", "ndash" to "–", "mdash" to "—", "euro" to "€", "deg" to "°", "copy" to "©",
+        "agrave" to "à", "acirc" to "â", "auml" to "ä", "ccedil" to "ç", "eacute" to "é", "egrave" to "è",
+        "ecirc" to "ê", "euml" to "ë", "icirc" to "î", "iuml" to "ï", "ocirc" to "ô", "ouml" to "ö",
+        "ugrave" to "ù", "ucirc" to "û", "uuml" to "ü", "oelig" to "œ", "aelig" to "æ",
+        "Agrave" to "À", "Acirc" to "Â", "Ccedil" to "Ç", "Eacute" to "É", "Egrave" to "È", "Ecirc" to "Ê",
+        "Icirc" to "Î", "Ocirc" to "Ô", "Ugrave" to "Ù", "Ucirc" to "Û", "OElig" to "Œ")
+
+    /** Texte simple d'un fragment HTML : sans balises ni images, entités décodées, espaces regroupés. */
+    internal fun plain(s: String): String {
         if (s.isBlank()) return ""
-        val noImg = s.replace(Regex("<img[^>]*>", RegexOption.IGNORE_CASE), " ")
-        return Html.fromHtml(noImg).toString().replace('￼', ' ').replace(Regex("\\s+"), " ").trim()
+        val noTags = s.replace(Regex("<(br|/p|/div|/li)[^>]*>", RegexOption.IGNORE_CASE), " ").replace(Regex("<[^>]*>"), "")
+        val decoded = Regex("&(#[xX]?[0-9a-fA-F]+|[A-Za-z]+);").replace(noTags) { m ->
+            val e = m.groupValues[1]
+            when {
+                e.startsWith("#x") || e.startsWith("#X") -> e.substring(2).toIntOrNull(16)?.let { String(Character.toChars(it)) }
+                e.startsWith("#") -> e.substring(1).toIntOrNull()?.let { String(Character.toChars(it)) }
+                else -> ENTITIES[e]
+            } ?: m.value
+        }
+        return decoded.replace('\u00A0', ' ').replace(Regex("\\s+"), " ").trim()
     }
 
     private val DATE_FORMATS = listOf(
         "EEE, dd MMM yyyy HH:mm:ss Z", "EEE, dd MMM yyyy HH:mm:ss zzz", "dd MMM yyyy HH:mm:ss Z", "EEE, dd MMM yyyy HH:mm Z",
         "yyyy-MM-dd'T'HH:mm:ssXXX", "yyyy-MM-dd'T'HH:mm:ss.SSSXXX", "yyyy-MM-dd'T'HH:mm:ss'Z'", "yyyy-MM-dd")
 
-    private fun parseDate(s: String): Long {
+    internal fun parseDate(s: String): Long {
         val v = s.trim()
         for (f in DATE_FORMATS) try {
             val fmt = SimpleDateFormat(f, Locale.US)

@@ -300,37 +300,79 @@ fun Context.chipView(c: Present.Chip) = TextView(this).apply {
     background = bg
 }
 
-/** Disposition en lignes qui passent à la ligne suivante si nécessaire. */
+/**
+ * Disposition en lignes qui passent à la ligne suivante si nécessaire.
+ * Avec [maxRows] et une vue [moreView] (ajoutée en dernier), ce qui dépasse est caché et [moreView] prend
+ * la dernière place ; [onOverflow] reçoit le nombre de vues cachées (0 = tout tient, [moreView] est cachée).
+ */
 class FlowLayout(ctx: Context) : ViewGroup(ctx) {
     private val hGap = ctx.dp(8)
     private val vGap = ctx.dp(8)
+    var maxRows = Int.MAX_VALUE
+    var moreView: View? = null
+    var onOverflow: ((Int) -> Unit)? = null
+    private var hidden = -1
+    /** À appeler après avoir remplacé les vues : le prochain calcul rappelle [onOverflow]. */
+    fun resetOverflow() { hidden = -1 }
+    private val xs = ArrayList<Int>()
+    private val ys = ArrayList<Int>()
+
+    /** Place les [count] premières vues ; retourne (nombre placé, hauteur). [reserve] = largeur gardée libre sur la dernière rangée permise. */
+    private fun arrange(maxW: Int, count: Int, reserve: Int): Pair<Int, Int> {
+        xs.clear(); ys.clear()
+        var x = 0; var y = 0; var rowH = 0; var row = 1
+        for (i in 0 until count) {
+            val c = getChildAt(i)
+            val limit = if (row == maxRows) maxW - reserve else maxW
+            if (x > 0 && x + c.measuredWidth > limit) {
+                if (row == maxRows) return i to y + rowH
+                x = 0; y += rowH + vGap; rowH = 0; row++
+            }
+            xs.add(x); ys.add(y)
+            x += c.measuredWidth + hGap
+            rowH = max(rowH, c.measuredHeight)
+        }
+        return count to if (count == 0) 0 else y + rowH
+    }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val maxW = MeasureSpec.getSize(widthMeasureSpec)
         val childSpec = MeasureSpec.makeMeasureSpec(maxW, MeasureSpec.AT_MOST)
-        var x = 0; var y = 0; var rowH = 0; var usedW = 0
-        for (i in 0 until childCount) {
-            val c = getChildAt(i)
-            c.measure(childSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
-            if (x > 0 && x + c.measuredWidth > maxW) { x = 0; y += rowH + vGap; rowH = 0 }
-            x += c.measuredWidth + hGap
-            usedW = max(usedW, x - hGap)
-            rowH = max(rowH, c.measuredHeight)
+        for (i in 0 until childCount) getChildAt(i).measure(childSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
+        val more = moreView?.takeIf { it.parent === this && maxRows != Int.MAX_VALUE }
+        val count = if (more != null) childCount - 1 else childCount
+        var (placed, h) = arrange(maxW, count, 0)
+        if (placed < count && more != null) {
+            val r = arrange(maxW, count, more.measuredWidth + hGap); placed = r.first; h = max(r.second, more.measuredHeight)
         }
-        val h = if (childCount == 0) 0 else y + rowH
+        val nowHidden = count - placed
+        if (nowHidden != hidden) { hidden = nowHidden; post { onOverflow?.invoke(nowHidden) } }
+        var usedW = 0
+        for (i in 0 until placed) usedW = max(usedW, xs[i] + getChildAt(i).measuredWidth)
         val w = if (MeasureSpec.getMode(widthMeasureSpec) == MeasureSpec.EXACTLY) maxW else usedW
         setMeasuredDimension(w, h)
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
-        val maxW = r - l
-        var x = 0; var y = 0; var rowH = 0
-        for (i in 0 until childCount) {
+        val more = moreView?.takeIf { it.parent === this && maxRows != Int.MAX_VALUE }
+        val count = if (more != null) childCount - 1 else childCount
+        val placed = xs.size
+        for (i in 0 until count) {
             val c = getChildAt(i)
-            if (x > 0 && x + c.measuredWidth > maxW) { x = 0; y += rowH + vGap; rowH = 0 }
-            c.layout(x, y, x + c.measuredWidth, y + c.measuredHeight)
-            x += c.measuredWidth + hGap
-            rowH = max(rowH, c.measuredHeight)
+            if (i < placed) c.layout(xs[i], ys[i], xs[i] + c.measuredWidth, ys[i] + c.measuredHeight) else c.layout(0, 0, 0, 0)
+        }
+        if (more != null) {
+            if (placed < count) {
+                val x = if (placed == 0) 0 else xs[placed - 1] + getChildAt(placed - 1).measuredWidth + hGap
+                val y = if (placed == 0) 0 else ys[placed - 1]
+                more.layout(x, y, x + more.measuredWidth, y + more.measuredHeight)
+            } else more.layout(0, 0, 0, 0)
         }
     }
+}
+
+/** Zone défilante qui prend la hauteur de son contenu, jusqu'à [maxHeight] pixels. */
+class MaxHeightScrollView(ctx: Context, private val maxHeight: Int) : android.widget.ScrollView(ctx) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) =
+        super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxHeight, MeasureSpec.AT_MOST))
 }

@@ -391,6 +391,9 @@ With a button:
   (e.g. `4:32 +1`).
 - When a timer ends, the screen wakes up, an **alarm** rings (up to 2 minutes, at the tablet's alarm volume) and a large card stays
   until you tap **OK**. Timers ring even when notification sounds are off or during quiet hours: you started them yourself.
+- If the settings or a camera's live view are open at that moment, the dashboard comes back to the front with the card, so the
+  **OK** button is always there to stop the alarm.
+- The alarm uses Android's **alarm volume** (*Android settings → Sounds → Volume → Alarm*). If it is at 0, timers are silent.
 
 ### Sleep, screen saver and sounds
 
@@ -455,7 +458,9 @@ The structure stays the same, and so do the theme and wallpaper you chose. The t
 - **Neon**: a very dark background, outlined tiles and cards; a device that is on glows in the theme's colour (e.g. orange for
   Halloween or Autumn). Monospaced clock and temperatures, easy to read in the evening.
 - **Compact**: the HomeKit look, smaller, with more devices per row (7 instead of 5 on a 10" tablet), for rooms with many devices.
+  Long statuses are shortened (a thermostat shows `20.5° → 21°`).
 - **Large print**: the HomeKit look with very large, high-contrast text and 3 tiles per row, readable from across the room.
+  The header keeps its chips on one row, alerts first; a **+N** chip opens the full list.
 
 Pastel and Neon follow the active theme (or wallpaper): changing it changes their colour.
 
@@ -472,7 +477,11 @@ Pastel and Neon follow the active theme (or wallpaper): changing it changes thei
 | <img src="docs/screenshots/skin-compact.png" alt="Compact skin"> | <img src="docs/screenshots/skin-confort.png" alt="Large print skin"> |
 
 Choose it in the tablet's settings (*Display → Appearance*), on the web page (*Display*), or with the **Skin** select in
-Home Assistant (e.g. an automation that switches to Paper during the day).
+Home Assistant.
+
+**Night skin**: optionally pick a second skin and a time range (default 19:00–07:00), for example Paper by day and Neon in the
+evening. The tablet switches by itself at the set times, never while you are touching it or while a window is open. Set it in
+the same three places (**Night skin** select in Home Assistant).
 
 ### Web configuration page
 
@@ -549,7 +558,7 @@ The entities follow Home Assistant's conventions: what you use every day is show
 | Screen shown | sensor | which screen/room is displayed |
 | Unread notifications | sensor | number of unread notifications |
 | **Configuration** | | |
-| Skin / Theme / Wallpaper | selects | e.g. switch to the Christmas theme on December 1st |
+| Skin / Night skin / Theme / Wallpaper | selects | e.g. switch to the Christmas theme on December 1st |
 | Group by category, Show clock, Show battery | switches | |
 | Dim after | number (min) | |
 | Screen saver, Screen saver brightness | select, number | time and weather, photo frame or black screen; its brightness |
@@ -671,12 +680,21 @@ then build with `./gradlew assembleRelease -Pdistribution`.
 
 The version is set in [`app/build.gradle.kts`](app/build.gradle.kts) (`appVersion`); the version code is derived from it.
 
+**Tests**: `./gradlew testReleaseUnitTest` runs the unit tests on your computer, without a tablet (news-feed parser, notification
+parsing, time ranges, translations, and a readability check of every skin). GitHub runs them and builds the app on every push
+([`.github/workflows/build.yml`](.github/workflows/build.yml)).
+
+**Code layout**: `MainActivity.kt` holds the dashboard's state, life cycle, navigation and sleep; its features live next to it in
+`MainHome.kt` (home screen), `MainRoom.kt` (a room), `MainChips.kt` (header chips and their windows) and `MainOverlays.kt`
+(timers, notifications).
+
 **Adding a skin**: write one `SkinDef` in [`Skin.kt`](app/src/main/java/com/homepanel/kiosk/Skin.kt) (colours, fonts, sizes,
 surfaces and the look of a tile, on or off) and add it to the list. The screens only read the current skin, so nothing else changes.
 
 **Testing on a tablet that is in use**: `tools/tablet-snapshot.sh save http://TABLET:8080 file.json` copies its configuration
 (without secrets) before you switch to demo mode, another language or another skin, and `… restore …` puts it back and checks
-the result.
+the result. Take the copy after installing the version you are testing: a setting added by a newer version is not in an older
+copy (the script says so).
 
 ---
 

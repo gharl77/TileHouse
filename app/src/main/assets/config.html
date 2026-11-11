@@ -241,6 +241,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <label class="f" for="skin">Skin (style d'affichage)</label>
     <select id="skin"></select>
     <p class="muted">La skin change la façon de dessiner l'accueil, les pièces et les fenêtres. HomeKit : tuiles en verre. Épuré : lignes fines et texte léger. Papier : papier clair et titres à empattements. Pastel : grandes cartes douces aux couleurs du thème. Néon : contours lumineux de la couleur du thème. Compact : plus d'appareils par ligne. Grand confort : très gros texte, 3 tuiles par ligne. Le thème et le fond d'écran restent respectés. Les réglages de la tablette ne changent pas.</p>
+    <div class="row">
+      <div style="flex:2"><label class="f" for="nightSkin">Skin de nuit</label><select id="nightSkin"></select></div>
+      <div style="flex:1"><label class="f" for="nightSkinStart">Début</label><input type="time" id="nightSkinStart"></div>
+      <div style="flex:1"><label class="f" for="nightSkinEnd">Fin</label><input type="time" id="nightSkinEnd"></div>
+    </div>
+    <p class="muted">La skin de nuit remplace la skin pendant la plage horaire (par exemple Papier le jour et Néon le soir).</p>
     <label class="f" for="theme">Thème de saison ou de fête</label>
     <select id="theme"></select>
     <p class="muted">Un thème remplace le fond d'écran et adapte la salutation de l'accueil. Choisissez « Aucun » pour revenir au fond habituel.</p>
@@ -940,6 +946,12 @@ function renderSettings() {
   const sk = $("skin");
   if (!sk.options.length) for (const [k, n] of S.skins || []) sk.append(el("option", {value: k, textContent: n}));
   sk.value = st.skin || "homekit";
+  const ns = $("nightSkin");
+  if (!ns.options.length) { ns.append(el("option", {value: "", textContent: t("Aucune")})); for (const [k, n] of S.skins || []) ns.append(el("option", {value: k, textContent: n})); }
+  ns.value = st.nightSkin || "";
+  const hm2 = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+  if (document.activeElement !== $("nightSkinStart")) $("nightSkinStart").value = hm2(st.nightSkinStart);
+  if (document.activeElement !== $("nightSkinEnd")) $("nightSkinEnd").value = hm2(st.nightSkinEnd);
   const th = $("theme");
   if (!th.options.length) {
     th.append(el("option", {value: "", textContent: t("Aucun")}));
@@ -1006,6 +1018,10 @@ async function saveSettings(data) {
 $("wallpaper").onchange = () => saveSettings({wallpaper: $("wallpaper").value});
 $("theme").onchange = () => saveSettings({theme: $("theme").value});
 $("skin").onchange = () => saveSettings({skin: $("skin").value});
+$("nightSkin").onchange = () => { dependents(); saveSettings({nightSkin: $("nightSkin").value}); };
+const minutesOf = v => { const [a, b] = (v || "0:0").split(":").map(Number); return a * 60 + b; };
+$("nightSkinStart").onchange = () => saveSettings({nightSkinStart: minutesOf($("nightSkinStart").value)});
+$("nightSkinEnd").onchange = () => saveSettings({nightSkinEnd: minutesOf($("nightSkinEnd").value)});
 $("language").onchange = async () => { await saveSettings({language: $("language").value}); location.reload(); };
 $("dim").onchange = () => saveSettings({dim: +$("dim").value});
 $("group").onchange = () => saveSettings({group: $("group").checked});
@@ -1015,6 +1031,7 @@ $("soundsEnabled").onchange = () => saveSettings({soundsEnabled: $("soundsEnable
 // Un réglage qui dépend d'une case n'est modifiable que si elle est cochée (grisé sinon).
 function dependents() {
   const dis = (ids, off) => { for (const id of ids) { $(id).disabled = off; const l = document.querySelector('label[for="' + id + '"]'); if (l) l.style.opacity = off ? .45 : ""; } };
+  dis(["nightSkinStart", "nightSkinEnd"], !$("nightSkin").value);
   dis(["quietStart", "quietEnd"], !$("quietEnabled").checked);
   dis(["alertTrigger"], !$("personAlert").checked);
   dis(["alertSeconds"], !$("personAlert").checked && !$("doorbellAlert").checked);

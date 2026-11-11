@@ -55,6 +55,8 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     lint { abortOnError = false; checkReleaseBuilds = false }
+    // Tests sur l'ordinateur (sans tablette) : les classes Android non simulées renvoient une valeur par défaut.
+    testOptions { unitTests.isReturnDefaultValues = true }
 }
 
 dependencies {
@@ -63,4 +65,9 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.10.0")
     implementation("androidx.media3:media3-exoplayer-hls:1.10.0")
     implementation("androidx.media3:media3-exoplayer-rtsp:1.10.0")
+
+    // Tests : JUnit, et les vraies bibliothèques JSON et XML (celles d'Android ne tournent pas sur l'ordinateur).
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+    testImplementation("net.sf.kxml:kxml2:2.3.0")
 }

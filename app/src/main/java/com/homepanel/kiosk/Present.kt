@@ -140,6 +140,7 @@ object Present {
         val target = a.dbl("temperature")?.let { num(it) + "°" }
         val action = when (a.str("hvac_action")) { "heating" -> tr("Chauffe"); "cooling" -> tr("Refroidit"); else -> null }
         val mode = action ?: hvacName(e.state)
+        if (Skin.shortStatus && cur != null && target != null) return "$cur → $target"
         val main = if (target != null) "$mode ${tr("à")} $target" else mode
         return listOfNotNull(cur, main).joinToString(" · ")
     }

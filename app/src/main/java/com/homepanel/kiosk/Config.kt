@@ -52,6 +52,24 @@ class ConfigStore(ctx: Context) {
     var skin: String
         get() = p.getString("skin", "homekit") ?: "homekit"
         set(v) = p.edit().putString("skin", v).apply()
+    /** Skin de nuit : remplace [skin] entre [nightSkinStart] et [nightSkinEnd] (minutes depuis minuit) ; vide = aucune. */
+    var nightSkin: String
+        get() = p.getString("nightSkin", "") ?: ""
+        set(v) = p.edit().putString("nightSkin", v).apply()
+    var nightSkinStart: Int
+        get() = p.getInt("nightSkinStart", 19 * 60)
+        set(v) = p.edit().putInt("nightSkinStart", v.coerceIn(0, 1439)).apply()
+    var nightSkinEnd: Int
+        get() = p.getInt("nightSkinEnd", 7 * 60)
+        set(v) = p.edit().putInt("nightSkinEnd", v.coerceIn(0, 1439)).apply()
+    /** Skin à afficher maintenant : celle de nuit pendant sa plage (qui peut passer minuit), sinon la skin choisie. */
+    val activeSkin: String
+        get() {
+            val n = nightSkin
+            if (n.isEmpty() || n == skin) return skin
+            val c = java.util.Calendar.getInstance()
+            return if (TimeRange.contains(nightSkinStart, nightSkinEnd, c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE))) n else skin
+        }
     /** Thème de fête/saison activé manuellement ("" = aucun, on garde le fond d'écran). */
     var theme: String
         get() = p.getString("theme", "") ?: ""
@@ -119,8 +137,7 @@ class ConfigStore(ctx: Context) {
         if (!quietEnabled) return false
         val c = java.util.Calendar.getInstance()
         val m = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
-        val s = quietStart; val e = quietEnd
-        return if (s == e) false else if (s < e) m in s until e else m >= s || m < e
+        return TimeRange.contains(quietStart, quietEnd, m)
     }
 
     /** Calendriers des collectes (vide = pas de pastille). */
@@ -181,7 +198,7 @@ class ConfigStore(ctx: Context) {
     fun isMorningNow(): Boolean {
         val c = java.util.Calendar.getInstance()
         val m = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
-        return if (morningStart <= morningEnd) m in morningStart until morningEnd else m >= morningStart || m < morningEnd
+        return TimeRange.contains(morningStart, morningEnd, m)
     }
 
     /** Cadre photo : "favorites" ou "album:<id>" (Immich), vide = désactivé. */
@@ -391,7 +408,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("skin", skin).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
+                .put("theme", theme).put("skin", skin).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
@@ -420,6 +437,9 @@ class ConfigStore(ctx: Context) {
         o.optJSONObject("display")?.let { d ->
             if (d.has("theme")) theme = d.str("theme")
             if (d.has("skin")) skin = d.str("skin")
+            if (d.has("nightSkin")) nightSkin = d.str("nightSkin")
+            if (d.has("nightSkinStart")) nightSkinStart = d.optInt("nightSkinStart", 19 * 60)
+            if (d.has("nightSkinEnd")) nightSkinEnd = d.optInt("nightSkinEnd", 7 * 60)
             if (d.has("wallpaper")) wallpaper = d.str("wallpaper")
             if (d.has("dim")) dimMinutes = d.optInt("dim")
             if (d.has("motionWake")) motionWake = d.optBoolean("motionWake")

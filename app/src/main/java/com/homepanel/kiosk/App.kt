@@ -39,6 +39,7 @@ class App : Application() {
         super.onCreate()
         instance = this
         guardNetworkThreads()
+        KitchenTimers.onDone = { timerDone(it) }
         config = ConfigStore(this)
         config.migrateSecrets()
         I18n.apply(config.language)
@@ -77,6 +78,23 @@ class App : Application() {
     var onNoticeCleared: ((String) -> Unit)? = null
     /** Notification arrivée pendant qu'un autre écran était affiché : montrée au retour. */
     var pendingNotice: Long? = null
+
+    // ---- Minuterie terminée : la sonnerie appartient à l'application, pas à un écran. Elle continue donc
+    // si l'écran est reconstruit, et l'écran principal revient devant pour montrer le bouton d'arrêt.
+    private val timerAlarm by lazy { TimerAlarm(this) }
+    /** Minuterie dont la fin n'a pas encore été confirmée (la carte doit être à l'écran). */
+    var ringingTimer: KitchenTimer? = null
+        private set
+    /** Défini par l'écran principal tant qu'il est visible. */
+    var onTimerDone: ((KitchenTimer) -> Unit)? = null
+
+    private fun timerDone(t: KitchenTimer) {
+        ringingTimer = t
+        timerAlarm.start()
+        onTimerDone?.invoke(t) ?: startActivity(android.content.Intent(this, MainActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
+    fun stopTimerAlarm() { ringingTimer = null; timerAlarm.stop() }
 
     /** Point d'entrée de toutes les notifications (entité notify de HA, page web). */
     fun receiveNotice(raw: String) {

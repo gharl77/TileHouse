@@ -60,6 +60,11 @@ open class SkinDef(val key: String, private val frName: String) {
     open val mediaRadius = 18f
     open val sliderRadius = 30f
 
+    /** Nombre de rangées de pastilles dans l'en-tête ; au-delà, une pastille « +N » ouvre la liste complète. */
+    open val chipRows = Int.MAX_VALUE
+    /** Tuiles étroites : statuts raccourcis (ex. « 20,5° → 21° »). */
+    open val shortStatus = false
+
     // ---- couleurs
     open val ink = Color.WHITE
     /** Transparence réellement utilisée pour un texte secondaire demandé à [alpha]. */
@@ -124,6 +129,7 @@ private object CompactSkin : SkinDef("compact", "Compact") {
     override val nameSize = 13.5f
     override val statusSize = 11.5f
     override val tileRadius = 14f
+    override val shortStatus = true
 }
 
 /** Comme HomeKit, en très gros et très contrasté : 3 tuiles par ligne. */
@@ -137,6 +143,7 @@ private object ConfortSkin : SkinDef("confort", "Grand confort") {
     override val tilePad = 20
     override val nameSize = 21f
     override val statusSize = 17f
+    override val chipRows = 1
     override fun inkAlpha(alpha: Int) = if (alpha >= 0x80) maxOf(alpha, 0xF0) else alpha
     override val mute = 0xFFC9CED8.toInt()
     override val light: Typeface get() = Typeface.create("sans-serif", Typeface.NORMAL)
@@ -316,10 +323,10 @@ object Skin {
         private set
 
     private fun def(key: String) = all.firstOrNull { it.key == key } ?: HomeKitSkin
-    fun signatureOf(cfg: ConfigStore) = def(cfg.skin).let { it.key + if (it.usesTint) "|" + cfg.theme + "|" + cfg.wallpaper else "" }
+    fun signatureOf(cfg: ConfigStore) = def(cfg.activeSkin).let { it.key + if (it.usesTint) "|" + cfg.theme + "|" + cfg.wallpaper else "" }
 
     fun load(cfg: ConfigStore) {
-        cur = def(cfg.skin)
+        cur = def(cfg.activeSkin)
         signature = signatureOf(cfg)
         tint = tintOf(Themes.get(cfg.theme)?.colors ?: Wallpapers.colorsOf(cfg.wallpaper))
     }
@@ -335,10 +342,14 @@ object Skin {
         return Color.HSVToColor(hsv)
     }
 
-    fun mix(c: Int, base: Int, keep: Float): Int = Color.rgb(
-        (Color.red(c) * keep + Color.red(base) * (1 - keep)).toInt(),
-        (Color.green(c) * keep + Color.green(base) * (1 - keep)).toInt(),
-        (Color.blue(c) * keep + Color.blue(base) * (1 - keep)).toInt())
+    /** Mélange opaque de [c] (part [keep]) et de [base]. Calcul direct sur les octets, sans dépendre d'Android. */
+    fun mix(c: Int, base: Int, keep: Float): Int {
+        fun ch(shift: Int) = (((c shr shift) and 0xFF) * keep + ((base shr shift) and 0xFF) * (1 - keep)).toInt().coerceIn(0, 255)
+        return (0xFF shl 24) or (ch(16) shl 16) or (ch(8) shl 8) or ch(0)
+    }
+
+    /** Sélectionne une skin par sa clé (tests). */
+    internal fun use(key: String) { cur = def(key) }
 
     // tailles
     val textScale get() = cur.textScale
@@ -352,6 +363,8 @@ object Skin {
     val tileRadius get() = cur.tileRadius
     val mediaRadius get() = cur.mediaRadius
     val sliderRadius get() = cur.sliderRadius
+    val chipRows get() = cur.chipRows
+    val shortStatus get() = cur.shortStatus
 
     // couleurs
     /** Encre du texte et des icônes. */
