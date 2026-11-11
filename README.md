@@ -174,9 +174,17 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   (entity, states, text and colour on the web page).
 - **Shortcuts**: large buttons for the scripts, scenes and buttons you choose.
 - **This morning** (☀️ next to the bell): during a time range (default 05:00–10:00), a sun icon appears at the top, with a blue
-  dot until you have read the content. Tap it to read the sources you choose: a text from any entity state or attribute (Markdown,
-  e.g. the sections of a generated morning summary) or a news feed (headlines of a feed sensor's `entries`). The web page suggests
-  the summaries and feeds it finds, and you can add any other entity. The dot comes back when a source changes.
+  dot until you have read the content. Tap it to open a full-screen panel with the sources you choose (*Home → This morning* on
+  the web page):
+  - **News feeds**: a title and the link of any RSS or Atom feed (XML). The tablet reads the feed itself (no Home Assistant
+    integration needed) and shows the stories in two columns, with picture, title, start of the summary and time
+    ("2 h ago"); tap a story to read its whole summary. Choose how many stories (4–12). The **Test** button checks the link.
+    Feeds are re-read every 20 minutes; a feed that doesn't answer keeps its last stories. Suggestions in one tap: Radio-Canada,
+    La Presse, Le Devoir, Journal de Montréal, Journal de Québec, TVA Nouvelles.
+  - **Texts**: the state or an attribute of an entity (Markdown), e.g. the sections of a morning summary generated in Home
+    Assistant, shown as cards side by side.
+
+  The dot comes back when a source changes (a new story or a new summary).
 
   <img src="docs/screenshots/morning-card.png" width="860" alt="This morning: weather, commute and local news">
 

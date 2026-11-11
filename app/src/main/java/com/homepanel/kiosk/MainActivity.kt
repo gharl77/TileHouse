@@ -290,6 +290,8 @@ class MainActivity : Activity(), HaClient.Listener {
     @Deprecated("Kiosque : le bouton retour ramène à l'accueil")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
+        if (morningPanel?.showing == true) { morningPanel?.hide(); return }
+        if (center?.showing == true) { center?.hide(); return }
         if (roomIndex != HOME) goHome()
     }
 
@@ -485,6 +487,17 @@ class MainActivity : Activity(), HaClient.Listener {
     private fun updateMorningButton() {
         if (!::morningButton.isInitialized) return
         val visible = cfg.isMorningNow() && HomeExtras.hasMorning(cfg.morningSources, app.ha.states)
+        // Flux de nouvelles relus au besoin (gardés 20 min) : le point revient quand il y a du nouveau.
+        if (visible) for (i in 0 until cfg.morningSources.length()) cfg.morningSources.optJSONObject(i)?.takeIf { HomeExtras.isFeed(it) }?.let { s ->
+            val url = s.optString("url")
+            val c = Feeds.cached(url)
+            if (url.isNotEmpty() && (c == null || System.currentTimeMillis() - c.at > 20 * 60_000L)) Feeds.load(url) { refreshMorningDot() }
+        }
+        refreshMorningDot()
+    }
+
+    private fun refreshMorningDot() {
+        val visible = cfg.isMorningNow() && HomeExtras.hasMorning(cfg.morningSources, app.ha.states)
         val read = getSharedPreferences("notices", MODE_PRIVATE).getInt("morning_read", 0)
         morningButton.set(visible, visible && read != HomeExtras.morningHash(cfg.morningSources, app.ha.states))
     }
@@ -529,10 +542,21 @@ class MainActivity : Activity(), HaClient.Listener {
         showReader(tr("Alertes météo"), if (text.isEmpty()) tr("Aucune alerte en vigueur.") else android.text.Html.fromHtml(text))
     }
 
+    private var morningPanel: MorningPanel? = null
+
     private fun openMorning() {
-        showReader("☀️  " + tr("Ce matin"), HomeExtras.morningFull(cfg.morningSources, app.ha.states))
+        val p = morningPanel ?: MorningPanel(this) { markMorningRead() }.also {
+            root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+            morningPanel = it
+        }
+        p.show()
+        markMorningRead()
+    }
+
+    /** Contenu affiché = lu (rappelé quand un flux finit de charger pendant la lecture). */
+    private fun markMorningRead() {
         getSharedPreferences("notices", MODE_PRIVATE).edit().putInt("morning_read", HomeExtras.morningHash(cfg.morningSources, app.ha.states)).apply()
-        updateMorningButton()
+        refreshMorningDot()
     }
 
     /** Fenêtre de lecture (texte long, défilant). */

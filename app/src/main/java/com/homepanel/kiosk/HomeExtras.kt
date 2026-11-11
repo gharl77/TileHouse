@@ -151,23 +151,19 @@ object HomeExtras {
         }
     }
 
-    /** Empreinte du contenu, pour savoir s'il a changé depuis la dernière lecture. */
+    /** Source « flux de nouvelles » : {type:"rss", title, url, count}. Sinon : texte d'une entité {entity, attribute, title}. */
+    fun isFeed(s: org.json.JSONObject) = s.optString("type") == "rss"
+
+    /** Empreinte du contenu (textes + titres des flux déjà lus), pour savoir s'il a changé depuis la dernière lecture. */
     fun morningHash(sources: JSONArray, states: Map<String, EntityState>): Int =
-        (0 until sources.length()).mapNotNull { i -> sources.optJSONObject(i)?.let { sourceText(it, states) } }.joinToString("\n").hashCode()
+        (0 until sources.length()).mapNotNull { i ->
+            val s = sources.optJSONObject(i) ?: return@mapNotNull null
+            if (isFeed(s)) Feeds.cached(s.optString("url"))?.items?.take(s.optInt("count", 8))?.joinToString("|") { it.title }
+            else sourceText(s, states)
+        }.joinToString("\n").hashCode()
 
     fun hasMorning(sources: JSONArray, states: Map<String, EntityState>): Boolean =
-        (0 until sources.length()).any { i -> sources.optJSONObject(i)?.let { sourceText(it, states) } != null }
-
-    /** Texte complet de toutes les sources, pour la fenêtre de lecture. */
-    fun morningFull(sources: JSONArray, states: Map<String, EntityState>): CharSequence {
-        val md = StringBuilder()
-        for (i in 0 until sources.length()) {
-            val s = sources.optJSONObject(i) ?: continue
-            val text = sourceText(s, states) ?: continue
-            md.append("## ").append(s.optString("title").ifEmpty { states[s.optString("entity")]?.name ?: "" }).append("\n").append(text).append("\n\n")
-        }
-        return markdown(md.toString().trim())
-    }
+        (0 until sources.length()).any { i -> sources.optJSONObject(i)?.let { if (isFeed(it)) it.optString("url").isNotEmpty() else sourceText(it, states) != null } == true }
 
     // ------------------------------------------------------------ raccourcis
 

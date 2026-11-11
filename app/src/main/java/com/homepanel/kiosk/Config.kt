@@ -166,7 +166,7 @@ class ConfigStore(ctx: Context) {
         set(v) = p.edit().putString("customChips", v.toString()).apply()
     /** Carte du matin : sources [{entity, attribute, title}] (JSON) et plage horaire (minutes). */
     var morningSources: JSONArray
-        get() = if (demo) JSONArray().put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "weather").put("title", if (I18n.english) "Weather" else "Météo")).put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "commute").put("title", if (I18n.english) "Commute" else "Trajet")).put(JSONObject().put("entity", "sensor.local_news").put("attribute", "").put("title", if (I18n.english) "Local news" else "Nouvelles locales")) else try { JSONArray(p.getString("morningSources", "[]")) } catch (_: Exception) { JSONArray() }
+        get() = if (demo) JSONArray().put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "weather").put("title", if (I18n.english) "Weather" else "Météo")).put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "commute").put("title", if (I18n.english) "Commute" else "Trajet")).put(JSONObject().put("type", "rss").put("url", "demo:news").put("count", 6).put("title", if (I18n.english) "Local news" else "Nouvelles locales")) else try { JSONArray(p.getString("morningSources", "[]")) } catch (_: Exception) { JSONArray() }
         set(v) = p.edit().putString("morningSources", v.toString()).apply()
     var morningStart: Int
         get() = if (demo) 0 else p.getInt("morningStart", 5 * 60)

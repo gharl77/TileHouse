@@ -187,14 +187,14 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   </section>
   <section class="card" style="grid-column:1/-1">
     <h2>Ce matin</h2>
-    <p class="muted">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : un texte (état ou attribut d'une entité, Markdown accepté) ou un flux de nouvelles (liste des titres).</p>
+    <p class="muted">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : des flux de nouvelles (lien RSS ou Atom, lu directement par la tablette, avec images) ou un texte d'une entité Home Assistant (Markdown accepté).</p>
     <div class="row">
       <div style="flex:1"><label class="f" for="mStart">De</label><input type="time" id="mStart"></div>
       <div style="flex:1"><label class="f" for="mEnd">À</label><input type="time" id="mEnd"></div>
     </div>
     <h2 style="margin-top:18px">Sources</h2>
     <div id="mSources"></div>
-    <button id="addSource">+ Ajouter une source</button>
+    <div class="row"><button id="addFeed">+ Ajouter un flux de nouvelles</button><button id="addSource">+ Ajouter un texte (entité)</button></div>
     <h2 style="margin-top:18px">Suggestions</h2>
     <div id="mSuggest" class="row muted">Recherche…</div>
   </section>
@@ -636,12 +636,44 @@ function renderSources() {
   const save = () => saveSettings({morningSources: src});
   if (!src.length) box.append(el("p", {class: "muted", textContent: t("Aucune source : l'icône Ce matin n'est pas affichée.")}));
   src.forEach((s, i) => {
+    const title = el("div", {}, el("label", {class: "f", textContent: t("Titre")}),
+      el("input", {value: s.title || "", placeholder: s.type === "rss" ? "Radio-Canada" : t("Météo"), onchange: ev => { s.title = ev.target.value; save(); }}));
+    const tools = [
+      el("button", {class: "mini x", textContent: "▲", disabled: i === 0, onclick: () => { move(src, i, -1); save(); renderSources(); }}),
+      el("button", {class: "mini x", textContent: "▼", disabled: i === src.length - 1, onclick: () => { move(src, i, 1); save(); renderSources(); }}),
+      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { src.splice(i, 1); save(); renderSources(); }})];
+    if (s.type === "rss") {
+      const info = el("span", {class: "muted"});
+      const url = el("input", {type: "url", value: s.url || "", placeholder: "https://exemple.com/rss.xml"});
+      const test = async () => {
+        if (!url.value.trim()) { info.textContent = ""; return; }
+        info.textContent = t("Lecture du flux…");
+        try {
+          const r = await api("POST", "/api/feed/test", {url: url.value.trim()});
+          info.textContent = r.ok ? "✓ " + r.count + " " + t("nouvelles") + (r.images ? " · " + r.images + " " + t("avec image") : "") + " — « " + r.first + " »"
+                                  : "⚠️ " + (r.error || t("Aucune nouvelle dans ce flux"));
+        } catch (e) { info.textContent = "⚠️ " + e.message; }
+      };
+      url.onchange = () => { s.url = url.value.trim(); save(); test(); };
+      const count = el("select", {onchange: ev => { s.count = +ev.target.value; save(); }},
+        ...[4, 6, 8, 10, 12].map(n => el("option", {value: n, textContent: n})));
+      count.value = s.count || 8;
+      box.append(el("div", {class: "rule"},
+        el("div", {}, el("label", {class: "f", textContent: t("Type")}), el("b", {textContent: "📰 " + t("Flux de nouvelles")})),
+        title,
+        el("div", {style: "flex:2"}, el("label", {class: "f", textContent: t("Lien du flux (RSS / Atom, XML)")}), url),
+        el("div", {}, el("label", {class: "f", textContent: t("Nouvelles")}), count),
+        el("button", {class: "mini x", textContent: t("Tester"), onclick: test}),
+        ...tools,
+        el("div", {style: "flex-basis:100%"}, info)));
+      return;
+    }
     const ent = el("input", {value: s.entity || "", placeholder: "sensor.resume_matinal"});
     ent.setAttribute("list", "allEnts");
     const at = el("select", {});
     const fill = async () => {
       const list = await attrsOf(ent.value.trim());
-      at.replaceChildren(el("option", {value: "", textContent: t("État (ou flux)")}), ...list.map(a => el("option", {value: a.name, textContent: a.name + (a.feed ? " · " + t("flux") : "")})));
+      at.replaceChildren(el("option", {value: "", textContent: t("État")}), ...list.filter(a => !a.feed).map(a => el("option", {value: a.name, textContent: a.name})));
       if (s.attribute && !list.some(a => a.name === s.attribute)) at.append(el("option", {value: s.attribute, textContent: s.attribute}));
       at.value = s.attribute || "";
     };
@@ -649,31 +681,40 @@ function renderSources() {
     at.onchange = () => { s.attribute = at.value; save(); };
     fill();
     box.append(el("div", {class: "rule"},
-      el("div", {}, el("label", {class: "f", textContent: t("Titre")}), el("input", {value: s.title || "", onchange: ev => { s.title = ev.target.value; save(); }})),
+      el("div", {}, el("label", {class: "f", textContent: t("Type")}), el("b", {textContent: "📝 " + t("Texte (entité)")})),
+      title,
       el("div", {}, el("label", {class: "f", textContent: t("Entité")}), ent),
       el("div", {}, el("label", {class: "f", textContent: t("Attribut")}), at),
-      el("button", {class: "mini x", textContent: "▲", disabled: i === 0, onclick: () => { move(src, i, -1); save(); renderSources(); }}),
-      el("button", {class: "mini x", textContent: "▼", disabled: i === src.length - 1, onclick: () => { move(src, i, 1); save(); renderSources(); }}),
-      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { src.splice(i, 1); save(); renderSources(); }})));
+      ...tools));
   });
 }
+$("addFeed").onclick = () => { H.morningSources.push({type: "rss", title: "", url: "", count: 8}); renderSources(); };
 $("addSource").onclick = () => { H.morningSources.push({entity: "", attribute: "", title: ""}); renderSources(); };
 
+// Flux connus (vérifiés) proposés en un clic ; on peut toujours ajouter n'importe quel autre lien.
+const FEEDS = [
+  ["Radio-Canada · À la une", "https://ici.radio-canada.ca/rss/4159"],
+  ["Radio-Canada · Sports", "https://ici.radio-canada.ca/rss/771"],
+  ["La Presse · Actualités", "https://www.lapresse.ca/actualites/rss"],
+  ["Le Devoir · Manchettes", "https://www.ledevoir.com/rss/manchettes.xml"],
+  ["Journal de Montréal", "https://www.journaldemontreal.com/rss.xml"],
+  ["Journal de Québec", "https://www.journaldequebec.com/rss.xml"],
+  ["TVA Nouvelles", "https://www.tvanouvelles.ca/rss.xml"],
+];
 let suggested = false;
 async function loadSuggestions() {
   if (suggested || !EX || !EX.all) return;
   suggested = true;
   const box = $("mSuggest");
   box.replaceChildren();
-  const add = (title, entity, attribute) => box.append(el("button", {textContent: "+ " + title, onclick: () => {
-    H.morningSources.push({entity, attribute, title}); saveSettings({morningSources: H.morningSources}); renderSources();
+  const add = (label, source) => box.append(el("button", {textContent: "+ " + label, onclick: () => {
+    if (source.url && H.morningSources.some(x => x.url === source.url)) return;
+    H.morningSources.push(source); saveSettings({morningSources: H.morningSources}); renderSources();
   }}));
-  // Résumés générés (ex. sensor.resume_matinal) : chaque section texte ; flux de nouvelles (attribut « entries »)
-  const cands = EX.all.filter(e => e.id.startsWith("sensor.") && /resume|résumé|briefing|summary|nouvelles|news|feed|rss/i.test(e.id + " " + e.name)).slice(0, 25);
-  for (const c of cands) {
-    for (const a of await attrsOf(c.id)) add(a.feed ? c.name : c.name + " · " + a.name, c.id, a.feed && a.name === "entries" ? "" : a.name);
-  }
-  if (!box.childElementCount) box.append(el("span", {textContent: t("Aucune suggestion : ajoutez une source à la main.")}));
+  for (const [name, url] of FEEDS) add("📰 " + name, {type: "rss", title: name.replace(" · ", " — "), url, count: 8});
+  // Textes de résumés générés dans Home Assistant (ex. sensor.resume_matinal) : chaque attribut texte
+  const cands = EX.all.filter(e => e.id.startsWith("sensor.") && /resume|résumé|briefing|summary/i.test(e.id + " " + e.name)).slice(0, 10);
+  for (const c of cands) for (const a of await attrsOf(c.id)) if (!a.feed) add("📝 " + c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name});
 }
 
 // ---- Mise à jour

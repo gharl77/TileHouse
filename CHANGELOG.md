@@ -8,7 +8,9 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Weather alerts: chips from the alert-count sensors you pick (Environment Canada warnings, watches, advisories), with details on tap.
 - Custom chips: entity + states + text + colour (e.g. "🧺 Washer to empty").
 - Shortcuts: large buttons for chosen scripts, scenes and buttons on the home screen.
-- This morning: during a chosen time range, a ☀️ icon next to the bell (blue dot until read, back when a source changes) opens the sources you choose (any entity state/attribute as Markdown text, or a news feed's headlines); the web page suggests summaries and feeds it finds. No card on the home screen, so it takes no room.
+- This morning: during a chosen time range, a ☀️ icon next to the bell (blue dot until read, back when a source changes) opens a full-screen panel with the sources you choose. No card on the home screen, so it takes no room.
+  - News feeds: a title and the link of any RSS / Atom feed (XML), read directly by the tablet; stories in two columns with picture, title, summary and time; tap to expand; 4–12 stories; **Test** button on the web page; one-tap suggestions for Québec news sites. Tolerates feeds that are not strict XML.
+  - Texts: an entity's state or attribute (Markdown), shown as cards side by side.
 - Notification action buttons: up to 3 buttons (`actions`: title, service, entity_id, data) that call a Home Assistant service and mark the notification read.
 - Demo mode shows examples of every new home-screen feature (peak, weather statement, collections, washer chip, This morning, shortcuts); help page updated with new screenshots.
 - Fix: changing the tablet's language no longer logs "Invalid option" errors in Home Assistant for the Theme, Wallpaper and Screen saver selects. Each language now has its own MQTT state topic for these lists, and the value is published before the list, so Home Assistant never reads a value in the other language.

@@ -282,6 +282,19 @@ class WebServer(private val app: App) {
                 ok(JSONObject().put("error", error ?: "")
                     .put("sources", JSONArray().also { a -> for ((n, id) in found) a.put(JSONObject().put("name", n).put("id", id)) }))
             }
+            "POST /api/feed/test" -> {
+                // Lit un flux RSS / Atom (lien de la carte « Ce matin ») et renvoie le nombre de nouvelles et la première.
+                val url = req.str("url").trim()
+                if (url.isEmpty()) return ok(JSONObject().put("ok", false).put("error", tr("Lien invalide")))
+                val latch = java.util.concurrent.CountDownLatch(1)
+                var feed: Feeds.Feed? = null
+                android.os.Handler(android.os.Looper.getMainLooper()).post { Feeds.load(url, force = true) { feed = it; latch.countDown() } }
+                latch.await(30, java.util.concurrent.TimeUnit.SECONDS)
+                val f = feed ?: return ok(JSONObject().put("ok", false).put("error", tr("Pas de réponse")))
+                val first = f.items.firstOrNull()
+                return ok(JSONObject().put("ok", f.items.isNotEmpty()).put("error", f.error ?: "").put("count", f.items.size)
+                    .put("first", first?.title ?: "").put("images", f.items.count { it.image != null }))
+            }
             "POST /api/attrs" -> {
                 // Attributs d'une entité (carte du matin) : nom, type (texte ou flux) et aperçu.
                 val id = req.str("entity")
