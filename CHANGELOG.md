@@ -13,6 +13,7 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
   - Texts: an entity's state or attribute (Markdown), shown as cards side by side.
 - Notification action buttons: up to 3 buttons (`actions`: title, service, entity_id, data) that call a Home Assistant service and mark the notification read.
 - Demo mode shows examples of every new home-screen feature (peak, weather statement, collections, washer chip, This morning, shortcuts); help page updated with new screenshots.
+- Web page, Home tab reorganised like the home screen: quick links, then Header (who's home), Chips (collections, electricity peaks, weather alerts, custom chips), Weather and calendar, Shortcuts and rooms, This morning — one topic per card. Who's home lists only the companion-app people and per-person presence sensors, with the current selection on top; room detectors and tracked devices are folded under "Other sources" with a search field.
 - Fix: changing the tablet's language no longer logs "Invalid option" errors in Home Assistant for the Theme, Wallpaper and Screen saver selects. Each language now has its own MQTT state topic for these lists, and the value is published before the list, so Home Assistant never reads a value in the other language.
 
 ## 2026.11.5

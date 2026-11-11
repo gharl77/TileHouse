@@ -166,7 +166,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
   (case and accents ignored; empty = every event of that calendar). Both can use the same calendar.
 - **Electricity peaks** (e.g. Hydro-Québec): "Peak tomorrow 06:00–09:00" the day before and the same day, then a red "Peak now ·
-  ends 09:00" during the peak, from the calendar you pick (*Home → Electricity and weather*). An optional reminder (30 min to 3 h
+  ends 09:00" during the peak, from the calendar you pick (*Home → Electricity peaks*). An optional reminder (30 min to 3 h
   before) goes to the notification center.
 - **Weather alerts**: pick the sensors that count the alerts in effect (Environment Canada: warnings, watches, advisories); a chip
   appears when one is above 0 (red for a warning), tap it for details.
@@ -448,8 +448,11 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
   **Import HA areas** creates rooms from your areas automatically.
-- **Home**: weather entity, calendars, collection reminders (calendar + keyword), people and presence sensors, the **order of floors**,
-  electricity peaks, weather alerts, shortcuts, custom chips and the "This morning" sources.
+- **Home**: organised like the home screen, top to bottom, with quick links at the top: **Header** (who's home), **Chips**
+  (collections, electricity peaks, weather alerts, custom chips), **Weather and calendar** cards, **Shortcuts and rooms** (order
+  of floors) and **This morning** (time range and sources). For who's home, the people from the companion app and the per-person
+  presence sensors are listed side by side with the current selection on top; room detectors and tracked devices are folded
+  under *Other sources*, with a search field.
 - **Display**: language, theme, wallpaper, dashboard options, sleep and screen saver (including the Immich photo frame), sounds and
   quiet hours, notifications, and camera alerts.
 - **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.

@@ -24,6 +24,11 @@ header .badge{align-self:center}
 .side{display:grid;gap:20px;align-content:start}
 @media(max-width:900px){main,main.grid2{grid-template-columns:1fr;padding:8px 16px 40px}header{padding:20px 16px 8px}.tabs{padding:4px 16px 0}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
+.group{grid-column:1/-1;margin:18px 4px -4px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute,#8e95a3);font-weight:700}
+.jump{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0}
+.jump button{border-radius:20px;padding:6px 14px;font-size:14px}
+.presel{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}
+.presel span{background:rgba(255,179,0,.16);color:#ffcc66;border-radius:14px;padding:3px 10px;font-size:13px}
 label.f{display:block;color:var(--mute);font-size:13px;margin:12px 0 4px}
 input,select{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:10px;padding:9px 12px;font:inherit}
 input:focus,select:focus{outline:2px solid var(--blue);border-color:transparent}
@@ -138,15 +143,21 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
 
 <!-- ============ Accueil ============ -->
 <main class="panel grid2" data-panel="home" hidden>
+  <nav class="jump" style="grid-column:1/-1">
+    <button data-jump="g-top">En-tête</button><button data-jump="g-chips">Pastilles</button><button data-jump="g-cards">Météo et agenda</button><button data-jump="g-buttons">Raccourcis et pièces</button><button data-jump="g-morning">Ce matin</button>
+  </nav>
+
+  <h3 class="group" id="g-top">En-tête de l'accueil</h3>
+  <section class="card" style="grid-column:1/-1">
+    <h2>Qui est à la maison</h2>
+    <p class="muted">Noms affichés sous la salutation. Cochez les personnes de Home Assistant (app compagnon) ou vos capteurs de présence par personne : un capteur compte « à la maison » tant que son état n'est pas une absence (not_home, away…).</p>
+    <div id="personList" class="muted">Connexion requise…</div>
+  </section>
+
+  <h3 class="group" id="g-chips">Pastilles d'information</h3>
   <section class="card">
-    <h2>Météo</h2>
-    <label class="f" for="weather">Entité météo</label>
-    <select id="weather"></select>
-    <h2 style="margin-top:24px">Agenda</h2>
-    <label class="f">Calendriers affichés</label>
-    <div id="calList" class="muted">Connexion requise…</div>
-    <h2 style="margin-top:24px">Collectes</h2>
-    <p class="muted">La veille et le jour d'une collecte, une pastille « Recyclage demain » (bac bleu) ou « Ordures aujourd'hui » (bac vert) apparaît sur l'accueil. Un événement compte si son titre contient le mot clé (majuscules et accents ignorés ; vide = tous les événements du calendrier).</p>
+    <h2>🗑️ Collectes</h2>
+    <p class="muted">La veille et le jour d'une collecte : « Recyclage demain » (bac bleu) ou « Ordures aujourd'hui » (bac vert). Un événement compte si son titre contient le mot clé (majuscules et accents ignorés ; vide = tous les événements).</p>
     <div class="row">
       <div style="flex:2"><label class="f" for="recycleCal">Calendrier du recyclage</label><select id="recycleCal"></select></div>
       <div style="flex:1"><label class="f" for="recycleKw">Mot clé</label><input id="recycleKw" placeholder="recycl"></div>
@@ -157,37 +168,54 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     </div>
   </section>
   <section class="card">
-    <h2>Qui est à la maison</h2>
-    <p class="muted">Personnes affichées sous la salutation. Combinez au choix les personnes de HA (app compagnon) et vos capteurs de présence : un capteur indique « à la maison » tant que son état n'est pas une absence (not_home, away…).</p>
-    <div id="personList" class="muted">Connexion requise…</div>
-    <h2 style="margin-top:24px">Paliers</h2>
-    <p class="muted">Les pièces sont regroupées selon les paliers (étages) de Home Assistant. Glissez ⠿ pour changer l'ordre.</p>
-    <ul class="rooms" id="floorList"></ul>
+    <h2>⚡ Pointes d'électricité</h2>
+    <p class="muted">« Pointe demain / aujourd'hui » la veille et le jour même, puis « Pointe en cours » (rouge) pendant la pointe. Le rappel arrive dans le centre de notifications.</p>
+    <div class="row">
+      <div style="flex:2"><label class="f" for="peakCal">Calendrier des pointes (Hydro-Québec)</label><select id="peakCal"></select></div>
+      <div style="flex:1"><label class="f" for="peakReminder">Rappel</label>
+        <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select></div>
+    </div>
   </section>
   <section class="card">
-    <h2>Électricité et météo</h2>
-    <label class="f" for="peakCal">Calendrier des pointes (Hydro-Québec)</label>
-    <select id="peakCal"></select>
-    <label class="f" for="peakReminder">Rappel avant une pointe</label>
-    <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select>
-    <p class="muted">Pastille « Pointe demain / aujourd'hui » la veille et le jour même, puis « Pointe en cours » (rouge) pendant la pointe. Le rappel arrive dans le centre de notifications.</p>
-    <h2 style="margin-top:24px">Alertes météo</h2>
+    <h2>⚠️ Alertes météo</h2>
     <p class="muted">Capteurs qui comptent les alertes en vigueur (ex. Environnement Canada : alertes, veilles, avis). Une pastille apparaît quand l'un d'eux est au-dessus de 0 ; touchez-la pour le détail.</p>
     <div id="alertList" class="muted">Connexion requise…</div>
   </section>
   <section class="card">
-    <h2>Raccourcis</h2>
-    <p class="muted">Scripts, scènes et boutons affichés en gros boutons sur l'accueil, dans l'ordre où vous les cochez.</p>
-    <input id="scQ" placeholder="Rechercher…">
-    <ul class="ents pick" id="scList" style="max-height:260px"></ul>
-    <h2 style="margin-top:24px">Pastilles personnalisées</h2>
-    <p class="muted">Une pastille apparaît sur l'accueil quand l'entité est dans un des états indiqués (séparés par des virgules). Ex. : laveuse « À vider ».</p>
+    <h2>🏷️ Pastilles personnalisées</h2>
+    <p class="muted">Une pastille apparaît quand l'entité est dans un des états indiqués (séparés par des virgules). Ex. : laveuse « À vider ».</p>
     <div id="chipRules"></div>
     <button id="addChip">+ Ajouter une pastille</button>
   </section>
+
+  <h3 class="group" id="g-cards">Cartes météo et agenda</h3>
+  <section class="card">
+    <h2>🌤️ Météo</h2>
+    <label class="f" for="weather">Entité météo</label>
+    <select id="weather"></select>
+  </section>
+  <section class="card">
+    <h2>📅 Agenda</h2>
+    <label class="f">Calendriers affichés</label>
+    <div id="calList" class="muted">Connexion requise…</div>
+  </section>
+
+  <h3 class="group" id="g-buttons">Raccourcis et pièces</h3>
+  <section class="card">
+    <h2>▶️ Raccourcis</h2>
+    <p class="muted">Scripts, scènes et boutons affichés en gros boutons sous les cartes, dans l'ordre où vous les cochez.</p>
+    <input id="scQ" placeholder="Rechercher…">
+    <ul class="ents pick" id="scList" style="max-height:260px"></ul>
+  </section>
+  <section class="card">
+    <h2>🏠 Paliers</h2>
+    <p class="muted">Les pièces sont regroupées selon les paliers (étages) de Home Assistant. Glissez ⠿ pour changer l'ordre.</p>
+    <ul class="rooms" id="floorList"></ul>
+  </section>
+
+  <h3 class="group" id="g-morning">Ce matin (icône ☀️)</h3>
   <section class="card" style="grid-column:1/-1">
-    <h2>Ce matin</h2>
-    <p class="muted">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : des flux de nouvelles (lien RSS ou Atom, lu directement par la tablette, avec images) ou un texte d'une entité Home Assistant (Markdown accepté).</p>
+    <p class="muted" style="margin-top:0">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : des flux de nouvelles (lien RSS ou Atom, lu directement par la tablette, avec images) ou un texte d'une entité Home Assistant (Markdown accepté).</p>
     <div class="row">
       <div style="flex:1"><label class="f" for="mStart">De</label><input type="time" id="mStart"></div>
       <div style="flex:1"><label class="f" for="mEnd">À</label><input type="time" id="mEnd"></div>
@@ -790,25 +818,49 @@ function renderPresence(ex, selected) {
   if (!persons && !others) { b.textContent = selected.length ? selected.join(", ") : t("Connexion requise…"); return; }
   b.replaceChildren();
   b.className = "";
-  const save = () => saveSettings({persons: [...b.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.id)});
-  const group = (title, list, collapsed) => {
-    if (!list || !list.length) return;
-    const box = collapsed ? el("details") : el("div");
-    box.append(el(collapsed ? "summary" : "div", {class: "muted", style: "margin:10px 0 2px;font-weight:600"}, title));
-    if (collapsed && list.some(it => selected.includes(it.id))) box.open = true;
-    for (const it of list) {
-      const cb = el("input", {type: "checkbox", checked: selected.includes(it.id), onchange: save});
-      cb.dataset.id = it.id;
-      box.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.id})));
-    }
-    b.append(box);
+  const all = [...(persons || []), ...(others || [])];
+  const nameOf = id => (all.find(x => x.id === id) || {name: id}).name;
+  const save = () => {
+    const sel = [...new Set([...b.querySelectorAll("input[type=checkbox]")].filter(x => x.checked).map(x => x.dataset.id))];
+    saveSettings({persons: sel});
+    renderPresence(ex, sel);
   };
-  const sensors = (others || []).filter(it => !it.id.startsWith("device_tracker."));
-  const trackers = (others || []).filter(it => it.id.startsWith("device_tracker."));
-  group(t("Personnes (app compagnon)"), persons, false);
-  group(t("Capteurs de présence (ESPresense, Bermuda…)"), sensors, false);
-  group(t("Appareils suivis"), trackers, true);
+  // Ce qui est coché, en un coup d'œil
+  b.append(el("div", {class: "presel"}, ...(selected.length ? selected.map(id => el("span", {textContent: nameOf(id)}))
+    : [el("em", {class: "muted", textContent: t("Personne n'est sélectionné.")})])));
+  const item = it => {
+    const cb = el("input", {type: "checkbox", checked: selected.includes(it.id), onchange: save});
+    cb.dataset.id = it.id;
+    return el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.id}));
+  };
+  const cols = el("div", {class: "row", style: "align-items:flex-start;gap:24px"});
+  const col = (title, list) => {
+    if (!list.length) return;
+    cols.append(el("div", {style: "flex:1;min-width:240px"}, el("div", {class: "muted", style: "margin:10px 0 2px;font-weight:600"}, title), ...list.map(item)));
+  };
+  // Proposés : personnes HA et capteurs de présence par personne (sensor.*)
+  const sensors = (others || []).filter(it => it.id.startsWith("sensor."));
+  col(t("Personnes (app compagnon)"), persons || []);
+  col(t("Capteurs de présence par personne"), sensors);
+  b.append(cols);
+  // Le reste (détecteurs de pièce, appareils suivis) : replié, avec recherche
+  const rest = (others || []).filter(it => !it.id.startsWith("sensor."));
+  if (rest.length) {
+    const box = el("details", {style: "margin-top:10px"});
+    box.append(el("summary", {class: "muted", style: "font-weight:600;cursor:pointer"}, t("Autres sources") + " (" + rest.length + ") — " + t("détecteurs de pièce, appareils suivis")));
+    const q = el("input", {placeholder: t("Rechercher…"), style: "margin:8px 0"});
+    const list = el("div");
+    const draw = () => {
+      const f = q.value.trim().toLowerCase();
+      list.replaceChildren(...rest.filter(it => !f || (it.name + " " + it.id).toLowerCase().includes(f)).map(item));
+    };
+    q.oninput = draw; draw();
+    box.append(q, list);
+    if (rest.some(it => selected.includes(it.id))) box.open = true;
+    b.append(box);
+  }
 }
+for (const j of document.querySelectorAll("[data-jump]")) j.onclick = () => $(j.dataset.jump).scrollIntoView({behavior: "smooth", block: "start"});
 
 function renderHome() {
   const h = S.home;
