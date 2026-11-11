@@ -10,6 +10,7 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Shortcuts: large buttons for chosen scripts, scenes and buttons on the home screen.
 - Morning card: during a chosen time range, a card with the sources you choose (any entity state/attribute as Markdown text, or a news feed's headlines); the web page suggests summaries and feeds it finds; tap to read everything.
 - Notification action buttons: up to 3 buttons (`actions`: title, service, entity_id, data) that call a Home Assistant service and mark the notification read.
+- Demo mode shows examples of every new home-screen feature (peak, weather statement, collections, washer chip, morning card, shortcuts); help page updated with a new home screenshot and the morning card.
 - Fix: changing the tablet's language no longer logs "Invalid option" errors in Home Assistant for the Theme, Wallpaper and Screen saver selects. Each language now has its own MQTT state topic for these lists, and the value is published before the list, so Home Assistant never reads a value in the other language.
 
 ## 2026.11.5

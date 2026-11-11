@@ -198,6 +198,20 @@ object Demo {
         st("calendar.school", "off", n("École", "School")),
         st("calendar.holidays", "off", n("Jours fériés", "Holidays")),
         st("calendar.collection", "off", n("Collectes", "Collections")),
+        // Accueil : pointes, alerte météo, raccourcis, pastille personnalisée, carte du matin
+        st("calendar.peaks", "off", n("Pointes d'électricité", "Electricity peaks")),
+        st("sensor.weather_advisories", "1", n("Avis météo", "Weather advisories"),
+            "alert_1" to n("Avis de pluie verglaçante : chaussées glissantes ce soir.", "Freezing rain advisory: slippery roads this evening.")),
+        st("script.goodnight", "off", n("Bonne nuit", "Good night")),
+        st("input_select.washer", n("À vider", "To empty"), n("Laveuse", "Washer"), "options" to listOf(n("En cours", "Running"), n("À vider", "To empty"), n("Inactive", "Idle"))),
+        st("sensor.morning_summary", "07:00", n("Résumé du matin", "Morning summary"),
+            "weather" to n("Nuageux, max **12 °C**, averses en fin de journée.\n\n☂️ **À prévoir** : un parapluie pour le retour.",
+                "Cloudy, high of **12 °C**, showers late in the day.\n\n☂️ **Plan for**: an umbrella for the trip home."),
+            "commute" to n("Environ 25 minutes jusqu'au bureau. Aucun ralentissement signalé.", "About 25 minutes to the office. No slowdowns reported.")),
+        st("sensor.local_news", "5", n("Nouvelles locales", "Local news"), "entries" to listOf(
+            mapOf("title" to n("Le marché fermier ouvre samedi", "Farmers' market opens on Saturday")),
+            mapOf("title" to n("Travaux sur la rue Principale cette semaine", "Main Street roadwork this week")),
+            mapOf("title" to n("La bibliothèque prolonge ses heures", "Library extends its opening hours")))),
     )
 
     // ------------------------------------------------------------ actions
@@ -323,6 +337,7 @@ object Demo {
                 }
                 "calendar.holidays" -> put(allDay(n("Long congé", "Long weekend"), 4))
                 // Collectes : ordures aujourd'hui (jusqu'à 23 h), recyclage demain.
+                "calendar.peaks" -> put(if (hour < 16) timed(n("Pointe", "Peak"), at(0, 16), at(0, 20)) else timed(n("Pointe", "Peak"), at(1, 6), at(1, 9)))
                 "calendar.collection" -> {
                     put(timed(n("Ordures", "Garbage"), at(0, 6), at(0, 23)))
                     put(allDay(n("Matières recyclables", "Recycling"), 1))

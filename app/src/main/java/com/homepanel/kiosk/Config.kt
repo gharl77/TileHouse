@@ -146,33 +146,33 @@ class ConfigStore(ctx: Context) {
 
     /** Calendrier des pointes d'électricité (Hydro-Québec), vide = pas de pastille. */
     var peakCalendar: String
-        get() = p.getString("peakCalendar", "") ?: ""
+        get() = if (demo) "calendar.peaks" else p.getString("peakCalendar", "") ?: ""
         set(v) = p.edit().putString("peakCalendar", v).apply()
     /** Rappel (notification) avant le début d'une pointe, en minutes ; 0 = aucun. */
     var peakReminder: Int
-        get() = p.getInt("peakReminder", 60)
+        get() = if (demo) 0 else p.getInt("peakReminder", 60)
         set(v) = p.edit().putInt("peakReminder", v.coerceIn(0, 720)).apply()
     /** Capteurs d'alertes météo (nombre d'alertes en vigueur), ex. Environnement Canada. */
     var weatherAlerts: List<String>
-        get() = csv("weatherAlerts")
+        get() = if (demo) listOf("sensor.weather_advisories") else csv("weatherAlerts")
         set(v) = p.edit().putString("weatherAlerts", v.joinToString(",")).apply()
     /** Raccourcis de l'accueil : scripts, scènes, boutons. */
     var shortcuts: List<String>
-        get() = csv("shortcuts")
+        get() = if (demo) listOf("scene.movie_night", "script.goodnight") else csv("shortcuts")
         set(v) = p.edit().putString("shortcuts", v.joinToString(",")).apply()
     /** Pastilles personnalisées : [{entity, states:[..], text, color}] (JSON). */
     var customChips: JSONArray
-        get() = try { JSONArray(p.getString("customChips", "[]")) } catch (_: Exception) { JSONArray() }
+        get() = if (demo) JSONArray().put(JSONObject().put("entity", "input_select.washer").put("states", JSONArray().put(if (I18n.english) "To empty" else "À vider")).put("text", if (I18n.english) "🧺 Washer to empty" else "🧺 Laveuse à vider").put("color", "orange")) else try { JSONArray(p.getString("customChips", "[]")) } catch (_: Exception) { JSONArray() }
         set(v) = p.edit().putString("customChips", v.toString()).apply()
     /** Carte du matin : sources [{entity, attribute, title}] (JSON) et plage horaire (minutes). */
     var morningSources: JSONArray
-        get() = try { JSONArray(p.getString("morningSources", "[]")) } catch (_: Exception) { JSONArray() }
+        get() = if (demo) JSONArray().put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "weather").put("title", if (I18n.english) "Weather" else "Météo")).put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "commute").put("title", if (I18n.english) "Commute" else "Trajet")).put(JSONObject().put("entity", "sensor.local_news").put("attribute", "").put("title", if (I18n.english) "Local news" else "Nouvelles locales")) else try { JSONArray(p.getString("morningSources", "[]")) } catch (_: Exception) { JSONArray() }
         set(v) = p.edit().putString("morningSources", v.toString()).apply()
     var morningStart: Int
-        get() = p.getInt("morningStart", 5 * 60)
+        get() = if (demo) 0 else p.getInt("morningStart", 5 * 60)
         set(v) = p.edit().putInt("morningStart", v.coerceIn(0, 1439)).apply()
     var morningEnd: Int
-        get() = p.getInt("morningEnd", 10 * 60)
+        get() = if (demo) 1439 else p.getInt("morningEnd", 10 * 60)
         set(v) = p.edit().putInt("morningEnd", v.coerceIn(0, 1439)).apply()
     fun isMorningNow(): Boolean {
         val c = java.util.Calendar.getInstance()

@@ -176,6 +176,9 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Morning card**: during a time range (default 05:00–10:00), a card with the sources you choose: a text from any entity state or
   attribute (Markdown, e.g. the sections of a generated morning summary) or a news feed (headlines of a feed sensor's `entries`).
   The web page suggests the summaries and feeds it finds, and you can add any other entity. Tap the card to read everything.
+
+  <img src="docs/screenshots/morning-card.png" width="860" alt="Morning card opened: weather, commute and local news">
+
 - **Kitchen timers** (⏱ next to the time) and the **notification bell** with the number of unread notifications — see
   [Kitchen timers](#kitchen-timers) and [Notifications](#notifications).
 - **Clock and date** (optional) in the top‑right corner, with the **tablet's battery** next to the time (optional; green with a bolt
