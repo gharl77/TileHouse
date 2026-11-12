@@ -177,6 +177,10 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Header summary** for the whole house, showing only what needs attention: lights on, unlocked locks, open doors, open windows
   (nothing at all when everything is off, locked and closed). Tap a chip to see which devices, with a **Turn off** / **Lock** button
   on each one that can be controlled.
+  **You choose what counts** on the web page (*Home → Whole-house overview*): the lights, locks, doors and windows of your rooms
+  are listed by kind with their room, all ticked at first. Untick a device and it no longer counts (an inside door that is
+  always open, a night light); untick a whole kind and its chip disappears. Appliance doors (fridge, freezer, washer…) and the
+  door state published by a lock are **unticked by default**, marked as such in the list; tick them again if you want them.
 - **Rooms by floor**: rooms are grouped using your Home Assistant floors, in the order you choose. Rooms without a floor appear under *Other rooms*.
 - **Collection reminders**: "Recycling tomorrow" (blue bin) or "Garbage today" (green bin) chips. On the web page
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
@@ -184,8 +188,10 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Electricity peaks** (e.g. Hydro-Québec): "Peak tomorrow 06:00–09:00" the day before and the same day, then a red "Peak now ·
   ends 09:00" during the peak, from the calendar you pick (*Home → Electricity*). An optional reminder (30 min to 3 h
   before) goes to the notification center.
-- **Electricity**: tick power or energy sensors on the web page (*Home → Electricity*). The first one makes a chip ("2.4 kW");
-  tap it, or the peak chip, for the **Electricity window**: the peak in progress or coming, every ticked sensor, and the last
+- **Electricity**: tick power or energy sensors on the web page (*Home → Electricity*). The first one makes a chip ("2.4 kW";
+  for an energy meter that only counts up, the consumption since midnight — "42 kWh today" — or, when the meter is read once a
+  day like Hydro-Québec's, what the last reading added: "+65 kWh · last reading"). In a room, the tile of a power or energy
+  sensor opens the same window with that sensor's curve. Tap the chip, or the peak chip, for the **Electricity window**: the peak in progress or coming, every ticked sensor, and the last
   24 hours of the first one (a curve for a power sensor, consumption per hour for an energy meter).
 
   <img src="docs/screenshots/energy.png" width="640" alt="Electricity window">
@@ -237,12 +243,15 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - Tap a room on the home screen to open it; the **←** arrow brings you back. **Swipe left/right** to move between rooms.
 - **Order of a room**: the cameras always come first, then the shortcuts of the room, then the *Now playing* card, then the tiles.
 - **Now playing card**: in a room, only while one of its speakers or its TV is playing: title, player, pause, previous, next
-  and volume. It stays ten minutes after a pause so you can resume, and disappears when everything is stopped. The home screen
-  doesn't show it. **You choose which players show it** on the web page (*Home → Now playing*): every speaker and TV of your
-  rooms is listed with its room, all ticked at first; untick the ones you don't want (a voice assistant, for instance). The
+  and volume. It disappears when everything is stopped. The home screen doesn't show it. **You choose which players show it** on the web page (*Home → Now playing*): every speaker and TV of your
+  rooms is listed with its room; untick the ones you don't want. Voice assistants are unticked by default (they "play" at every
+  answer). A show or a film gets a TV icon and the name of the app ("Antigang · ICI TOU.TV"). **After a pause** the card stays
+  10 minutes by default; you can make it disappear right away, stay 30 minutes, or stay as long as the player is paused. The
   card can also be turned off entirely (same place, or *Display → Dashboard* on the tablet).
 - Devices are shown as tiles, **grouped by category** (Cameras, Scenes, Lights, Climate, Blinds & shades, Media, Plugs & switches,
   Security, Sensors…), or in your own order if you turn grouping off.
+- A speaker or TV that is on but playing nothing (an Apple TV on its home screen) shows **Inactive**, which is why it has no
+  *Now playing* card.
 - **Tap** a tile to toggle it (light, switch, cover, lock, scene, media play/pause…). Active tiles turn white with a coloured icon,
   just like Apple Home; coloured lights use their real colour.
 - **Long‑press** a tile for detailed controls.

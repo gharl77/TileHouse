@@ -2,7 +2,7 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
-## 2026.11.7 (in progress)
+## 2026.11.7
 
 - Background: a theme **or** a wallpaper, one or the other. The settings show a single choice (Theme / Wallpaper) with the matching list underneath; choosing one turns the other off, and coming back to *Theme* brings back the last theme used (or the season's).
 - Your own photo as the wallpaper: send it from the web page or pick a file on the tablet. It is reduced to the screen size, kept only on the tablet, straightened if the phone saved it sideways, and covered with a veil that depends on the skin so the text stays readable. Pastel and Neon take their colour from it. Demo mode never shows it.
@@ -27,6 +27,12 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - After a fatal error the app reopens by itself two seconds later instead of staying frozen behind Android's "has stopped" window.
 - Shortcuts show in the room they belong to (the room of their Home Assistant area, or the one chosen on the web page); a shortcut with no room stays on the home screen.
 - A room is always laid out in the same order: cameras, shortcuts, Now playing card, then the tiles.
+- Home screen chips: choose on the web page which lights, locks, doors and windows count in "10 on", "2 doors open"…; a kind with nothing ticked shows no chip.
+- Electricity chip: an energy meter shows today's consumption, or what the last reading added when it is read once a day ("+65 kWh · last reading"), instead of its running total. The tile of a power or energy sensor in a room opens the Electricity window.
+- Now playing card: TV icon and app name for a show or a film; choose how long it stays after a pause (not at all, 10 or 30 minutes, or as long as the pause lasts); voice assistants are unticked by default.
+- Whole-house overview: appliance doors and the door state published by a lock are unticked by default.
+- A media player that is on but playing nothing shows "Inactive"; the weather card rounds the temperature to the degree.
+- Tablet settings: the Display tab lists what is set on the web page.
 
 ## 2026.11.6
 

@@ -68,12 +68,12 @@ object HomeText {
      * media_position_updated_at de Home Assistant, mise à jour au moment de la pause). Sert quand l'app
      * n'a pas vu le lecteur jouer elle-même (elle vient de démarrer).
      */
-    fun pausedRecently(updatedAt: String, now: Long): Boolean {
+    fun pausedRecently(updatedAt: String, now: Long, grace: Long = PAUSE_GRACE): Boolean {
         if (updatedAt.isEmpty()) return false
         val t = try {
             java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US).parse(updatedAt.replace(Regex("\\.\\d+"), "").replace("Z", "+00:00"))?.time
         } catch (_: Exception) { null } ?: return false
-        return now - t in 0 until PAUSE_GRACE
+        return now - t in 0 until grace
     }
 
     /** Vrai quand le soleil est couché (entité sun.sun de Home Assistant) ; faux si elle est inconnue. */
@@ -167,7 +167,7 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
         val a = e.attrs
         val night = HomeText.nightNow()
         emoji.text = HomeText.emoji(e.state, night)
-        temp.text = a.dbl("temperature")?.let { Present.num(it) + "°" } ?: "—"
+        temp.text = a.dbl("temperature")?.let { Present.num(Math.round(it).toDouble()) + "°" } ?: "—"
         cond.text = HomeText.condition(e.state, night)
         val parts = ArrayList<String>()
         a.dbl("humidity")?.let { parts.add("${tr("Humidité")} ${Present.num(it)} %") }

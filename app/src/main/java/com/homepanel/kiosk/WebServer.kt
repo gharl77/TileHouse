@@ -240,6 +240,10 @@ class WebServer(private val app: App) {
                 req.optJSONArray("timerPresets")?.let { cfg.timerPresets = it }
                 if (!cfg.demo) req.optJSONArray("todoLists")?.let { a -> cfg.todoLists = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("todo.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("energySensors")?.let { a -> cfg.energySensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("summaryHidden")?.let { a -> cfg.summaryHidden = (0 until a.length()).map { a.getString(it) } }
+                if (!cfg.demo) req.optJSONArray("summaryShown")?.let { a -> cfg.summaryShown = (0 until a.length()).map { a.getString(it) } }
+                if (!cfg.demo) req.optJSONArray("nowPlayingShown")?.let { a -> cfg.nowPlayingShown = (0 until a.length()).map { a.getString(it) } }
+                if (req.has("nowPlayingPause")) cfg.nowPlayingPause = req.optInt("nowPlayingPause", 10)
                 if (!cfg.demo) req.optJSONArray("nowPlayingHidden")?.let { a -> cfg.nowPlayingHidden = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("media_player.") } }
                 if (req.has("showNowPlaying")) cfg.showNowPlaying = req.optBoolean("showNowPlaying", true)
                 if (req.has("morningStart")) cfg.morningStart = req.optInt("morningStart", 300)
@@ -434,7 +438,8 @@ class WebServer(private val app: App) {
                 .put("wallpaperOk", JSONObject().also { o -> for (k in Wallpapers.keys) o.put(k, Wallpapers.available(app, cfg, k)) })
                 .put("photoVeilLevel", cfg.photoVeilLevel)
                 .put("timerPresets", cfg.timerPresets)
-                .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("energySensors", JSONArray(cfg.energySensors))
+                .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("summaryHidden", JSONArray(cfg.summaryHidden)).put("summaryShown", JSONArray(cfg.summaryShown)).put("summaryDevices", summaryDevices())
+                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors))
                 .put("activeTheme", cfg.activeTheme)
                 .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
                 .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
@@ -465,6 +470,24 @@ class WebServer(private val app: App) {
                 .put("doorbellAlert", cfg.doorbellAlert)
                 .put("pinSet", cfg.pin.isNotEmpty()))
     }
+
+    /** Lumières, serrures, portes et fenêtres des pièces : ce que la page propose pour les pastilles de l'accueil. */
+    private fun summaryDevices(): JSONArray {
+        val out = JSONArray()
+        val seen = HashSet<String>()
+        for (room in app.config.rooms) for (re in room.entities) {
+            val e = app.ha.states[re.id]
+            val kind = Present.chipKind(re.id, e) ?: continue
+            if (kind !in setOf("light", "lock", "door", "window") || !seen.add(re.id)) continue
+            out.put(JSONObject().put("id", re.id).put("name", Present.displayName(re, e, "")).put("room", room.name).put("kind", kind)
+                .put("auto", Choices.summaryHiddenByDefault(re.id, e?.name ?: "", kind)))
+        }
+        return out
+    }
+
+    /** Lecteurs des pièces décochés d'office pour la carte « En lecture » (assistants vocaux). */
+    private fun autoHiddenPlayers(): List<String> = app.config.rooms.flatMap { it.entities }.map { it.id }.distinct()
+        .filter { it.startsWith("media_player.") && Choices.playerHiddenByDefault(it, app.ha.states[it]?.name ?: "") }
 
     @Volatile private var lastCatalogError: String? = null
 

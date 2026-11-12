@@ -218,7 +218,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         display.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (onglet Affichage).")))
 
 
-        display.addView(footnote(tr("La météo, l'agenda, les personnes et les autres éléments de l'accueil se règlent dans la page web (onglet Accueil).")))
+        display.addView(footnote(tr("Le reste de l'accueil se règle dans la page web (onglet Accueil) : météo, agenda et personnes, listes d'épicerie, électricité, appareils comptés dans la vue d'ensemble, pièce de chaque raccourci et lecteurs de la carte « En lecture ».")))
 
         // ================= Sons et alertes
         val alertsPage = section()

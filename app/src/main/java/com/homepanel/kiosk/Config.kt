@@ -255,6 +255,21 @@ class ConfigStore(ctx: Context) {
     var energySensors: List<String>
         get() = if (demo) listOf("sensor.home_power", "sensor.energy_today") else csv("energySensors")
         set(v) = p.edit().putString("energySensors", v.joinToString(",")).apply()
+    /** Lumières, serrures, portes et fenêtres qui ne comptent pas dans les pastilles de l'accueil (les autres comptent). */
+    var summaryHidden: List<String>
+        get() = if (demo) emptyList() else csv("summaryHidden")
+        set(v) = p.edit().putString("summaryHidden", v.joinToString(",")).apply()
+    /** Appareils décochés d'office (voir [Choices]) que l'utilisateur a recochés. */
+    var summaryShown: List<String>
+        get() = if (demo) emptyList() else csv("summaryShown")
+        set(v) = p.edit().putString("summaryShown", v.joinToString(",")).apply()
+    var nowPlayingShown: List<String>
+        get() = if (demo) emptyList() else csv("nowPlayingShown")
+        set(v) = p.edit().putString("nowPlayingShown", v.joinToString(",")).apply()
+    /** Minutes pendant lesquelles la carte « En lecture » reste après une pause ; 0 = elle disparaît, -1 = tant que dure la pause. */
+    var nowPlayingPause: Int
+        get() = p.getInt("nowPlayingPause", 10)
+        set(v) = p.edit().putInt("nowPlayingPause", if (v < 0) -1 else v.coerceAtMost(240)).apply()
     /** Lecteurs qui ne font pas de carte « En lecture » (les autres lecteurs des pièces en font une). */
     var nowPlayingHidden: List<String>
         get() = if (demo) emptyList() else csv("nowPlayingHidden")
@@ -500,7 +515,8 @@ class ConfigStore(ctx: Context) {
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
                 .put("peakCalendar", peakCalendar).put("peakReminder", peakReminder).put("weatherAlerts", JSONArray(weatherAlerts))
-                .put("shortcuts", JSONArray(shortcuts)).put("shortcutRooms", shortcutRooms).put("customChips", customChips).put("morningSources", morningSources).put("timerPresets", timerPresets).put("todoLists", JSONArray(todoLists)).put("showNowPlaying", showNowPlaying).put("nowPlayingHidden", JSONArray(nowPlayingHidden)).put("energySensors", JSONArray(energySensors))
+                .put("shortcuts", JSONArray(shortcuts)).put("shortcutRooms", shortcutRooms).put("customChips", customChips).put("morningSources", morningSources).put("timerPresets", timerPresets).put("todoLists", JSONArray(todoLists)).put("showNowPlaying", showNowPlaying).put("nowPlayingHidden", JSONArray(nowPlayingHidden)).put("nowPlayingShown", JSONArray(nowPlayingShown)).put("nowPlayingPause", nowPlayingPause)
+                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors))
                 .put("morningStart", morningStart).put("morningEnd", morningEnd)
                 .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
@@ -566,6 +582,10 @@ class ConfigStore(ctx: Context) {
             h.optJSONArray("timerPresets")?.let { timerPresets = it }
             h.optJSONArray("todoLists")?.let { a -> todoLists = (0 until a.length()).map { a.getString(it) } }
             if (h.has("showNowPlaying")) showNowPlaying = h.optBoolean("showNowPlaying", true)
+            h.optJSONArray("summaryHidden")?.let { a -> summaryHidden = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("summaryShown")?.let { a -> summaryShown = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("nowPlayingShown")?.let { a -> nowPlayingShown = (0 until a.length()).map { a.getString(it) } }
+            if (h.has("nowPlayingPause")) nowPlayingPause = h.optInt("nowPlayingPause", 10)
             h.optJSONArray("nowPlayingHidden")?.let { a -> nowPlayingHidden = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("energySensors")?.let { a -> energySensors = (0 until a.length()).map { a.getString(it) } }
             if (h.has("morningStart")) morningStart = h.optInt("morningStart", 300)

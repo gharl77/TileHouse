@@ -160,6 +160,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   </section>
 
   <section class="card" style="grid-column:1/-1">
+    <h2>💡 Vue d'ensemble de la maison</h2>
+    <p class="muted">Les pastilles en haut de l'accueil comptent ce qui est allumé, déverrouillé ou ouvert (« 10 allumées », « 2 portes ouvertes »). Décochez les appareils qui ne doivent pas compter, par exemple une porte intérieure toujours ouverte ou une veilleuse. Une pastille dont tout est décoché n'apparaît plus. Les portes d'électroménagers (réfrigérateur, laveuse…) et l'état de porte que publie une serrure sont décochés d'office ; recochez-les si vous y tenez.</p>
+    <div id="sumList" class="muted">Connexion requise…</div>
+  </section>
+
+  <section class="card" style="grid-column:1/-1">
     <h2>🛒 Listes d'épicerie et de tâches</h2>
     <p class="muted">Les listes « À faire » de Home Assistant que vous cochez ici apparaissent derrière une icône en haut de la tablette, avec le nombre d'articles restants. On y coche, ajoute et retire des articles ; les changements faits ailleurs (téléphone, assistant vocal) s'y reflètent.</p>
     <div id="todoList" class="muted">Connexion requise…</div>
@@ -217,9 +223,17 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   <section class="card" style="grid-column:1/-1">
     <h2>🎵 En lecture</h2>
     <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher une carte en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue</label>
-    <p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté.</p>
+    <p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté. Une émission ou un film affiche une icône de télé et le nom de l'application.</p>
     <label class="f" style="margin-top:12px">Lecteurs qui affichent la carte</label>
     <div id="npList" class="muted"></div>
+    <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
+    <label class="f" for="npPause">Après une pause, la carte…</label>
+    <select id="npPause" style="max-width:340px">
+      <option value="0">disparaît tout de suite</option>
+      <option value="10">reste 10 minutes</option>
+      <option value="30">reste 30 minutes</option>
+      <option value="-1">reste tant que le lecteur est en pause</option>
+    </select>
   </section>
 
   <h3 class="group" id="g-buttons">Raccourcis</h3>
@@ -849,6 +863,7 @@ async function loadSuggestions() {
   for (const c of cands) for (const a of await attrsOf(c.id)) add("📝 " + c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name});
 }
 
+$("npPause").onchange = () => saveSettings({nowPlayingPause: +$("npPause").value});
 $("showNowPlaying").onchange = () => saveSettings({showNowPlaying: $("showNowPlaying").checked});
 
 $("refreshCat").onclick = () => { flash(t("Lecture de la liste des entités…")); loadCatalog(true); };
@@ -1047,9 +1062,49 @@ function renderHome() {
     }
   }
   $("showNowPlaying").checked = S.settings.showNowPlaying !== false;
+  // Vue d'ensemble : lumières, serrures, portes et fenêtres des pièces ; tout compte, sauf ce qu'on décoche.
+  {
+    const b = $("sumList"), all = S.settings.summaryDevices || [];
+    let hidden = S.settings.summaryHidden || [], shown = S.settings.summaryShown || [];
+    // Décoché = choix explicite, ou décoché d'office (porte de réfrigérateur, état de porte d'une serrure) tant qu'on ne l'a pas recoché.
+    const off = x => hidden.includes(x.id) || (x.auto && !shown.includes(x.id));
+    const setOn = (ids, on) => {
+      hidden = on ? hidden.filter(x => !ids.includes(x)) : [...new Set([...hidden, ...ids])];
+      shown = on ? [...new Set([...shown, ...ids.filter(id => all.some(x => x.id === id && x.auto))])] : shown.filter(x => !ids.includes(x));
+    };
+    b.replaceChildren();
+    if (!all.length) { b.className = "muted"; b.textContent = t("Aucune lumière, serrure, porte ou fenêtre dans vos pièces pour l'instant."); }
+    else {
+      b.className = "row"; b.style.alignItems = "flex-start"; b.style.gap = "24px";
+      const save = () => { S.settings.summaryHidden = hidden; S.settings.summaryShown = shown; saveSettings({summaryHidden: hidden, summaryShown: shown}); };
+      for (const [kind, title] of [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")]]) {
+        const list = all.filter(x => x.kind === kind);
+        if (!list.length) continue;
+        const col = el("div", {style: "flex:1;min-width:230px"});
+        const on = list.filter(x => !off(x)).length;
+        const head = el("div", {style: "display:flex;align-items:center;gap:8px;margin:6px 0 2px"},
+          el("b", {textContent: title + " (" + on + "/" + list.length + ")"}),
+          el("button", {class: "mini", textContent: on ? t("Tout décocher") : t("Tout cocher"), onclick: () => {
+            setOn(list.map(x => x.id), !on);
+            save();
+          }}));
+        const box = el("div", {style: "max-height:260px;overflow:auto"});
+        for (const it of list) {
+          const cb = el("input", {type: "checkbox", checked: !off(it), onchange: () => { setOn([it.id], cb.checked); save(); }});
+          box.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.room + (it.auto ? " · " + t("décoché d'office") : "")})));
+        }
+        col.append(head, box);
+        b.append(col);
+      }
+    }
+  }
   // Lecteurs des pièces : tous affichent la carte, sauf ceux qu'on décoche ici.
   {
-    const b = $("npList"), hidden = S.settings.nowPlayingHidden || [];
+    const b = $("npList"), auto = S.settings.nowPlayingAuto || [];
+    let hidden = S.settings.nowPlayingHidden || [], shown = S.settings.nowPlayingShown || [];
+    const off = id => hidden.includes(id) || (auto.includes(id) && !shown.includes(id));
+    $("npPause").value = String(S.settings.nowPlayingPause ?? 10);
+    $("npPause").disabled = S.settings.showNowPlaying === false;
     const players = [];
     for (const r of rooms) for (const e of r.entities) if (e.id.startsWith("media_player.") && !players.some(x => x.id === e.id))
       players.push({id: e.id, name: e.name || (catById[e.id] || {}).name || e.id, room: r.name});
@@ -1058,11 +1113,13 @@ function renderHome() {
     else {
       b.className = "";
       for (const it of players) {
-        const cb = el("input", {type: "checkbox", checked: !hidden.includes(it.id), disabled: S.settings.showNowPlaying === false, onchange: () => {
-          const next = cb.checked ? hidden.filter(x => x !== it.id) : [...hidden, it.id];
-          S.settings.nowPlayingHidden = next; saveSettings({nowPlayingHidden: next});
+        const cb = el("input", {type: "checkbox", checked: !off(it.id), disabled: S.settings.showNowPlaying === false, onchange: () => {
+          hidden = cb.checked ? hidden.filter(x => x !== it.id) : [...new Set([...hidden, it.id])];
+          shown = cb.checked && auto.includes(it.id) ? [...new Set([...shown, it.id])] : shown.filter(x => x !== it.id);
+          S.settings.nowPlayingHidden = hidden; S.settings.nowPlayingShown = shown;
+          saveSettings({nowPlayingHidden: hidden, nowPlayingShown: shown});
         }});
-        b.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.room})));
+        b.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.room + (auto.includes(it.id) ? " · " + t("décoché d'office") : "")})));
       }
     }
   }

@@ -400,6 +400,21 @@ class MainActivity : Activity(), HaClient.Listener {
         houseCache = r
     }
 
+    /**
+     * La maison pour les pastilles de l'accueil : sans les appareils décochés dans les réglages (« Vue d'ensemble »),
+     * ni ceux décochés d'office (porte du réfrigérateur…) tant qu'on ne les a pas recochés.
+     */
+    internal fun homeRoom(): Room = Room("__home", tr("Maison")).also { r ->
+        val hidden = cfg.summaryHidden.toSet(); val shown = cfg.summaryShown.toSet()
+        for (e in wholeHouse().entities) {
+            val st = app.ha.states[e.id]
+            if (!Choices.hidden(e.id, hidden, shown, Choices.summaryHiddenByDefault(e.id, st?.name ?: "", Present.chipKind(e.id, st)))) r.entities.add(e)
+        }
+    }
+
+    /** Consommation d'aujourd'hui du premier capteur d'énergie, quand c'est un compteur cumulatif (pastille de l'accueil). */
+    internal var energyToday: Energy.Recent? = null
+
     /** Pastilles « Recyclage / Ordures aujourd'hui ou demain », d'après les calendriers et mots clés choisis. */
     internal var collectChips: List<Present.Chip> = emptyList()
 

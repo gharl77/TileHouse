@@ -29,11 +29,47 @@ object Energy {
     /** Vrai pour un compteur qui ne fait que monter (kWh cumulés) : on en montre la consommation par heure. */
     fun cumulative(e: EntityState?) = e != null && e.attrs.str("device_class") == "energy" && e.attrs.str("state_class").startsWith("total")
 
-    fun chips(ids: List<String>, states: Map<String, EntityState>): List<Present.Chip> {
+    /**
+     * Pastille de l'accueil. Pour un compteur cumulatif, le total (« 3 159 kWh ») ne dit rien : on montre la consommation
+     * d'aujourd'hui ([today]) dès qu'elle est connue et non nulle.
+     */
+    fun chips(ids: List<String>, states: Map<String, EntityState>, today: Recent? = null): List<Present.Chip> {
         val e = ids.firstOrNull()?.let { states[it] } ?: return emptyList()
         if (e.state.toDoubleOrNull() == null) return emptyList()
-        return listOf(Present.Chip(R.drawable.ic_bolt, value(e), 0, "energy"))
+        val unit = e.attrs.str("unit_of_measurement")
+        val text = when {
+            !cumulative(e) || today == null || today.value <= 0 -> value(e)
+            today.sinceMidnight -> format(today.value, unit) + " " + tr("aujourd'hui")
+            // Compteur relevé une fois par jour (Hydro-Québec) : on montre ce que le dernier relevé a ajouté.
+            else -> "+" + format(today.value, unit) + " · " + tr("dernier relevé")
+        }
+        return listOf(Present.Chip(R.drawable.ic_bolt, text, 0, "energy"))
     }
+
+    /** Consommation récente d'un compteur : depuis minuit s'il est relevé souvent, sinon l'ajout du dernier relevé. */
+    class Recent(val value: Double, val sinceMidnight: Boolean)
+
+    /**
+     * [points] : historique des deux derniers jours. Un compteur qui a changé au moins trois fois depuis [midnight]
+     * est suivi en continu : on donne sa hausse depuis minuit. Sinon (un relevé par jour), la hausse du dernier relevé.
+     */
+    fun recent(points: List<Point>, midnight: Long): Recent? {
+        val steps = ArrayList<Point>() // valeurs distinctes successives
+        for (p in points) if (steps.isEmpty() || steps.last().v != p.v) steps.add(p)
+        if (steps.size < 2) return null
+        val today = steps.filter { it.t >= midnight }
+        if (today.size >= 3) {
+            val before = steps.lastOrNull { it.t < midnight } ?: today.first()
+            return Recent(maxOf(0.0, steps.last().v - before.v), true)
+        }
+        return Recent(maxOf(0.0, steps.last().v - steps[steps.size - 2].v), false)
+    }
+
+    fun format(v: Double, unit: String) =
+        Present.num(if (kotlin.math.abs(v) >= 100) Math.round(v).toDouble() else Math.round(v * 10) / 10.0) + (if (unit.isEmpty()) "" else " $unit")
+
+    /** Hausse d'un compteur sur la période couverte par [points] (zéro s'il a été remis à zéro). */
+    fun increase(points: List<Point>): Double? = if (points.size < 2) null else maxOf(0.0, points.last().v - points.first().v)
 
     /** Historique de Home Assistant (/api/history/period, réponse allégée) → points (temps, valeur). */
     fun series(json: String?): List<Point> {

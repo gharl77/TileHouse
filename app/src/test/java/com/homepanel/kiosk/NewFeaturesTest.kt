@@ -101,4 +101,40 @@ class NewFeaturesTest {
         assertFalse(HomeText.pausedRecently("", now))
         assertFalse(HomeText.pausedRecently("n'importe quoi", now))
     }
+
+    @Test fun applianceAndLockDoorsAreLeftOutByDefault() {
+        assertTrue(Choices.summaryHiddenByDefault("binary_sensor.frigo_porte", "Réfrigérateur Porte du congélateur", "door"))
+        assertTrue(Choices.summaryHiddenByDefault("binary_sensor.laveuse_porte", "Porte Laveuse", "door"))
+        assertTrue(Choices.summaryHiddenByDefault("binary_sensor.x", "Serrure entrée avant Current status of the door", "door"))
+        assertFalse(Choices.summaryHiddenByDefault("binary_sensor.porte_entree_avant", "Porte Entrée Avant", "door"))
+        assertFalse(Choices.summaryHiddenByDefault("binary_sensor.porte_patio", "Porte-Patio", "door"))
+        // Seules les portes sont concernées : une serrure reste une serrure.
+        assertFalse(Choices.summaryHiddenByDefault("lock.serrure_entree_avant", "Serrure entrée avant", "lock"))
+    }
+
+    @Test fun voiceAssistantsMakeNoCardByDefault() {
+        assertTrue(Choices.playerHiddenByDefault("media_player.ha_voice_salon", "HA Voice Salon Media Player"))
+        assertTrue(Choices.playerHiddenByDefault("media_player.bureau_m5stack_atom_echo_0aeccc", "HA Voice Parents"))
+        assertFalse(Choices.playerHiddenByDefault("media_player.salon_2", "SONOS Salon"))
+        assertFalse(Choices.playerHiddenByDefault("media_player.parents", "Apple TV Chambre Parents"))
+    }
+
+    @Test fun anExplicitChoiceBeatsTheDefault() {
+        assertTrue(Choices.hidden("a", emptyList(), emptyList(), auto = true))
+        assertFalse(Choices.hidden("a", emptyList(), listOf("a"), auto = true))
+        assertTrue(Choices.hidden("a", listOf("a"), emptyList(), auto = false))
+        assertFalse(Choices.hidden("a", emptyList(), emptyList(), auto = false))
+    }
+
+    @Test fun todaysConsumptionFromACounter() {
+        val midnight = 100L
+        // Relevé une fois par jour : l'ajout du dernier relevé.
+        val daily = Energy.recent(listOf(Energy.Point(10, 3027.0), Energy.Point(60, 3094.0), Energy.Point(130, 3159.0), Energy.Point(140, 3159.0)), midnight)!!
+        assertEquals(65.0, daily.value, 1e-9); assertFalse(daily.sinceMidnight)
+        // Suivi en continu : la hausse depuis minuit.
+        val live = Energy.recent(listOf(Energy.Point(90, 10.0), Energy.Point(110, 11.0), Energy.Point(120, 12.5), Energy.Point(130, 14.0)), midnight)!!
+        assertEquals(4.0, live.value, 1e-9); assertTrue(live.sinceMidnight)
+        assertNull(Energy.recent(listOf(Energy.Point(0, 3117.0)), midnight))
+        assertEquals("42 kWh", Energy.format(42.0, "kWh").replace('\u00a0', ' '))
+    }
 }

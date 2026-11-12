@@ -118,14 +118,16 @@ internal fun MainActivity.updateNowPlaying() {
     val now = SystemClock.uptimeMillis()
     val states = app.ha.states
     val room = cfg.rooms.getOrNull(roomIndex) ?: return
-    val hidden = cfg.nowPlayingHidden
-    val players = if (!cfg.showNowPlaying) emptyList() else room.entities.mapNotNull { states[it.id] }.filter { it.domain == "media_player" && it.id !in hidden }.filter { e ->
+    val hidden = cfg.nowPlayingHidden; val shown = cfg.nowPlayingShown
+    // Après une pause : la carte reste un moment (10 min par défaut), tant que dure la pause (-1), ou pas du tout (0).
+    val grace = cfg.nowPlayingPause
+    val players = if (!cfg.showNowPlaying) emptyList() else room.entities.mapNotNull { states[it.id] }.filter { it.domain == "media_player" && !Choices.hidden(it.id, hidden, shown, Choices.playerHiddenByDefault(it.id, it.name)) }.filter { e ->
         if (e.state == "playing") { lastPlaying[e.id] = now; true }
         // En pause depuis moins de 10 minutes : la carte reste, pour reprendre la lecture.
-        else e.state == "paused" && (lastPlaying[e.id]?.let { now - it < HomeText.PAUSE_GRACE } == true ||
-            HomeText.pausedRecently(e.attrs.str("media_position_updated_at"), System.currentTimeMillis()))
+        else e.state == "paused" && (grace < 0 || grace > 0 && (lastPlaying[e.id]?.let { now - it < grace * 60_000L } == true ||
+            HomeText.pausedRecently(e.attrs.str("media_position_updated_at"), System.currentTimeMillis(), grace * 60_000L)))
     }.take(2)
-    val key = players.joinToString("|") { it.id + ":" + it.state + ":" + it.attrs.str("media_title") + ":" + it.attrs.str("media_artist") }
+    val key = players.joinToString("|") { it.id + ":" + it.state + ":" + it.attrs.str("media_title") + ":" + it.attrs.str("media_artist") + ":" + it.attrs.str("app_name") }
     if (key == nowPlayingKey) return
     nowPlayingKey = key
     box.removeAllViews()
@@ -136,11 +138,13 @@ internal fun MainActivity.updateNowPlaying() {
             background = Skin.card(this@updateNowPlaying, dpf(22))
             setPadding(dp(18), dp(12), dp(14), dp(12))
         }
-        card.addView(label(24f, text = "🎵"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
+        // Une émission ou un film : icône de télé ; de la musique, une radio : note.
+        val video = a.str("media_content_type").lowercase() in setOf("video", "tvshow", "movie", "episode", "channel") || a.str("device_class") == "tv"
+        card.addView(label(24f, text = if (video) "📺" else "🎵"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val title = a.str("media_title").ifEmpty { if (e.state == "playing") tr("En lecture") else tr("En pause") }
         col.addView(label(17f, Skin.ink, true, title).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-        col.addView(label(14f, Skin.fg(0xB3), text = listOf(a.str("media_artist"), e.name).filter { it.isNotEmpty() }.joinToString("  ·  ")).apply {
+        col.addView(label(14f, Skin.fg(0xB3), text = listOf(a.str("media_artist").ifEmpty { a.str("media_series_title") }, a.str("app_name"), e.name).filter { it.isNotEmpty() }.distinct().joinToString("  ·  ")).apply {
             maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         })
         card.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -170,8 +174,8 @@ internal fun MainActivity.updateHomeHeader() {
     subtitleView.visibility = if (p.isEmpty()) View.GONE else View.VISIBLE
     // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
     val st = app.ha.states
-    updateChips(wholeHouse(), only = setOf("light", "lock", "door", "window"), activeOnly = true,
-        extra = Energy.chips(cfg.energySensors, st) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
+    updateChips(homeRoom(), only = setOf("light", "lock", "door", "window"), activeOnly = true,
+        extra = Energy.chips(cfg.energySensors, st, energyToday) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
 }
 
 /** Prévisions (weather.get_forecasts) et agenda (API calendrier), rafraîchis toutes les 15 min. */
@@ -191,6 +195,7 @@ internal fun MainActivity.loadHomeData() {
     }
     loadCollections()
     loadPeaks()
+    loadEnergyToday()
     val cals = cfg.calendars
     if (cals.isEmpty()) { events = emptyList(); calendarCard?.setEvents(events); return }
     val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
@@ -499,7 +504,7 @@ internal fun MainActivity.showHourlyForecast() {
  * Fenêtre « Électricité », ouverte par la pastille d'énergie ou de pointe : la pointe en cours ou à venir,
  * les capteurs choisis et la courbe des dernières 24 heures du premier capteur.
  */
-internal fun MainActivity.showEnergy() {
+internal fun MainActivity.showEnergy(first: String? = null) {
     val d = android.app.Dialog(this)
     d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
     val box = LinearLayout(this).apply {
@@ -521,7 +526,8 @@ internal fun MainActivity.showEnergy() {
                 else "🔶  " + tr("Pointe") + " " + dayFmt.format(Date(p.start)) + " " + hm.format(Date(p.start)) + "–" + hm.format(Date(p.end)))).apply { setPadding(0, dp(2), 0, dp(2)) })
         }
     }
-    val ids = cfg.energySensors
+    // Ouverte depuis la tuile d'un capteur de pièce : ce capteur vient en premier (c'est lui qu'on trace).
+    val ids = (listOfNotNull(first) + cfg.energySensors).distinct()
     val states = app.ha.states
     if (ids.isEmpty()) box.addView(label(15f, Skin.fg(0x99), text = tr("Ajoutez des capteurs de puissance ou d'énergie dans la page web (Accueil → Électricité) pour voir ici la consommation.")).apply { setPadding(0, dp(12), 0, 0) })
     for (id in ids) {
@@ -550,4 +556,20 @@ internal fun MainActivity.showEnergy() {
         }
     }
     showSheet(d, box)
+}
+
+/** Consommation récente du premier capteur d'énergie (pour la pastille de l'accueil, quand c'est un compteur cumulatif). */
+internal fun MainActivity.loadEnergyToday() {
+    // Demandé même si l'état du capteur n'est pas encore arrivé : la pastille décide ensuite s'il s'agit d'un compteur.
+    val id = cfg.energySensors.firstOrNull()
+    if (id == null) { energyToday = null; return }
+    val midnight = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+    val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+    val start = iso.format(Date(midnight - 2 * 86_400_000L))
+    // Sans heure de fin, Home Assistant ne renvoie qu'une journée à partir du début.
+    app.snapshots.restGet("/api/history/period/${Uri.encode(start)}?filter_entity_id=$id&end_time=${Uri.encode(iso.format(Date()))}&minimal_response&no_attributes") { text ->
+        if (id != cfg.energySensors.firstOrNull()) return@restGet
+        energyToday = Energy.recent(Energy.series(text), midnight)
+        if (roomIndex == MainActivity.HOME) updateHomeHeader()
+    }
 }

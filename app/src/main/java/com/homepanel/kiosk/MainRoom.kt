@@ -135,6 +135,8 @@ internal fun MainActivity.onTileTap(t: TileView, re: RoomEntity, room: Room) {
     if (Present.domain(re.id) != "camera" && haOffline()) return
     val e = app.ha.states[re.id]
     if (Present.domain(re.id) == "climate") { openDetail(re, room); return }
+    // Capteur de puissance ou d'énergie : sa tuile ouvre la fenêtre Électricité, avec sa courbe des dernières 24 heures.
+    if (Present.domain(re.id) == "sensor" && e?.attrs?.str("device_class").let { it == "power" || it == "energy" }) { showEnergy(re.id); return }
     if (Present.tap(app.ha, re.id, e)) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     else if (Present.hasDetail(re.id, e)) openDetail(re, room)
 }

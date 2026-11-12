@@ -91,7 +91,10 @@ object Present {
                 "paused" -> tr("En pause")
                 "off" -> tr("Éteint")
                 "standby" -> tr("Veille")
-                "idle", "on" -> tr("Allumé")
+                // Allumé mais rien ne joue (écran d'accueil d'une Apple TV, menu d'une app).
+                "idle" -> tr("Inactif")
+                "on" -> tr("Allumé")
+                "buffering" -> tr("Chargement…")
                 else -> s
             }
             else -> s
