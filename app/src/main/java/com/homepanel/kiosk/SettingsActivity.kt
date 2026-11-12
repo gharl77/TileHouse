@@ -88,7 +88,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         roomsBox = Card(this)
         rooms.addView(roomsBox)
         rooms.addView(footnote(tr("Touchez une pièce pour choisir ses appareils. Glissez ≡ pour changer l'ordre.")))
-        rooms.addView(footnote(tr("L'ordre des paliers de l'accueil se règle dans la page web (onglet Pièces).")))
+        rooms.addView(footnote(tr("L'ordre des paliers de l'accueil se règle dans la page web (section Pièces).")))
         rooms.addView(LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(14), 0, 0)
@@ -158,7 +158,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
             veils.indexOf(veils.minByOrNull { kotlin.math.abs(it - cfg.photoVeilLevel) } ?: 50)) { cfg.photoVeilLevel = veils[it]; app.notifyConfigChanged() })
         bg.addRow(veilRow)
         syncBackgroundRows()
-        display.addView(footnote(tr("La photo peut aussi être envoyée depuis un ordinateur ou un téléphone, par la page web (onglet Affichage).")))
+        display.addView(footnote(tr("La photo peut aussi être envoyée depuis un ordinateur ou un téléphone, par la page web (section Apparence).")))
 
         display.addView(groupLabel(tr("Tableau de bord")))
         val board = Card(this).also { display.addView(it) }
@@ -215,10 +215,10 @@ class SettingsActivity : Activity(), HaClient.Listener {
         })
         saver.addRow(dimLevelRow)
         updatePhotoRow()
-        display.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (onglet Affichage).")))
+        display.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (section Écran et veille).")))
 
 
-        display.addView(footnote(tr("Le reste de l'accueil se règle dans la page web (onglet Accueil) : météo, agenda et personnes, listes d'épicerie, électricité, appareils comptés dans la vue d'ensemble, pièce de chaque raccourci et lecteurs de la carte « En lecture ».")))
+        display.addView(footnote(tr("Le reste se règle dans la page web : météo, agenda, personnes et vue d'ensemble (section Accueil), listes d'épicerie et minuteries favorites (Outils du bandeau), lecteurs de la carte « En lecture » (Pièces).")))
 
         // ================= Sons et alertes
         val alertsPage = section()
@@ -289,7 +289,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         val mq = Card(this).also { conn.addView(it) }
         mqttRow = settingRow(R.drawable.ic_chat, Ui.GREEN, tr("Appareil dans Home Assistant"), "…")
         mq.addRow(mqttRow)
-        conn.addView(footnote(tr("Le serveur MQTT se configure dans la page web (onglet Connexion et sécurité).")))
+        conn.addView(footnote(tr("Le serveur MQTT se configure dans la page web (section Connexion).")))
 
         // ================= Kiosque et sécurité
         val kiosk = section()

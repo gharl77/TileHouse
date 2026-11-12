@@ -283,6 +283,16 @@ class WebServer(private val app: App) {
                 if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour exporter votre configuration.")))
                 ok(onMain { app.config.exportJson(req.optBoolean("secrets")) })
             }
+            "GET /api/backups" -> ok(backupsJson())
+            "POST /api/backups/now" -> {
+                if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour exporter votre configuration.")))
+                Backups.run(app, force = true)
+                ok(backupsJson())
+            }
+            "POST /api/backups/get" -> {
+                val text = Backups.read(app, req.str("name")) ?: return Reply(404, JSON, err(tr("Copie introuvable")))
+                Reply(200, JSON, text)
+            }
             "POST /api/restore" -> {
                 if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour importer une sauvegarde.")))
                 val data = req.optJSONObject("config") ?: return Reply(400, JSON, err(tr("Fichier vide")))
@@ -488,6 +498,10 @@ class WebServer(private val app: App) {
     /** Lecteurs des pièces décochés d'office pour la carte « En lecture » (assistants vocaux). */
     private fun autoHiddenPlayers(): List<String> = app.config.rooms.flatMap { it.entities }.map { it.id }.distinct()
         .filter { it.startsWith("media_player.") && Choices.playerHiddenByDefault(it, app.ha.states[it]?.name ?: "") }
+
+    private fun backupsJson() = JSONObject().put("backups", JSONArray().also { a ->
+        if (!app.config.demo) for (f in Backups.list(app)) a.put(JSONObject().put("name", f.name).put("time", f.lastModified()).put("size", f.length()))
+    })
 
     @Volatile private var lastCatalogError: String? = null
 

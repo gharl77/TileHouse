@@ -235,6 +235,7 @@ object Demo {
             "add_item" -> if (item.isNotBlank()) items.add(item to false)
             "update_item" -> items.indexOfFirst { it.first == item }.takeIf { it >= 0 }?.let { items[it] = item to (data?.optString("status") == "completed") }
             "remove_completed_items" -> items.removeAll { it.second }
+            "remove_item" -> items.removeAll { it.first == item }
         }
         states[id]?.state = items.count { !it.second }.toString()
         return id

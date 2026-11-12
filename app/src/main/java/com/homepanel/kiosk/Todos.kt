@@ -46,6 +46,8 @@ object Todos {
 
     fun add(ha: HaClient, entity: String, text: String) = ha.callService("todo", "add_item", entity, JSONObject().put("item", text))
 
+    fun remove(ha: HaClient, entity: String, item: Item) = ha.callService("todo", "remove_item", entity, JSONObject().put("item", item.uid))
+
     fun removeDone(ha: HaClient, entity: String) = ha.callService("todo", "remove_completed_items", entity)
 
     /** Nombre d'articles restants dans les listes choisies (l'état d'une liste est ce nombre). */
@@ -269,12 +271,13 @@ class TodoPanel(private val act: MainActivity) : FrameLayout(act) {
             Todos.setDone(ha, entity, item, item.done)
             render(); reloadSoon()
         }
-        // Appui long : une minuterie au nom de l'article ou de la tâche (« Sortir le poulet », « Lessive »).
-        r.setOnLongClickListener { if (!item.done) timerFor(item.summary); true }
+        // Appui long : retirer l'article, ou lancer une minuterie à son nom (« Sortir le poulet », « Lessive »).
+        r.setOnLongClickListener { if (item.uid.isNotEmpty()) itemMenu(item); true }
         return r
     }
 
-    private fun timerFor(name: String) {
+    private fun itemMenu(item: Todos.Item) {
+        val name = item.summary
         val d = android.app.Dialog(act)
         d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         val box = LinearLayout(act).apply {
@@ -282,7 +285,18 @@ class TodoPanel(private val act: MainActivity) : FrameLayout(act) {
             setPadding(act.dp(28), act.dp(22), act.dp(28), act.dp(24))
             background = Skin.panelBg(act, act.dpf(22))
         }
-        box.addView(act.label(21f, Skin.ink, true, "⏱  " + tr("Minuterie pour") + " « $name »").apply { setPadding(0, 0, 0, act.dp(14)) })
+        box.addView(act.label(21f, Skin.ink, true, name).apply { setPadding(0, 0, 0, act.dp(14)) })
+        box.addView(act.label(17f, 0xFFFF6B60.toInt(), true, "✕  " + tr("Retirer de la liste")).apply {
+            background = roundRect(0x33FF453A, act.dpf(16))
+            setPadding(act.dp(20), act.dp(14), act.dp(20), act.dp(14))
+            setOnClickListener {
+                Todos.remove(ha, entity, item)
+                items = items.filter { it !== item }; render(); reloadSoon()
+                d.dismiss()
+            }
+        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT))
+        if (item.done) { act.showSheet(d, box); return }
+        box.addView(act.label(15f, Skin.fg(0xB3), text = "⏱  " + tr("Minuterie pour") + " « $name »").apply { setPadding(0, act.dp(18), 0, act.dp(10)) })
         val flow = FlowLayout(act)
         for (m in listOf(5, 10, 15, 20, 30, 45, 60, 90, 120)) flow.addView(act.label(18f, Skin.ink).apply {
             text = if (m < 60) "$m min" else if (m % 60 == 0) "${m / 60} h" else "${m / 60} h ${m % 60}"

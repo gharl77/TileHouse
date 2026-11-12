@@ -392,7 +392,7 @@ internal fun MainActivity.reminderRow(ev: CalendarCard.Event, d: android.app.Dia
     if (existing != null) {
         val f = SimpleDateFormat(if (I18n.english) "EEE d, HH:mm" else "EEE d 'à' HH:mm", I18n.locale)
         row.addView(label(15f, Skin.fg(0xCC), text = "🔔  " + tr("Rappel prévu") + " " + f.format(Date(existing.at))).apply { setPadding(0, dp(10), dp(12), dp(10)) })
-        row.addView(pill(tr("Annuler le rappel")) { Reminders.cancel(this, key); d.dismiss() })
+        row.addView(pill(tr("Annuler le rappel")) { Reminders.cancel(this, key); calendarCard?.setEvents(events); d.dismiss() })
         return row
     }
     // Moments proposés : seulement ceux qui sont encore à venir.
@@ -412,6 +412,7 @@ internal fun MainActivity.reminderRow(ev: CalendarCard.Event, d: android.app.Dia
     row.addView(label(15f, Skin.fg(0xB3), text = "🔔  " + tr("Me le rappeler")).apply { setPadding(0, dp(10), dp(12), dp(10)) })
     for ((text, at) in open) row.addView(pill(text) {
         Reminders.set(this, Reminders.Reminder(key, ev.title, at, ev.start.time, ev.allDay))
+        calendarCard?.setEvents(events)
         Toast.makeText(this, tr("Rappel enregistré"), Toast.LENGTH_SHORT).show()
         d.dismiss()
     })
@@ -420,7 +421,9 @@ internal fun MainActivity.reminderRow(ev: CalendarCard.Event, d: android.app.Dia
 
 /** Rappels d'événements arrivés à l'heure : une notification avec son, dans le centre de notifications. */
 internal fun MainActivity.checkReminders() {
-    for (r in Reminders.takeDue(this, System.currentTimeMillis())) {
+    val due = Reminders.takeDue(this, System.currentTimeMillis())
+    if (due.isNotEmpty() && roomIndex == MainActivity.HOME) calendarCard?.setEvents(events) // la cloche de l'agenda s'efface
+    for (r in due) {
         val f = SimpleDateFormat("HH:mm", I18n.locale)
         val whenText = if (r.allDay) {
             val sameDay = Calendar.getInstance().let { c -> val a = c.get(Calendar.DAY_OF_YEAR); c.timeInMillis = r.eventStart; a == c.get(Calendar.DAY_OF_YEAR) }
@@ -553,6 +556,20 @@ internal fun MainActivity.showEnergy(first: String? = null) {
             val pts = Energy.series(text)
             caption.text = caption.text.toString().removeSuffix(" …") + if (pts.isEmpty()) " · " + tr("pas d'historique") else ""
             chart.set(if (bars) Energy.hourly(pts, from, to) else pts.filter { it.t >= from - 3_600_000L }, bars, unit, from, to)
+            // Compteur relevé une ou deux fois par jour (Hydro-Québec) : 24 heures ne montrent qu'une barre.
+            // On passe aux 14 derniers jours, une barre par jour, d'après les statistiques de Home Assistant.
+            if (bars && Energy.distinct(pts) <= 3) {
+                val day0 = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.timeInMillis
+                val since = day0 - 13 * 86_400_000L
+                app.ha.request(JSONObject().put("type", "recorder/statistics_during_period").put("start_time", iso.format(Date(since)))
+                    .put("statistic_ids", JSONArray().put(first)).put("period", "day").put("types", JSONArray().put("change"))) { res ->
+                    val perDay = Energy.daily(res.optJSONObject("result")?.optJSONArray(first))
+                    if (perDay.size < 2) return@request
+                    val mean = perDay.sumOf { it.v } / perDay.size
+                    caption.text = (states[first]?.name ?: first) + " · " + tr("par jour") + " (" + perDay.size + " " + tr("jours") + ") · " + tr("moyenne") + " " + Energy.format(mean, unit)
+                    chart.set(perDay, true, unit, perDay.first().t, perDay.last().t + 86_400_000L, days = true)
+                }
+            }
         }
     }
     showSheet(d, box)

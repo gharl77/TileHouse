@@ -2,6 +2,15 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.8 (in progress)
+
+- Electricity window: a meter that is read once a day (Hydro-Québec) shows the last 14 days, one bar per day, with the average, instead of a single bar on a 24-hour chart.
+- Lists: long-press an item to remove it (or to start a timer with its name).
+- Calendar: a bell next to the events that have a reminder.
+- Automatic weekly copy of the configuration, kept on the tablet without the secrets; download or restore one from the web page (Connection & security → Backup).
+- "1 unlocked" / "2 unlocked" instead of "unlocked(s)".
+- Web settings page rebuilt: a menu on the left with nine sections (Rooms, Home, Header tools, Appearance, Screen & sleep, Alerts & sounds, Connection, Security & backups, About) instead of six tabs, one column of settings rows, long lists folded with a summary of the current choice, long explanations behind "Learn more", a search field, and a drop-down menu on phones. Every setting is still there; some moved to where they belong (Now playing under Rooms, lists and favourite timers under Header tools).
+
 ## 2026.11.7
 
 - Background: a theme **or** a wallpaper, one or the other. The settings show a single choice (Theme / Wallpaper) with the matching list underneath; choosing one turns the other off, and coming back to *Theme* brings back the last theme used (or the season's).

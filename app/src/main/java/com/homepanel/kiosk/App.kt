@@ -211,6 +211,15 @@ class App : Application() {
         }
     }
 
+    private var backupCheckedAt = 0L
+    /** Copie hebdomadaire de la configuration (voir [Backups]) ; appelé régulièrement, ne regarde qu'une fois par heure. */
+    fun backupTick() {
+        val now = System.currentTimeMillis()
+        if (now - backupCheckedAt < 3_600_000L) return
+        backupCheckedAt = now
+        Thread { Backups.run(this) }.start()
+    }
+
     /** Active ou quitte la maison de démonstration (la vraie configuration est conservée). */
     fun setDemo(on: Boolean) {
         if (config.demo == on) return

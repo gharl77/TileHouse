@@ -68,6 +68,28 @@ object Energy {
     fun format(v: Double, unit: String) =
         Present.num(if (kotlin.math.abs(v) >= 100) Math.round(v).toDouble() else Math.round(v * 10) / 10.0) + (if (unit.isEmpty()) "" else " $unit")
 
+    /** Nombre de valeurs différentes : dit si un compteur est suivi en continu ou relevé de temps en temps. */
+    fun distinct(points: List<Point>) = points.map { it.v }.distinct().size
+
+    /**
+     * Consommation par jour, d'après les statistiques de Home Assistant (recorder/statistics_during_period, type « change ») :
+     * [arr] est la liste des jours du capteur. Le début d'un jour arrive en millisecondes ou en texte ISO selon la version.
+     */
+    fun daily(arr: JSONArray?): List<Point> {
+        if (arr == null) return emptyList()
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val out = ArrayList<Point>()
+        for (i in 0 until arr.length()) {
+            val o = arr.optJSONObject(i) ?: continue
+            val v = o.optDouble("change", Double.NaN); if (v.isNaN()) continue
+            val raw = o.opt("start") ?: continue
+            val t = (raw as? Number)?.toLong() ?: raw.toString().toLongOrNull()
+                ?: try { iso.parse(raw.toString().replace(Regex("\\.\\d+"), "").replace("Z", "+00:00"))?.time } catch (_: Exception) { null } ?: continue
+            out.add(Point(t, maxOf(0.0, v)))
+        }
+        return out
+    }
+
     /** Hausse d'un compteur sur la période couverte par [points] (zéro s'il a été remis à zéro). */
     fun increase(points: List<Point>): Double? = if (points.size < 2) null else maxOf(0.0, points.last().v - points.first().v)
 
@@ -111,6 +133,8 @@ object Energy {
 class ChartView(ctx: Context) : View(ctx) {
     private var points: List<Energy.Point> = emptyList()
     private var bars = false
+    /** Barres par jour (repères = jour du mois) plutôt que par heure. */
+    private var days = false
     private var unit = ""
     private var from = 0L
     private var to = 0L
@@ -119,8 +143,8 @@ class ChartView(ctx: Context) : View(ctx) {
     private val grid = Paint().apply { color = Skin.fg(0x1F); strokeWidth = ctx.dpf(1f) }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Skin.fg(0x99); textSize = ctx.dpf(12f) }
 
-    fun set(points: List<Energy.Point>, bars: Boolean, unit: String, from: Long, to: Long) {
-        this.points = points; this.bars = bars; this.unit = unit; this.from = from; this.to = to
+    fun set(points: List<Energy.Point>, bars: Boolean, unit: String, from: Long, to: Long, days: Boolean = false) {
+        this.points = points; this.bars = bars; this.unit = unit; this.from = from; this.to = to; this.days = days
         invalidate()
     }
 
@@ -138,7 +162,17 @@ class ChartView(ctx: Context) : View(ctx) {
         val fmt = SimpleDateFormat(if (I18n.english) "ha" else "H 'h'", I18n.locale)
         var t = from - from % 3_600_000L + 3_600_000L
         val cal = java.util.Calendar.getInstance()
-        while (t < to) {
+        val dayFmt = SimpleDateFormat("d", I18n.locale)
+        if (days) {
+            // Un repère par jour, au milieu de sa barre ; un jour sur deux quand il y en a beaucoup.
+            val slot = w / maxOf(1, points.size)
+            points.forEachIndexed { i, p ->
+                if (points.size > 8 && (points.size - 1 - i) % 2 != 0) return@forEachIndexed
+                val s = dayFmt.format(Date(p.t))
+                c.drawText(s, x(p.t) + slot / 2 - text.measureText(s) / 2, height - context.dpf(4f), text)
+            }
+        }
+        while (!days && t < to) {
             cal.timeInMillis = t
             if (cal.get(java.util.Calendar.HOUR_OF_DAY) % 6 == 0) {
                 c.drawLine(x(t), padT, x(t), padT + h, grid)

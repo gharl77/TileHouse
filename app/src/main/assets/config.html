@@ -9,20 +9,6 @@
 :root{--card:rgba(22,28,40,.88);--card2:#1f2735;--text:#f2f2f7;--mute:#8e95a3;--line:#2a3343;--ok:#34c759;--bad:#ff453a;--blue:#0a84ff}
 *{box-sizing:border-box}
 body{margin:0;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#2b3a55,#141c2b 50%,#080b12) fixed;color:var(--text);min-height:100vh}
-header{padding:28px 32px 8px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
-.logo{width:44px;height:44px;flex:none;border-radius:11px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-h1{margin:0;font-size:32px}
-h2{margin:0 0 12px;font-size:18px}
-.saved{color:var(--mute);font-size:13px;margin-left:auto}
-main{padding:12px 32px 48px;display:grid;gap:20px;grid-template-columns:340px minmax(0,1fr);max-width:1500px;align-items:start}
-main.grid2{grid-template-columns:repeat(2,minmax(0,1fr));max-width:1100px}
-main[hidden]{display:none}
-.tabs{display:flex;gap:6px;padding:4px 32px 0;flex-wrap:wrap}
-.tabs button{border-radius:99px;padding:9px 18px;background:transparent;border-color:var(--line)}
-.tabs button.on{background:#f2f2f7;color:#1c1c1e;border-color:transparent;font-weight:600}
-header .badge{align-self:center}
-.side{display:grid;gap:20px;align-content:start}
-@media(max-width:900px){main,main.grid2{grid-template-columns:1fr;padding:8px 16px 40px}header{padding:20px 16px 8px}.tabs{padding:4px 16px 0}}
 .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px}
 .group{grid-column:1/-1;margin:18px 4px -4px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute,#8e95a3);font-weight:700}
 .jump{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0}
@@ -54,7 +40,8 @@ li.dragging{opacity:.75;outline:2px dashed var(--blue);outline-offset:-2px;backg
 .rooms li.sel .grip{color:#8e8e93}
 .rooms li .c{font-size:12px;opacity:.6;margin-right:4px}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin-top:18px}
-@media(max-width:1200px){.cols{grid-template-columns:1fr}}
+@media(max-width:1500px){.cols{grid-template-columns:minmax(0,1fr)}}
+.cols>div{min-width:0}
 .ents{list-style:none;margin:0;padding:0;max-height:62vh;overflow:auto;border-top:1px solid var(--line)}
 .ents li{display:flex;align-items:center;gap:10px;padding:8px 6px;border-bottom:1px solid var(--line)}
 .ents.pick li{cursor:pointer}
@@ -83,27 +70,115 @@ a.btn:hover{border-color:#ffb300}
 table.kv{width:100%;border-collapse:collapse;margin:6px 0 12px}
 table.kv td{padding:7px 4px;border-bottom:1px solid var(--line);font-size:14px}
 table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
+/* ---- Mise en page : menu latéral, une colonne de réglages ---- */
+body{background:#0e131b}
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);min-height:100vh}
+.nav{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:18px 12px;border-right:1px solid var(--line);background:#111823;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:2px 8px 12px}
+.logo{width:32px;height:32px;flex:none;border-radius:8px}
+.bn{font-size:18px;font-weight:600}
+.search{position:relative;margin-bottom:6px}
+#navHits{margin-top:6px;display:grid;gap:2px}
+#navHits button{display:block;width:100%;text-align:left;white-space:normal;border-color:transparent;background:transparent;padding:6px 10px;font-size:14px}
+#navHits button small{display:block;color:var(--mute);font-size:12px}
+#navHits button:hover,#navHits button:focus-visible{background:var(--card2)}
+#navHits .none{color:var(--mute);font-size:13px;padding:6px 10px}
+.ng{font-size:12px;color:var(--mute);padding:12px 10px 4px}
+#tabs{display:flex;flex-direction:column;gap:2px}
+#tabs button{display:flex;align-items:center;gap:10px;text-align:left;background:transparent;border-color:transparent;border-radius:10px;padding:8px 10px}
+#tabs button svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.8}
+#tabs button:hover{background:var(--card2)}
+#tabs button.on{background:#f2f2f7;color:#1c1c1e;font-weight:600}
+#refreshCat{margin-top:auto;font-size:13px;color:var(--mute);background:transparent}
+.content{padding:22px 32px 64px;min-width:0}
+.topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;max-width:860px}
+h1{margin:0;font-size:26px}
+h2{margin:0 0 10px;font-size:17px}
+h3.sub{margin:20px 0 8px;font-size:14px;color:var(--mute);font-weight:600}
+.lead{color:var(--mute);margin:4px 0 16px;max-width:860px}
+.saved{color:var(--mute);font-size:13px;margin-left:auto;min-height:1em}
+#navSelect{display:none;width:auto;max-width:100%}
+.panel{display:grid;gap:14px;max-width:860px;align-content:start}
+.panel[hidden]{display:none!important}
+.panel.split{max-width:1500px;grid-template-columns:340px minmax(0,1fr);align-items:start;gap:20px}
+.panel.split .wide{grid-column:1/-1;max-width:860px}
+.panel.split>.card{min-width:0}
+.group{margin:14px 4px -4px;font-size:13px;color:var(--mute);font-weight:600;text-transform:none;letter-spacing:0}
+.group:first-child{margin-top:0}
+.side{display:grid;gap:20px;align-content:start}
+.card.hit{outline:2px solid var(--blue);outline-offset:2px}
+/* Ligne de réglage : libellé à gauche, contrôle à droite */
+.set{display:flex;align-items:center;gap:16px;padding:9px 0;border-top:1px solid var(--line)}
+.set label.f{flex:1;margin:0;color:var(--text);font-size:15px}
+.set select,.set input{flex:none;width:min(320px,55%)}
+.card>label.check{justify-content:space-between;flex-direction:row-reverse;gap:16px;margin:0;padding:10px 0;border-top:1px solid var(--line)}
+.card>label.check input{appearance:none;-webkit-appearance:none;flex:none;width:40px;height:24px;border-radius:99px;background:#3a4558;border:0;padding:0;position:relative;cursor:pointer;transition:background .15s}
+.card>label.check input::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
+.card>label.check input:checked{background:var(--ok)}
+.card>label.check input:checked::after{transform:translateX(16px)}
+.card>label.check input[type=radio]{display:none}
+.card>h2+.set,.card>h2+label.check{border-top:0}
+/* Liste longue repliée, avec son résumé */
+details.fold{border-top:1px solid var(--line)}
+details.fold>summary{display:flex;align-items:center;gap:12px;padding:11px 0;cursor:pointer;list-style:none}
+details.fold>summary::-webkit-details-marker{display:none}
+details.fold>summary::after{content:"›";color:var(--mute);font-size:20px;line-height:1;transition:transform .15s}
+details.fold[open]>summary::after{transform:rotate(90deg)}
+details.fold .ft{flex:1}
+details.fold .sum{color:var(--mute);font-size:13px;text-align:right}
+details.fold>:not(summary){margin-bottom:10px}
+details.more{margin:6px 0}
+details.more>summary{color:var(--mute);font-size:13px;cursor:pointer;width:max-content}
+details.more>p{margin:6px 0 0}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+  .nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--line);padding:12px 16px}
+  #tabs,.ng{display:none}
+  #refreshCat{margin-top:6px}
+  #navSelect{display:block}
+  #pageTitle{display:none}
+  .content{padding:14px 16px 48px}
+  .panel.split{grid-template-columns:1fr}
+  .set{flex-wrap:wrap;gap:6px}
+  .set select,.set input{width:100%}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
-<header>
+<div class="app">
+<aside class="nav">
+  <div class="brand">
   <svg class="logo" viewBox="0 0 130 130" aria-hidden="true"><rect width="130" height="130" rx="30" fill="#0F2E4A"/><path d="M36 46 L65 26 L94 46" fill="none" stroke="#F2F2F7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="56" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="56" width="26" height="26" rx="7" fill="#FFB300"/><rect x="36" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/></svg>
-  <h1>TileHouse</h1>
+    <span class="bn">TileHouse</span>
+  </div>
+  <div class="search"><input id="navQ" type="search" placeholder="Rechercher un réglage" aria-label="Rechercher un réglage" autocomplete="off"><div id="navHits" hidden></div></div>
+  <nav id="tabs" aria-label="Sections des réglages">
+    <div class="ng">Contenu</div>
+    <button data-tab="rooms"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12h-6v-7H9v7z"/></svg><span>Pièces</span></button>
+    <button data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v7H4zM13 5h7v4h-7zM13 11h7v8h-7zM4 14h7v5H4z"/></svg><span>Accueil</span></button>
+    <button data-tab="tools"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg><span>Outils du bandeau</span></button>
+    <div class="ng">Tablette</div>
+    <button data-tab="display"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5S14.5 15 16 15h2a3 3 0 0 0 3-3c0-5-4-9-9-9zM7.5 12h.01M9.5 8h.01M14.5 8h.01"/></svg><span>Apparence</span></button>
+    <button data-tab="screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span>Écran et veille</span></button>
+    <button data-tab="sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0"/></svg><span>Alertes et sons</span></button>
+    <div class="ng">Système</div>
+    <button data-tab="conn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>Connexion</span></button>
+    <button data-tab="security"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11h12v9H6zM8 11V8a4 4 0 1 1 8 0v3"/></svg><span>Sécurité et copies</span></button>
+    <button data-tab="about"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.5h.01"/></svg><span>À propos</span></button>
+  </nav>
+  <button id="refreshCat" title="Relit dans Home Assistant la liste des appareils, calendriers, listes et capteurs proposés dans ces réglages.">↻ Actualiser les entités</button>
+</aside>
+<div class="content">
+<div class="topbar">
+  <select id="navSelect" aria-label="Sections des réglages"></select>
+  <h1 id="pageTitle">Pièces</h1>
   <span id="status" class="badge">…</span>
   <span id="saved" class="saved" role="status" aria-live="polite"></span>
-  <button id="refreshCat" title="Relit dans Home Assistant la liste des appareils, calendriers, listes et capteurs proposés dans ces réglages.">↻ Actualiser les entités</button>
-</header>
-<nav class="tabs" id="tabs" role="tablist" aria-label="Sections des réglages">
-  <button data-tab="rooms" role="tab">Pièces</button>
-  <button data-tab="home" role="tab">Accueil</button>
-  <button data-tab="display" role="tab">Affichage</button>
-  <button data-tab="sound" role="tab">Sons et alertes</button>
-  <button data-tab="conn" role="tab">Connexion et sécurité</button>
-  <button data-tab="about" role="tab">À propos</button>
-</nav>
-
-<!-- ============ Pièces ============ -->
-<main class="panel" data-panel="rooms">
+</div>
+<p class="lead" id="pageLead"></p>
+<main class="panel split" data-panel="rooms">
   <section class="card">
     <h2>Pièces</h2>
     <p class="muted">Touchez une pièce pour la modifier. Glissez ⠿ pour changer l'ordre.</p>
@@ -112,7 +187,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <button id="addRoom">+ Ajouter une pièce</button>
       <button id="import">Importer les zones HA</button>
     </div>
-    <h2 style="margin-top:24px">Paliers</h2>
+    <h3 class="sub">Paliers</h3>
     <p class="muted">Sur l'accueil, les pièces sont regroupées selon les paliers (étages) de Home Assistant, dans cet ordre. Glissez ⠿ pour le changer.</p>
     <ul class="rooms" id="floorList"></ul>
   </section>
@@ -144,37 +219,61 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       </div>
     </div>
   </section>
+
+  <section class="card wide">
+    <h2>🎵 En lecture</h2>
+    <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher une carte en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue</label>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté. Une émission ou un film affiche une icône de télé et le nom de l'application.</p></details>
+<details class="fold"><summary><span class="ft">Lecteurs qui affichent la carte</span><span class="sum"></span></summary>
+    <div id="npList" class="muted"></div>
+    </details>
+    <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
+    <div class="set">
+      <label class="f" for="npPause">Après une pause, la carte…</label>
+      <select id="npPause" style="max-width:340px">
+        <option value="0">disparaît tout de suite</option>
+        <option value="10">reste 10 minutes</option>
+        <option value="30">reste 30 minutes</option>
+        <option value="-1">reste tant que le lecteur est en pause</option>
+      </select>
+    </div>
+  </section>
 </main>
-
-<!-- ============ Accueil ============ -->
-<main class="panel grid2" data-panel="home" hidden>
-  <nav class="jump" style="grid-column:1/-1">
-    <button data-jump="g-top">En-tête</button><button data-jump="g-chips">Pastilles</button><button data-jump="g-cards">Météo et agenda</button><button data-jump="g-buttons">Raccourcis</button><button data-jump="g-morning">Ce matin</button>
-  </nav>
-
-  <h3 class="group" id="g-top">En-tête de l'accueil</h3>
-  <section class="card" style="grid-column:1/-1">
+<main class="panel" data-panel="home" hidden>
+  <h3 class="group">En-tête</h3>
+  <section class="card">
     <h2>Qui est à la maison</h2>
-    <p class="muted">Noms affichés sous la salutation. Cochez les personnes de Home Assistant (app compagnon) ou vos capteurs de présence par personne : un capteur compte « à la maison » tant que son état n'est pas une absence (not_home, away…).</p>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Noms affichés sous la salutation. Cochez les personnes de Home Assistant (app compagnon) ou vos capteurs de présence par personne : un capteur compte « à la maison » tant que son état n'est pas une absence (not_home, away…).</p></details>
+<details class="fold"><summary><span class="ft">Personnes et capteurs</span><span class="sum"></span></summary>
     <div id="personList" class="muted">Connexion requise…</div>
+    </details>
   </section>
-
-  <section class="card" style="grid-column:1/-1">
+  <section class="card">
     <h2>💡 Vue d'ensemble de la maison</h2>
-    <p class="muted">Les pastilles en haut de l'accueil comptent ce qui est allumé, déverrouillé ou ouvert (« 10 allumées », « 2 portes ouvertes »). Décochez les appareils qui ne doivent pas compter, par exemple une porte intérieure toujours ouverte ou une veilleuse. Une pastille dont tout est décoché n'apparaît plus. Les portes d'électroménagers (réfrigérateur, laveuse…) et l'état de porte que publie une serrure sont décochés d'office ; recochez-les si vous y tenez.</p>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Les pastilles en haut de l'accueil comptent ce qui est allumé, déverrouillé ou ouvert (« 10 allumées », « 2 portes ouvertes »). Décochez les appareils qui ne doivent pas compter, par exemple une porte intérieure toujours ouverte ou une veilleuse. Une pastille dont tout est décoché n'apparaît plus. Les portes d'électroménagers (réfrigérateur, laveuse…) et l'état de porte que publie une serrure sont décochés d'office ; recochez-les si vous y tenez.</p></details>
+<details class="fold"><summary><span class="ft">Appareils comptés</span><span class="sum"></span></summary>
     <div id="sumList" class="muted">Connexion requise…</div>
+    </details>
   </section>
-
-  <section class="card" style="grid-column:1/-1">
-    <h2>🛒 Listes d'épicerie et de tâches</h2>
-    <p class="muted">Les listes « À faire » de Home Assistant que vous cochez ici apparaissent derrière une icône en haut de la tablette, avec le nombre d'articles restants. On y coche, ajoute et retire des articles ; les changements faits ailleurs (téléphone, assistant vocal) s'y reflètent.</p>
-    <div id="todoList" class="muted">Connexion requise…</div>
+  <h3 class="group">Cartes</h3>
+  <section class="card">
+    <h2>🌤️ Météo</h2>
+    <div class="set">
+      <label class="f" for="weather">Entité météo</label>
+      <select id="weather"></select>
+    </div>
   </section>
-
-  <h3 class="group" id="g-chips">Pastilles d'information</h3>
+  <section class="card">
+    <h2>📅 Agenda</h2>
+<details class="fold"><summary><span class="ft">Calendriers affichés</span><span class="sum"></span></summary>
+    <div id="calList" class="muted">Connexion requise…</div>
+    </details>
+    <p class="muted">Sur la tablette, touchez un événement pour voir son lieu, sa durée et sa description, et la carte météo pour les prévisions heure par heure.</p>
+  </section>
+  <h3 class="group">Pastilles d'information</h3>
   <section class="card">
     <h2>🗑️ Collectes</h2>
-    <p class="muted">La veille et le jour d'une collecte : « Recyclage demain » (bac bleu) ou « Ordures aujourd'hui » (bac vert). Un événement compte si son titre contient le mot clé (majuscules et accents ignorés ; vide = tous les événements).</p>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La veille et le jour d'une collecte : « Recyclage demain » (bac bleu) ou « Ordures aujourd'hui » (bac vert). Un événement compte si son titre contient le mot clé (majuscules et accents ignorés ; vide = tous les événements).</p></details>
     <div class="row">
       <div style="flex:2"><label class="f" for="recycleCal">Calendrier du recyclage</label><select id="recycleCal"></select></div>
       <div style="flex:1"><label class="f" for="recycleKw">Mot clé</label><input id="recycleKw" placeholder="recycl"></div>
@@ -192,14 +291,17 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <div style="flex:1"><label class="f" for="peakReminder">Rappel</label>
         <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select></div>
     </div>
-      <label class="f" style="margin-top:14px">Capteurs de puissance ou d'énergie</label>
+<details class="fold"><summary><span class="ft">Capteurs de puissance ou d'énergie</span><span class="sum"></span></summary>
     <div id="energyList" class="muted">Connexion requise…</div>
-    <p class="muted">Le premier capteur coché fait une pastille sur l'accueil (« 2,4 kW »). Touchez-la, ou la pastille de pointe, pour voir tous les capteurs cochés, les pointes à venir et la courbe des dernières 24 heures.</p>
+    </details>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Le premier capteur coché fait une pastille sur l'accueil (« 2,4 kW »). Touchez-la, ou la pastille de pointe, pour voir tous les capteurs cochés, les pointes à venir et la courbe des dernières 24 heures.</p></details>
   </section>
   <section class="card">
     <h2>⚠️ Alertes météo</h2>
-    <p class="muted">Capteurs qui comptent les alertes en vigueur (ex. Environnement Canada : alertes, veilles, avis). Une pastille apparaît quand l'un d'eux est au-dessus de 0 ; touchez-la pour le détail.</p>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Capteurs qui comptent les alertes en vigueur (ex. Environnement Canada : alertes, veilles, avis). Une pastille apparaît quand l'un d'eux est au-dessus de 0 ; touchez-la pour le détail.</p></details>
+<details class="fold"><summary><span class="ft">Capteurs d'alertes</span><span class="sum"></span></summary>
     <div id="alertList" class="muted">Connexion requise…</div>
+    </details>
   </section>
   <section class="card">
     <h2>🏷️ Pastilles personnalisées</h2>
@@ -207,72 +309,61 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <div id="chipRules"></div>
     <button id="addChip">+ Ajouter une pastille</button>
   </section>
-
-  <h3 class="group" id="g-cards">Cartes météo et agenda</h3>
+  <h3 class="group">Raccourcis</h3>
   <section class="card">
-    <h2>🌤️ Météo</h2>
-    <label class="f" for="weather">Entité météo</label>
-    <select id="weather"></select>
-  </section>
-  <section class="card">
-    <h2>📅 Agenda</h2>
-    <label class="f">Calendriers affichés</label>
-    <div id="calList" class="muted">Connexion requise…</div>
-    <p class="muted">Sur la tablette, touchez un événement pour voir son lieu, sa durée et sa description, et la carte météo pour les prévisions heure par heure.</p>
-  </section>
-  <section class="card" style="grid-column:1/-1">
-    <h2>🎵 En lecture</h2>
-    <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher une carte en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue</label>
-    <p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté. Une émission ou un film affiche une icône de télé et le nom de l'application.</p>
-    <label class="f" style="margin-top:12px">Lecteurs qui affichent la carte</label>
-    <div id="npList" class="muted"></div>
-    <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
-    <label class="f" for="npPause">Après une pause, la carte…</label>
-    <select id="npPause" style="max-width:340px">
-      <option value="0">disparaît tout de suite</option>
-      <option value="10">reste 10 minutes</option>
-      <option value="30">reste 30 minutes</option>
-      <option value="-1">reste tant que le lecteur est en pause</option>
-    </select>
-  </section>
-
-  <h3 class="group" id="g-buttons">Raccourcis</h3>
-  <section class="card" style="grid-column:1/-1">
     <h2>▶️ Raccourcis</h2>
-    <p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p></details>
+<details class="fold"><summary><span class="ft">Raccourcis choisis</span><span class="sum"></span></summary>
     <input id="scQ" placeholder="Rechercher…">
     <ul class="ents pick" id="scList" style="max-height:260px"></ul>
+    </details>
   </section>
-
-  <h3 class="group" id="g-morning">Ce matin (icône ☀️)</h3>
-  <section class="card" style="grid-column:1/-1">
-    <p class="muted" style="margin-top:0">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : des flux de nouvelles (lien RSS ou Atom, lu directement par la tablette, avec images) ou un texte d'une entité Home Assistant (Markdown accepté).</p>
+</main>
+<datalist id="allEnts"></datalist>
+<main class="panel" data-panel="tools" hidden>
+  <section class="card">
+    <h2>🛒 Listes d'épicerie et de tâches</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Les listes « À faire » de Home Assistant que vous cochez ici apparaissent derrière une icône en haut de la tablette, avec le nombre d'articles restants. On y coche, ajoute et retire des articles ; les changements faits ailleurs (téléphone, assistant vocal) s'y reflètent.</p></details>
+<details class="fold"><summary><span class="ft">Listes affichées</span><span class="sum"></span></summary>
+    <div id="todoList" class="muted">Connexion requise…</div>
+    </details>
+  </section>
+  <section class="card">
+    <h2>Minuteries favorites</h2>
+    <p class="muted">Des minuteries nommées, lancées d'un toucher depuis le panneau des minuteries (par exemple « Pâtes » 10 min). Le nom apparaît quand elle sonne.</p>
+    <div id="timerPresets"></div>
+    <button id="addPreset">+ Ajouter une minuterie</button>
+  </section>
+  <section class="card">
+    <h2>Ce matin</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : des flux de nouvelles (lien RSS ou Atom, lu directement par la tablette, avec images) ou un texte d'une entité Home Assistant (Markdown accepté).</p></details>
     <div class="row">
       <div style="flex:1"><label class="f" for="mStart">De</label><input type="time" id="mStart"></div>
       <div style="flex:1"><label class="f" for="mEnd">À</label><input type="time" id="mEnd"></div>
     </div>
-    <h2 style="margin-top:18px">Sources</h2>
+    <h3 class="sub">Sources</h3>
     <div id="mSources"></div>
     <div class="row"><button id="addFeed">+ Ajouter un flux de nouvelles</button><button id="addSource">+ Ajouter un texte (entité)</button></div>
-    <h2 style="margin-top:18px">Suggestions</h2>
+    <h3 class="sub">Suggestions</h3>
     <div id="mSuggest" class="row muted">Recherche…</div>
   </section>
 </main>
-<datalist id="allEnts"></datalist>
-
-<!-- ============ Affichage ============ -->
-<main class="panel grid2" data-panel="display" hidden>
+<main class="panel" data-panel="display" hidden>
   <section class="card">
     <h2>Apparence</h2>
-    <label class="f" for="language">Langue de l'interface</label>
-    <select id="language">
-      <option value="auto">Automatique (langue de la tablette)</option>
-      <option value="fr">Français</option>
-      <option value="en">English</option>
-    </select>
-    <label class="f" for="skin">Skin (style d'affichage)</label>
-    <select id="skin"></select>
-    <p class="muted">La skin change la façon de dessiner l'accueil, les pièces et les fenêtres. HomeKit : tuiles en verre. Épuré : lignes fines et texte léger. Papier : papier clair et titres à empattements. Pastel : grandes cartes douces aux couleurs du thème. Néon : contours lumineux de la couleur du thème. Compact : plus d'appareils par ligne. Grand confort : très gros texte, 3 tuiles par ligne. Le thème et le fond d'écran restent respectés. Les réglages de la tablette ne changent pas.</p>
+    <div class="set">
+      <label class="f" for="language">Langue de l'interface</label>
+      <select id="language">
+        <option value="auto">Automatique (langue de la tablette)</option>
+        <option value="fr">Français</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+    <div class="set">
+      <label class="f" for="skin">Skin (style d'affichage)</label>
+      <select id="skin"></select>
+    </div>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La skin change la façon de dessiner l'accueil, les pièces et les fenêtres. HomeKit : tuiles en verre. Épuré : lignes fines et texte léger. Papier : papier clair et titres à empattements. Pastel : grandes cartes douces aux couleurs du thème. Néon : contours lumineux de la couleur du thème. Compact : plus d'appareils par ligne. Grand confort : très gros texte, 3 tuiles par ligne. Le thème et le fond d'écran restent respectés. Les réglages de la tablette ne changent pas.</p></details>
     <div class="row">
       <div style="flex:2"><label class="f" for="nightSkin">Skin de nuit</label><select id="nightSkin"></select></div>
       <div style="flex:1"><label class="f" for="nightSkinStart">Début</label><input type="time" id="nightSkinStart"></div>
@@ -293,7 +384,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <div id="holidayBox" hidden>
         <label class="f">Fêtes suivies par le thème automatique</label>
         <div id="holidayList" class="row"></div>
-        <p class="muted">Le thème suit la date : une fête cochée le jour venu (Noël du 1er au 26 décembre, Halloween du 25 au 31 octobre, Pâques du vendredi au lundi…), sinon la saison. Le Nouvel An lunaire et Hanoukka changent de date chaque année : choisissez-les à la main.</p>
+        <details class="more"><summary>En savoir plus</summary><p class="muted">Le thème suit la date : une fête cochée le jour venu (Noël du 1er au 26 décembre, Halloween du 25 au 31 octobre, Pâques du vendredi au lundi…), sinon la saison. Le Nouvel An lunaire et Hanoukka changent de date chaque année : choisissez-les à la main.</p></details>
       </div>
     </div>
     <div id="wallBox">
@@ -321,31 +412,39 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <label class="check"><input type="checkbox" id="clock"> Afficher l'heure et la date</label>
     <label class="check"><input type="checkbox" id="battery"> Afficher la batterie de la tablette à côté de l'heure</label>
   </section>
+</main>
+<main class="panel" data-panel="screen" hidden>
   <section class="card">
     <h2>Écran</h2>
-    <label class="f" for="brightness">Luminosité</label>
-    <select id="brightness"><option value="-1">Celle de la tablette</option><option value="10">10 %</option><option value="20">20 %</option><option value="30">30 %</option><option value="40">40 %</option><option value="50">50 %</option><option value="60">60 %</option><option value="70">70 %</option><option value="80">80 %</option><option value="90">90 %</option><option value="100">100 %</option></select>
-    <label class="f" for="dim">Mise en veille après</label>
-    <select id="dim">
-      <option value="0">Jamais</option><option value="1">1 min</option><option value="2">2 min</option>
-      <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option>
-      <option value="30">30 min</option><option value="60">60 min</option>
-    </select>
+    <div class="set">
+      <label class="f" for="brightness">Luminosité</label>
+      <select id="brightness"><option value="-1">Celle de la tablette</option><option value="10">10 %</option><option value="20">20 %</option><option value="30">30 %</option><option value="40">40 %</option><option value="50">50 %</option><option value="60">60 %</option><option value="70">70 %</option><option value="80">80 %</option><option value="90">90 %</option><option value="100">100 %</option></select>
+    </div>
+    <div class="set">
+      <label class="f" for="dim">Mise en veille après</label>
+      <select id="dim">
+        <option value="0">Jamais</option><option value="1">1 min</option><option value="2">2 min</option>
+        <option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option>
+        <option value="30">30 min</option><option value="60">60 min</option>
+      </select>
+    </div>
     <label class="check" id="motionWakeRow"><input type="checkbox" id="motionWake"> Réveil par mouvement (caméra avant de la tablette)</label>
     <p class="muted" id="motionWakeInfo" hidden></p>
     <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
   </section>
   <section class="card">
     <h2>Écran de veille</h2>
-    <label class="f" for="dimStyle">Affichage pendant la veille</label>
-    <select id="dimStyle"><option value="clock">Heure et météo</option><option value="photos">Cadre photo</option><option value="black">Écran noir</option></select>
+    <div class="set">
+      <label class="f" for="dimStyle">Affichage pendant la veille</label>
+      <select id="dimStyle"><option value="clock">Heure et météo</option><option value="photos">Cadre photo</option><option value="black">Écran noir</option></select>
+    </div>
     <div id="photoRow">
       <div class="row">
         <div style="flex:3"><label class="f" for="immichUrl">Serveur Immich</label><input id="immichUrl" placeholder="http://192.168.1.20:2283"></div>
         <div style="flex:3"><label class="f" for="immichKey">Clé API</label><input id="immichKey" type="password" autocomplete="new-password"></div>
       </div>
       <div class="row"><button id="saveImmich">Enregistrer et tester</button><span class="muted" id="immichInfo"></span></div>
-      <p class="muted">Dans Immich : Paramètres du compte → Clés API → Nouvelle clé. Les droits de lecture des albums et des médias suffisent. La clé est chiffrée sur la tablette et n'est jamais réaffichée.</p>
+      <details class="more"><summary>En savoir plus</summary><p class="muted">Dans Immich : Paramètres du compte → Clés API → Nouvelle clé. Les droits de lecture des albums et des médias suffisent. La clé est chiffrée sur la tablette et n'est jamais réaffichée.</p></details>
       <label class="f" for="photoSource">Album photo</label>
       <select id="photoSource"><option value="">Chargement…</option></select>
       <label class="f" for="photoSeconds">Changer de photo toutes les</label>
@@ -357,9 +456,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     </div>
   </section>
 </main>
-
-<!-- ============ Sons et alertes ============ -->
-<main class="panel grid2" data-panel="sound" hidden>
+<main class="panel" data-panel="sound" hidden>
   <section class="card">
     <h2>Sons et heures calmes</h2>
     <label class="check"><input type="checkbox" id="soundsEnabled"> Sons des notifications (désactivé = silence en tout temps)</label>
@@ -368,45 +465,73 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <div style="flex:1"><label class="f" for="quietStart">Début</label><input type="time" id="quietStart"></div>
       <div style="flex:1"><label class="f" for="quietEnd">Fin</label><input type="time" id="quietEnd"></div>
     </div>
-    <p class="muted">Pendant les heures calmes, les notifications n'ont pas de son (sauf les alertes rouges : fuite, serrure, fenêtre…) et l'écran de veille est noir. Les minuteries sonnent toujours.</p>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Pendant les heures calmes, les notifications n'ont pas de son (sauf les alertes rouges : fuite, serrure, fenêtre…) et l'écran de veille est noir. Les minuteries sonnent toujours.</p></details>
   </section>
   <section class="card">
     <h2>Notifications</h2>
-    <label class="f" for="noticeSeconds">Durée d'affichage maximale</label>
-    <select id="noticeSeconds"><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
+    <div class="set">
+      <label class="f" for="noticeSeconds">Durée d'affichage maximale</label>
+      <select id="noticeSeconds"><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
+    </div>
     <p class="muted">Une notification qui n'a pas été confirmée par OK reste non lue : une clochette apparaît sur la tablette avec leur nombre. <span id="unreadInfo"></span></p>
-  </section>
-  <section class="card">
-    <h2>Minuteries favorites</h2>
-    <p class="muted">Des minuteries nommées, lancées d'un toucher depuis le panneau des minuteries (par exemple « Pâtes » 10 min). Le nom apparaît quand elle sonne.</p>
-    <div id="timerPresets"></div>
-    <button id="addPreset">+ Ajouter une minuterie</button>
   </section>
   <section class="card">
     <h2>Alertes des caméras</h2>
     <label class="check"><input type="checkbox" id="personAlert"> Alerte personne détectée : live plein écran</label>
-    <label class="f" for="alertTrigger">Déclencher sur</label>
-    <select id="alertTrigger"><option value="person">Personne seulement</option><option value="motion">Tout mouvement</option></select>
+    <div class="set">
+      <label class="f" for="alertTrigger">Déclencher sur</label>
+      <select id="alertTrigger"><option value="person">Personne seulement</option><option value="motion">Tout mouvement</option></select>
+    </div>
     <label class="check"><input type="checkbox" id="doorbellAlert"> Alerte sonnette : live quand quelqu'un sonne</label>
-    <label class="f" for="alertSeconds">Durée de l'alerte</label>
-    <select id="alertSeconds"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
+    <div class="set">
+      <label class="f" for="alertSeconds">Durée de l'alerte</label>
+      <select id="alertSeconds"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
+    </div>
     <p class="muted">Quand le détecteur de personne d'une caméra des pièces s'active, la tablette affiche son live. Toucher l'écran garde le live ouvert.</p>
   </section>
 </main>
-
-<!-- ============ Connexion et sécurité ============ -->
-<main class="panel grid2" data-panel="conn" hidden>
+<main class="panel" data-panel="conn" hidden>
   <section class="card">
     <h2>Home Assistant</h2>
-    <label class="f" for="url">Adresse</label>
-    <input id="url" type="url" inputmode="url" placeholder="http://192.168.1.10:8123" autocomplete="off">
-    <label class="f" for="token">Jeton d'accès longue durée</label>
-    <input id="token" type="password" placeholder="Coller le jeton ici" autocomplete="off">
+    <div class="set">
+      <label class="f" for="url">Adresse</label>
+      <input id="url" type="url" inputmode="url" placeholder="http://192.168.1.10:8123" autocomplete="off">
+    </div>
+    <div class="set">
+      <label class="f" for="token">Jeton d'accès longue durée</label>
+      <input id="token" type="password" placeholder="Coller le jeton ici" autocomplete="off">
+    </div>
     <p class="muted">Dans Home Assistant : votre profil (en bas à gauche) → onglet Sécurité → Jetons d'accès longue durée → Créer un jeton.</p>
     <button class="primary" id="saveConn">Enregistrer et connecter</button>
     <label class="check" style="margin-top:16px"><input type="checkbox" id="demo"> Mode démo (maison fictive, sans Home Assistant)</label>
     <p class="muted">Votre configuration est conservée et revient quand vous quittez la démo.</p>
   </section>
+  <section class="card">
+    <h2>Tablette dans Home Assistant (MQTT)</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La tablette apparaît comme un appareil de l'intégration MQTT, avec son thème, sa veille, sa luminosité, sa batterie… Le bouton « Visiter » de la fiche appareil ouvre cette page.</p></details>
+    <span id="mqttStatus" class="badge">…</span>
+    <label class="check"><input type="checkbox" id="mqttEnabled"> Activer MQTT</label>
+    <div class="row">
+      <div style="flex:3"><label class="f" for="mqttHost">Broker</label><input id="mqttHost" placeholder="192.168.1.10"></div>
+      <div style="flex:1"><label class="f" for="mqttPort">Port</label><input id="mqttPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="1883"></div>
+    </div>
+    <div class="set">
+      <label class="f" for="mqttUser">Utilisateur</label>
+      <input id="mqttUser" autocomplete="off">
+    </div>
+    <div class="set">
+      <label class="f" for="mqttPass">Mot de passe</label>
+      <input id="mqttPass" type="password" autocomplete="new-password">
+    </div>
+    <div class="set">
+      <label class="f" for="devName">Nom de l'appareil dans HA</label>
+      <input id="devName" maxlength="60">
+    </div>
+    <p class="muted">Avec l'app Mosquitto de Home Assistant, un compte utilisateur HA fonctionne (idéalement un compte dédié).</p>
+    <button class="primary" id="saveMqtt">Enregistrer et connecter</button>
+  </section>
+</main>
+<main class="panel" data-panel="security" hidden>
   <section class="card">
     <h2>Code PIN</h2>
     <p class="muted">Protège les réglages de la tablette et cette page.</p>
@@ -426,29 +551,13 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <button id="importBtn">Restaurer une sauvegarde…</button>
       <input type="file" id="importFile" accept=".json,application/json" hidden>
     </div>
-  </section>
-  <section class="card">
-    <h2>Tablette dans Home Assistant (MQTT)</h2>
-    <p class="muted">La tablette apparaît comme un appareil de l'intégration MQTT, avec son thème, sa veille, sa luminosité, sa batterie… Le bouton « Visiter » de la fiche appareil ouvre cette page.</p>
-    <span id="mqttStatus" class="badge">…</span>
-    <label class="check"><input type="checkbox" id="mqttEnabled"> Activer MQTT</label>
-    <div class="row">
-      <div style="flex:3"><label class="f" for="mqttHost">Broker</label><input id="mqttHost" placeholder="192.168.1.10"></div>
-      <div style="flex:1"><label class="f" for="mqttPort">Port</label><input id="mqttPort" type="number" inputmode="numeric" min="1" max="65535" placeholder="1883"></div>
-    </div>
-    <label class="f" for="mqttUser">Utilisateur</label>
-    <input id="mqttUser" autocomplete="off">
-    <label class="f" for="mqttPass">Mot de passe</label>
-    <input id="mqttPass" type="password" autocomplete="new-password">
-    <label class="f" for="devName">Nom de l'appareil dans HA</label>
-    <input id="devName" maxlength="60">
-    <p class="muted">Avec l'app Mosquitto de Home Assistant, un compte utilisateur HA fonctionne (idéalement un compte dédié).</p>
-    <button class="primary" id="saveMqtt">Enregistrer et connecter</button>
+    <h3 class="sub">Copies automatiques</h3>
+    <p class="muted">La tablette garde une copie de la configuration chaque semaine, sans le jeton, les mots de passe ni le PIN. Les six dernières sont conservées.</p>
+    <div id="backupList" class="muted">…</div>
+    <button id="backupNow" style="margin-top:8px">Faire une copie maintenant</button>
   </section>
 </main>
-
-<!-- ============ À propos ============ -->
-<main class="panel grid2" data-panel="about" hidden>
+<main class="panel" data-panel="about" hidden>
   <section class="card about">
     <div class="aboutHead">
       <svg class="logo big" viewBox="0 0 130 130" aria-hidden="true"><rect width="130" height="130" rx="30" fill="#0F2E4A"/><path d="M36 46 L65 26 L94 46" fill="none" stroke="#F2F2F7" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="56" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="56" width="26" height="26" rx="7" fill="#FFB300"/><rect x="36" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/><rect x="68" y="88" width="26" height="26" rx="7" fill="#F2F2F7" opacity=".35"/></svg>
@@ -463,7 +572,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <a class="btn" id="lnkRel" target="_blank" rel="noopener">Notes de version</a>
       <a class="btn" id="lnkIss" target="_blank" rel="noopener">Signaler un problème</a>
     </div>
-    <h2 style="margin-top:22px">Informations</h2>
+    <h3 class="sub">Informations</h3>
     <table class="kv" id="aboutInfo"></table>
     <details id="crashBox" hidden style="margin:10px 0">
       <summary class="muted" style="cursor:pointer;font-weight:600">Détail du dernier plantage</summary>
@@ -485,6 +594,8 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <p class="muted">Android demande de confirmer l'installation sur la tablette (un toucher). La première fois, autorisez TileHouse à installer des applications.</p>
   </section>
 </main>
+</div>
+</div>
 
 <div id="login">
   <div class="card">
@@ -520,20 +631,104 @@ async function initI18n() {
   try {
     const r = await (await fetch("/api/i18n")).json();
     if (r.english) { DICT = r.dict || {}; document.documentElement.lang = "en"; document.title = "TileHouse · Settings"; translatePage(); }
+    fillNavSelect();
+    const on = document.querySelector("#tabs button.on"); if (on) showTab(on.dataset.tab);
   } catch (e) {}
+  tidyTitles(); // après la traduction : les clés du dictionnaire portent encore l'émoji
 }
 
+// Phrase d'introduction de chaque section : ce qu'on y règle.
+const LEADS = {
+  rooms: "Les pièces de la maison, leurs appareils et ce qui s'affiche en haut d'une pièce.",
+  home: "Ce que la page principale de la tablette affiche.",
+  tools: "Les icônes en haut de la tablette : listes, minuteries et Ce matin.",
+  display: "Le style, le fond et les options d'affichage du tableau de bord.",
+  screen: "La luminosité, la mise en veille et ce que l'écran montre pendant la veille.",
+  sound: "Les sons, les notifications et les alertes des caméras.",
+  conn: "Le lien avec Home Assistant et l'appareil MQTT de la tablette.",
+  security: "Le code PIN et les copies de la configuration.",
+  about: "La version installée, les mises à jour et l'état de la tablette."
+};
 function showTab(name) {
-  for (const b of document.querySelectorAll("#tabs button")) { b.classList.toggle("on", b.dataset.tab === name); b.setAttribute("aria-selected", b.dataset.tab === name); }
+  let label = "";
+  for (const b of document.querySelectorAll("#tabs button")) {
+    const on = b.dataset.tab === name;
+    b.classList.toggle("on", on);
+    if (on) { b.setAttribute("aria-current", "page"); label = b.textContent.trim(); } else b.removeAttribute("aria-current");
+  }
   for (const p of document.querySelectorAll(".panel")) p.hidden = p.dataset.panel !== name;
+  $("pageTitle").textContent = label;
+  $("pageLead").textContent = t(LEADS[name] || "");
+  $("navSelect").value = name;
   try { localStorage.setItem("tab", name); } catch (e) {}
 }
+// Sur un petit écran, le menu devient une liste déroulante.
+function fillNavSelect() {
+  const sel = $("navSelect");
+  sel.replaceChildren(...[...document.querySelectorAll("#tabs button")].map(b => el("option", {value: b.dataset.tab, textContent: b.textContent.trim()})));
+  sel.onchange = () => showTab(sel.value);
+}
+// Titres sans émoji (ils servaient de repère dans l'ancienne page ; le menu a maintenant ses icônes).
+function tidyTitles() {
+  for (const h of document.querySelectorAll(".card h2")) for (const n of h.childNodes)
+    if (n.nodeType === 3) n.nodeValue = n.nodeValue.replace(/^\s*[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u, "");
+}
+// Résumé d'une liste repliée : « 8 sur 13 » pour des cases, « 2 choisis » pour une liste à cocher, sinon le nombre d'éléments.
+function foldSummary(d) {
+  const boxes = d.querySelectorAll("input[type=checkbox]"), sum = d.querySelector(".sum");
+  if (boxes.length) sum.textContent = [...boxes].filter(x => x.checked).length + " " + t("sur") + " " + boxes.length;
+  else {
+    const picked = [...d.querySelectorAll("li .dot")].filter(x => x.textContent === "✓").length;
+    sum.textContent = d.querySelector("li") ? (picked === 1 ? "1 " + t("choisi") : picked + " " + t("choisis")) : "";
+  }
+}
+function watchFolds() {
+  for (const d of document.querySelectorAll("details.fold")) {
+    let timer = 0;
+    const run = () => { clearTimeout(timer); timer = setTimeout(() => foldSummary(d), 60); };
+    new MutationObserver(run).observe(d, {childList: true, subtree: true});
+    d.addEventListener("change", run);
+    run();
+  }
+}
+// Recherche d'un réglage : par le titre de sa carte, ses libellés et son aide.
+function setupSearch() {
+  const q = $("navQ"), hits = $("navHits");
+  const norm = x => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const go = (panel, card) => {
+    showTab(panel);
+    const d = card.closest("details"); if (d) d.open = true;
+    card.scrollIntoView({behavior: "smooth", block: "center"});
+    card.classList.add("hit"); setTimeout(() => card.classList.remove("hit"), 1800);
+  };
+  q.oninput = () => {
+    const w = norm(q.value.trim());
+    hits.replaceChildren();
+    hits.hidden = !w;
+    if (!w) return;
+    const found = [];
+    for (const p of document.querySelectorAll(".panel")) {
+      const section = (document.querySelector('#tabs button[data-tab="' + p.dataset.panel + '"]') || {}).textContent || "";
+      for (const c of p.querySelectorAll(".card")) {
+        const title = (c.querySelector("h2") || {}).textContent || section;
+        const labels = [...c.querySelectorAll("label,h3,summary .ft,button")].map(x => x.textContent.trim()).filter(Boolean);
+        const inTitle = norm(title).includes(w), label = labels.find(x => norm(x).includes(w));
+        if (inTitle || label || norm(c.textContent).includes(w)) found.push({p: p.dataset.panel, c, title, section: section.trim(), label: inTitle ? "" : (label || ""), rank: inTitle ? 0 : label ? 1 : 2});
+      }
+    }
+    found.sort((a, b) => a.rank - b.rank);
+    if (!found.length) { hits.append(el("div", {class: "none", textContent: t("Aucun réglage trouvé")})); return; }
+    for (const f of found.slice(0, 8)) hits.append(el("button", {onclick: () => go(f.p, f.c)}, f.label && f.label.length < 70 ? f.label : f.title, el("small", {textContent: f.section + (f.label && f.title !== f.section ? " › " + f.title : "")})));
+  };
+  q.onkeydown = ev => { if (ev.key === "Enter") { const b = hits.querySelector("button"); if (b) b.click(); } else if (ev.key === "Escape") { q.value = ""; q.oninput(); } };
+}
 for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
+fillNavSelect(); watchFolds(); setupSearch();
 let savedTab = "rooms";
 try { savedTab = localStorage.getItem("tab") || "rooms"; } catch (e) {}
 // Lien direct vers un onglet : #rooms, #home, #display, #sound, #conn (ou #rooms/2 pour la 3e pièce)
 const HASH = location.hash.slice(1).split("/");
-const TABS = ["rooms", "home", "display", "sound", "conn", "about"];
+const TABS = ["rooms", "home", "tools", "display", "screen", "sound", "conn", "security", "about"];
 if (!TABS.includes(savedTab)) savedTab = "rooms";
 if (TABS.includes(HASH[0])) savedTab = HASH[0];
 showTab(savedTab);
@@ -598,6 +793,7 @@ function flash(text) { $("saved").textContent = text; }
 // ------------------------------------------------------------------ état général
 async function load() {
   S = await api("GET", "/api/state");
+  loadBackups();
   rooms = S.rooms;
   if (!rooms.find(r => r.id === cur)) cur = rooms.length ? rooms[0].id : null;
   if (HASH[0] === "rooms" && rooms[+HASH[1]]) cur = rooms[+HASH[1]].id;
@@ -939,6 +1135,42 @@ $("exportBtn").onclick = async () => {
     flash("✓ Configuration exportée");
   } catch (e) { if (e.message !== "pin") alert(e.message); }
 };
+// Copies automatiques hebdomadaires : télécharger ou restaurer l'une d'elles.
+async function restoreConfig(cfg) {
+  if (cfg.format !== "homepanel-config") { alert(t("Ce fichier n'est pas une sauvegarde de l'app.")); return; }
+  if (!confirm(t("Remplacer la configuration actuelle par cette sauvegarde") + " (" + (cfg.rooms || []).length + ") ?")) return;
+  try {
+    S = await api("POST", "/api/restore", {config: cfg});
+    rooms = S.rooms; cat = null;
+    renderConn(); renderSettings(); renderRooms(); renderEditor(true);
+    flash(t("✓ Sauvegarde restaurée"));
+  } catch (e) { if (e.message !== "pin") alert(e.message); }
+}
+function renderBackups(list) {
+  const b = $("backupList");
+  b.replaceChildren();
+  if (!list.length) { b.className = "muted"; b.textContent = t("Aucune copie pour l'instant ; la première se fait dans l'heure qui suit le démarrage."); return; }
+  b.className = "";
+  for (const f of list) {
+    const get = async () => JSON.parse(JSON.stringify(await api("POST", "/api/backups/get", {name: f.name})));
+    b.append(el("div", {class: "row", style: "align-items:center;gap:8px;margin:4px 0"},
+      el("span", {style: "flex:1", textContent: new Date(f.time).toLocaleDateString(undefined, {weekday: "long", day: "numeric", month: "long", year: "numeric"})}),
+      el("button", {class: "mini", textContent: t("Télécharger"), onclick: async () => {
+        try {
+          const blob = new Blob([JSON.stringify(await get(), null, 2)], {type: "application/json"});
+          const a = el("a", {href: URL.createObjectURL(blob), download: f.name});
+          document.body.append(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        } catch (e) { if (e.message !== "pin") alert(e.message); }
+      }}),
+      el("button", {class: "mini", textContent: t("Restaurer"), onclick: async () => { try { await restoreConfig(await get()); } catch (e) { if (e.message !== "pin") alert(e.message); } }})));
+  }
+}
+async function loadBackups() { try { renderBackups((await api("GET", "/api/backups")).backups || []); } catch (e) {} }
+$("backupNow").onclick = async () => {
+  try { renderBackups((await api("POST", "/api/backups/now", {})).backups || []); flash(t("✓ Copie enregistrée sur la tablette")); }
+  catch (e) { if (e.message !== "pin") alert(e.message); }
+};
 $("importBtn").onclick = () => $("importFile").click();
 $("importFile").onchange = async () => {
   const f = $("importFile").files[0];
@@ -1009,7 +1241,6 @@ function renderPresence(ex, selected) {
     b.append(box);
   }
 }
-for (const j of document.querySelectorAll("[data-jump]")) j.onclick = () => $(j.dataset.jump).scrollIntoView({behavior: "smooth", block: "start"});
 
 // Options d'une liste déroulante : ce que Home Assistant propose, plus le choix actuel s'il n'y figure pas
 // (entité renommée, Home Assistant en démarrage), pour que le réglage ne paraisse jamais vide.

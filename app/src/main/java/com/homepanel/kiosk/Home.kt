@@ -223,6 +223,8 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
         rows.removeAllViews()
         if (events == null) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Chargement…"))); return }
         if (events.isEmpty()) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Aucun événement ces prochains jours"))); return }
+        // Une cloche à côté des événements pour lesquels un rappel est prévu.
+        val reminders = Reminders.all(context).map { it.key }.toSet()
         for (ev in events.take(6)) {
             val row = LinearLayout(context).apply {
                 orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -231,7 +233,7 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
             row.addView(View(context).apply { background = oval(ev.color) }, LayoutParams(context.dp(10), context.dp(10)).apply { marginEnd = context.dp(12) })
             val col = LinearLayout(context).apply { orientation = VERTICAL }
             col.addView(context.label(15f, Skin.ink, text = ev.title).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
-            col.addView(context.label(13f, Skin.fg(0xB3), text = whenText(ev)))
+            col.addView(context.label(13f, Skin.fg(0xB3), text = whenText(ev) + if (Reminders.keyOf(ev.title, ev.start.time) in reminders) "  ·  🔔 " + tr("rappel") else ""))
             row.addView(col, LayoutParams(0, WRAP_CONTENT, 1f))
             row.isClickable = true
             row.setOnClickListener { onEvent?.invoke(ev) }

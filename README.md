@@ -138,12 +138,12 @@ adb install TileHouse-<version>.apk
 1. **Create a long‑lived access token** in Home Assistant: click your profile (bottom left) → **Security** tab →
    **Long‑lived access tokens** → **Create token**. Copy it.
 2. **Connect the tablet.** The easiest way is the **web configuration page**: TileHouse shows its address on the welcome screen
-   (for example `http://192.168.1.42:8080`). Open it from a computer on the same Wi‑Fi, go to **Connection & security**,
+   (for example `http://192.168.1.42:8080`). Open it from a computer on the same Wi‑Fi, go to **Connection**,
    enter your Home Assistant address (for example `http://homeassistant.local:8123`) and paste the token.
 3. **Add rooms.** Click **Import HA areas** to create one room per Home Assistant area with its main devices, or **+ Add a room** to build
    them by hand. Then pick devices from the list on the right.
 4. **Set up the home screen** (weather, calendars, people) in the **Home** tab, and the floor order in the **Rooms** tab.
-5. **Set a PIN** in **Connection & security** so nobody else on your network can change the configuration.
+5. **Set a PIN** in **Security & backups** so nobody else on your network can change the configuration.
 
 Everything can also be done directly on the tablet, from the ⋮ menu in the top‑right corner.
 
@@ -163,13 +163,14 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - **Calendar card**: upcoming events from the calendars you choose (today and the next few days), colour‑coded by calendar.
   **Tap an event** to see its end time, place and description, and to ask for a **reminder** (15 min or 1 h before, the day
   before at 7 pm; for an all-day event, the day before or that morning). The reminder arrives in the notification center with a
-  sound, is kept on the tablet across restarts, and can be cancelled from the same window.
+  sound, is kept on the tablet across restarts, and can be cancelled from the same window. A small bell marks the events
+  that have a reminder.
 - **Shopping and to-do lists** (☑ next to the timer): the Home Assistant to-do lists you choose on the web page
-  (*Home → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
+  (*Header tools → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
   the keyboard, remove the ticked ones; several lists become tabs. Changes made elsewhere (phone, voice assistant) show up, and
   the other way round. A grocery list is sorted **by aisle** (fruit & vegetables, dairy, meat, bakery, frozen, drinks, pantry,
   household), recognised from common French and English words; a list that isn't groceries stays as it is. **Long-press an
-  item** to start a kitchen timer with its name ("Bread · 45 min").
+  item** to remove it from the list, or to start a kitchen timer with its name ("Bread · 45 min").
 
   | Lists | Next hours |
   |---|---|
@@ -192,7 +193,8 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   for an energy meter that only counts up, the consumption since midnight — "42 kWh today" — or, when the meter is read once a
   day like Hydro-Québec's, what the last reading added: "+65 kWh · last reading"). In a room, the tile of a power or energy
   sensor opens the same window with that sensor's curve. Tap the chip, or the peak chip, for the **Electricity window**: the peak in progress or coming, every ticked sensor, and the last
-  24 hours of the first one (a curve for a power sensor, consumption per hour for an energy meter).
+  24 hours of the first one (a curve for a power sensor, consumption per hour for an energy meter). A meter that is read
+  once a day, like Hydro-Québec's, shows the **last 14 days** instead, one bar per day, with the daily average.
 
   <img src="docs/screenshots/energy.png" width="640" alt="Electricity window">
 - **Weather alerts**: pick the sensors that count the alerts in effect (Environment Canada: warnings, watches, advisories); a chip
@@ -204,7 +206,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   stays on the home screen when it has no room (or when you pick *Home*). A scene that already has its tile in the room isn't
   shown twice.
 - **This morning** (☀️ next to the bell): during a time range (default 05:00–10:00), a sun icon appears at the top, with a blue
-  dot until you have read the content. Tap it to open a full-screen panel with the sources you choose (*Home → This morning* on
+  dot until you have read the content. Tap it to open a full-screen panel with the sources you choose (*Header tools → This morning* on
   the web page):
   - **News feeds**: a title and the link of any RSS or Atom feed (XML). The tablet reads the feed itself (no Home Assistant
     integration needed) and shows the stories in two columns, with picture, title, start of the summary and time
@@ -243,7 +245,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 - Tap a room on the home screen to open it; the **←** arrow brings you back. **Swipe left/right** to move between rooms.
 - **Order of a room**: the cameras always come first, then the shortcuts of the room, then the *Now playing* card, then the tiles.
 - **Now playing card**: in a room, only while one of its speakers or its TV is playing: title, player, pause, previous, next
-  and volume. It disappears when everything is stopped. The home screen doesn't show it. **You choose which players show it** on the web page (*Home → Now playing*): every speaker and TV of your
+  and volume. It disappears when everything is stopped. The home screen doesn't show it. **You choose which players show it** on the web page (*Rooms → Now playing*): every speaker and TV of your
   rooms is listed with its room; untick the ones you don't want. Voice assistants are unticked by default (they "play" at every
   answer). A show or a film gets a TV icon and the name of the app ("Antigang · ICI TOU.TV"). **After a pause** the card stays
   10 minutes by default; you can make it disappear right away, stay 30 minutes, or stay as long as the player is paused. The
@@ -429,7 +431,7 @@ With a button:
 <img src="docs/screenshots/timers.png" width="860" alt="Kitchen timers">
 
 - Tap **⏱** next to the time, then a quick duration (1 min to 1 h) or set your own with − / + and **Start**.
-- **Favourite timers**: named timers started with one tap ("Pasta · 10 min"), set on the web page (*Sounds & alerts → Favourite
+- **Favourite timers**: named timers started with one tap ("Pasta · 10 min"), set on the web page (*Header tools → Favourite
   timers*). The name shows in the list and on the card when it rings.
 - In Home Assistant: the sensors *Running timers* and *Next timer ends*, and the event *Timer finished* (with the timer's name),
   e.g. to announce on a speaker elsewhere that the pasta is ready.
@@ -441,7 +443,7 @@ With a button:
   **OK** button is always there to stop the alarm.
 - The alarm uses Android's **alarm volume** (*Android settings → Sounds → Volume → Alarm*). If it is at 0, timers would be
   silent: the timers window then shows a warning with a **Turn it up** button.
-- **Long-press an item of a list** to start a timer with its name.
+- **Long-press an item of a list** to start a timer with its name (or to remove the item).
 
 ### Sleep, screen saver and sounds
 
@@ -450,7 +452,7 @@ Everything here is in the tablet's **Sleep & sounds** tab and on the web page (*
 **Screen saver:** after the idle delay the screen shows the **time, date and current weather** (moving a little every
 minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
 The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
-weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Display → Screen saver → Photo
+weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Screen & sleep → Screen saver → Photo
 frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read
 access to albums and assets is enough), then pick the album. The key is encrypted on the tablet and never shown again. Only photos
 are shown (videos are skipped), in Immich's "preview" size.
@@ -482,7 +484,7 @@ The background is **a theme or a wallpaper, one or the other**: choosing one tur
 *Background* choice (Theme / Wallpaper) with the matching list underneath.
 
 - A **wallpaper** is one of 5 gradients (Night, Dawn, Ocean, Forest, Graphite) or **your own photo**. Send the photo from the web
-  page (*Display → Background → Choose a photo*, JPEG, PNG or WebP up to 25 MB) or pick a file on the tablet itself
+  page (*Appearance → Background → Choose a photo*, JPEG, PNG or WebP up to 25 MB) or pick a file on the tablet itself
   (*Display → Background → My photo*). It is reduced to the screen size, kept only on the tablet, and covered with a veil that
   depends on the skin so the text stays readable (dark for most skins, light paper for Paper). Pastel and Neon take their
   colour from the photo. A photo taken sideways by a phone is straightened. Demo mode never shows your photo.
@@ -543,7 +545,7 @@ Pastel and Neon follow the active theme (or wallpaper): changing it changes thei
 |---|---|
 | <img src="docs/screenshots/skin-compact.png" alt="Compact skin"> | <img src="docs/screenshots/skin-confort.png" alt="Large print skin"> |
 
-Choose it in the tablet's settings (*Display → Appearance*), on the web page (*Display*), or with the **Skin** select in
+Choose it in the tablet's settings (*Display → Appearance*), on the web page (*Appearance*), or with the **Skin** select in
 Home Assistant.
 
 **Night skin**: optionally pick a second skin and a time range (default 19:00–07:00), for example Paper by day and Neon in the
@@ -556,31 +558,49 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
 
 <img src="docs/screenshots/web-rooms.png" width="860" alt="Web page — rooms">
 
+A **menu on the left** lists nine sections in three groups; on a phone it becomes a drop-down list. Each section is a single
+column of settings: the name on the left, the value on the right. Long lists (people, counted devices, calendars, sensors,
+players, shortcuts) are **folded**, with a summary of the current choice ("8 of 13") that opens the list. Long explanations sit
+behind *Learn more*. The **search field** above the menu finds a setting by its name and takes you to it.
+
+**Content**
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
-  **Import HA areas** creates rooms from your areas automatically. Below the rooms, **Floors** sets the order of the floors the
-  home screen groups the rooms by.
-- **Home**: organised like the home screen, top to bottom, with quick links at the top: **Header** (who's home), **Chips**
-  (collections, electricity peaks, weather alerts, custom chips), **Weather and calendar** cards, **Shortcuts** and **This morning** (time range and sources). For who's home, the people from the companion app and the per-person
-  presence sensors are listed side by side with the current selection on top; room detectors and tracked devices are folded
-  under *Other sources*, with a search field.
-- **Display**: appearance (language, skin), background (theme or wallpaper, your photo), dashboard options, screen (brightness, sleep delay, wake on motion)
-  and screen saver (including the Immich photo frame).
-- **Sounds & alerts**: notification sounds and quiet hours, notification duration, and camera alerts.
-- **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.
+  **Import HA areas** creates rooms from your areas automatically. **Floors** sets the order of the floors the home screen
+  groups the rooms by. **Now playing** (the card at the top of a room, its players and what happens after a pause) is here too.
+- **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
+  **Information chips** (collections, electricity, weather alerts, custom chips) and **Shortcuts**.
+- **Header tools**: the icons at the top of the tablet — shopping and to-do lists, favourite timers, and This morning.
+
+**Tablet**
+- **Appearance**: language, skin and night skin, background (theme or wallpaper, your photo) and dashboard options.
+- **Screen & sleep**: brightness, sleep delay, wake on motion, and the screen saver (including the Immich photo frame).
+- **Alerts & sounds**: notification sounds and quiet hours, notification duration, and camera alerts.
+
+**System**
+- **Connection**: Home Assistant address and token, demo mode, and MQTT.
+- **Security & backups**: PIN, export and restore. The tablet also keeps an **automatic copy of the configuration every week**
+  (the last six, without the token, the passwords or the PIN); download or restore one, or make one right away.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
-  Hover a device in the room editor to see its full name and ID.
 
-| Home | Connection & security |
+| Home | Header tools |
 |---|---|
-| <img src="docs/screenshots/web-home.png" alt="Web page — home"> | <img src="docs/screenshots/web-connection.png" alt="Web page — connection"> |
+| <img src="docs/screenshots/web-home.png" alt="Web page — home"> | <img src="docs/screenshots/web-tools.png" alt="Web page — header tools"> |
 
-| Display | About |
+| Appearance | Screen & sleep |
 |---|---|
-| <img src="docs/screenshots/web-display.png" alt="Web page — display"> | <img src="docs/screenshots/web-about.png" alt="Web page — about"> |
+| <img src="docs/screenshots/web-display.png" alt="Web page — appearance"> | <img src="docs/screenshots/web-screen.png" alt="Web page — screen and sleep"> |
+
+| Alerts & sounds | Connection |
+|---|---|
+| <img src="docs/screenshots/web-sound.png" alt="Web page — alerts and sounds"> | <img src="docs/screenshots/web-connection.png" alt="Web page — connection"> |
+
+| Security & backups | About |
+|---|---|
+| <img src="docs/screenshots/web-security.png" alt="Web page — security and backups"> | <img src="docs/screenshots/web-about.png" alt="Web page — about"> |
 
 Changes are applied to the tablet instantly. If the configuration was changed elsewhere in the meantime (on the tablet or in another
-browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#home`, `#display`, `#conn`, `#about`.
+browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#rooms`, `#home`, `#tools`, `#display`, `#screen`, `#sound`, `#conn`, `#security`, `#about`.
 
 ### Tablet settings
 
@@ -616,7 +636,7 @@ only shows when that switch is on; on the web page it is greyed out.
 ### The tablet as a Home Assistant device (MQTT)
 
 If you use MQTT (for example the **Mosquitto broker** add‑on), TileHouse registers the tablet through **MQTT discovery**. No custom
-integration or YAML needed: enter the broker address, user and password in the web page (*Connection & security → Tablet in Home
+integration or YAML needed: enter the broker address, user and password in the web page (*Connection → Tablet in Home
 Assistant*), and the device appears under *Settings → Devices & services → MQTT*. Its **Visit** link opens the web configuration page.
 
 The entities follow Home Assistant's conventions: what you use every day is shown first, the tablet's settings are under
@@ -655,14 +675,14 @@ The device stays the same even if you reinstall the app or move your configurati
 
 ### Demo mode
 
-Turn on **Demo mode** (tablet: *Settings → Connection*; web page: *Connection & security*), or tap **Try the demo** on the welcome
+Turn on **Demo mode** (tablet: *Settings → Connection*; web page: *Connection*), or tap **Try the demo** on the welcome
 screen. TileHouse then shows a fictional house with 10 rooms, about 70 devices, cameras, weather, calendars and people. Everything
 reacts to touch, but nothing leaves the tablet. Your own configuration is kept aside and comes back as soon as you leave the demo
 (or save a real Home Assistant connection).
 
 ### Backup and restore
 
-In the web page (*Connection & security → Backup*), **Export configuration** downloads a JSON file with your rooms, devices, custom names,
+In the web page (*Security & backups → Backup*), **Export configuration** downloads a JSON file with your rooms, devices, custom names,
 order, home screen and display settings. Secrets are excluded unless you tick the box. **Restore a backup…** applies such a file:
 handy after a reinstall or to set up a second tablet.
 

@@ -368,7 +368,7 @@ object Present {
         if (lights > 0) out.add(Chip(R.drawable.ic_light, plural(lights, "1 " + tr("allumée"), tr("allumées")), kind = "light"))
         if (locks > 0) out.add(when {
             jammed > 0 -> Chip(R.drawable.ic_lock_open, tr("Serrure bloquée"), 2, "lock")
-            unlocked > 0 -> Chip(R.drawable.ic_lock_open, if (locks == 1) tr("Déverrouillé") else "$unlocked " + tr("déverrouillée(s)"), 1, "lock")
+            unlocked > 0 -> Chip(R.drawable.ic_lock_open, if (locks == 1) tr("Déverrouillé") else plural(unlocked, "1 " + tr("déverrouillée"), tr("déverrouillées")), 1, "lock")
             else -> Chip(R.drawable.ic_lock, tr("Verrouillé"), kind = "lock")
         })
         if (doors > 0) out.add(

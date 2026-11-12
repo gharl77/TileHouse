@@ -137,4 +137,23 @@ class NewFeaturesTest {
         assertNull(Energy.recent(listOf(Energy.Point(0, 3117.0)), midnight))
         assertEquals("42 kWh", Energy.format(42.0, "kWh").replace('\u00a0', ' '))
     }
+
+    @Test fun dailyStatisticsAreParsed() {
+        val arr = org.json.JSONArray("""[{"start":1794373200000,"end":1794459600000,"change":65.0},{"start":"2026-11-12T05:00:00+00:00","change":-3},{"start":1,"sum":4}]""")
+        val d = Energy.daily(arr)
+        assertEquals(2, d.size)
+        assertEquals(65.0, d[0].v, 1e-9)
+        assertEquals(1794373200000L, d[0].t)
+        // Une baisse (compteur remis à zéro) ne donne pas de consommation négative.
+        assertEquals(0.0, d[1].v, 1e-9)
+        assertEquals(0, Energy.daily(null).size)
+        assertEquals(2, Energy.distinct(listOf(Energy.Point(0, 1.0), Energy.Point(1, 1.0), Energy.Point(2, 3.0))))
+    }
+
+    @Test fun aBackupIsDueAfterAWeek() {
+        val week = 7 * day
+        assertTrue(Backups.due(0, 1_800_000_000_000L))
+        assertFalse(Backups.due(1_800_000_000_000L - week + hour, 1_800_000_000_000L))
+        assertTrue(Backups.due(1_800_000_000_000L - week, 1_800_000_000_000L))
+    }
 }

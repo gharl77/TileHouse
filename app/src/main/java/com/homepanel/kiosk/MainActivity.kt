@@ -118,6 +118,7 @@ class MainActivity : Activity(), HaClient.Listener {
             if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
             checkPeakReminder()
             checkReminders()
+            app.backupTick()
             handler.postDelayed(this, 10_000)
         }
     }

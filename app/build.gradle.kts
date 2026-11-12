@@ -15,7 +15,7 @@ val keyProps = Properties().apply {
 val useDistributionKey = project.hasProperty("distribution") && keyProps.getProperty("storeFile") != null
 
 // Version : année.mois.numéro (ex. 2026.11.1). Le versionCode en découle : 2026.11.1 -> 202611001.
-val appVersion = "2026.11.7"
+val appVersion = "2026.11.8"
 val appVersionCode = appVersion.split('.').map { it.toInt() }.let { (y, m, n) -> y * 100_000 + m * 1_000 + n }
 
 android {
