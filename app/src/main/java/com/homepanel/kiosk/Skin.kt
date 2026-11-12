@@ -108,6 +108,8 @@ open class SkinDef(val key: String, private val frName: String) {
     open val dialogDim = 0.78f
 
     // ---- fond
+    /** Voile posé sur une photo personnelle pour que le texte reste lisible (sombre, ou clair pour Papier). */
+    open val photoVeil = 0x73000000
     open fun bgColors(colors: IntArray) = colors
     /** Transparence des motifs du thème sur le fond. */
     open val decorAlpha = 46
@@ -147,6 +149,7 @@ private object ConfortSkin : SkinDef("confort", "Grand confort") {
     override fun inkAlpha(alpha: Int) = if (alpha >= 0x80) maxOf(alpha, 0xF0) else alpha
     override val mute = 0xFFC9CED8.toInt()
     override val light: Typeface get() = Typeface.create("sans-serif", Typeface.NORMAL)
+    override val photoVeil = 0x80000000.toInt()
     override fun card(ctx: Context, radius: Float): Drawable = rr(DARK, radius)
     override fun chip(ctx: Context, level: Int): Pair<Drawable, Int> =
         if (level == 0) roundRect(0x66FFFFFF, ctx.dpf(40)) to Color.WHITE else super.chip(ctx, level)
@@ -158,6 +161,8 @@ private object ConfortSkin : SkinDef("confort", "Grand confort") {
 /** Sans tuiles pleines : lignes fines, typographie légère, allumé = icône et point de couleur. */
 private object EpureSkin : SkinDef("epure", "Épuré") {
     override val nameSize = 16f
+    /** Pas de tuiles pleines : la photo doit être nettement assombrie. */
+    override val photoVeil = 0x99000000.toInt()
     override val mediaRadius = 10f
     override val sliderRadius = 18f
     override val soft get() = 0x14FFFFFF
@@ -218,6 +223,8 @@ private object PapierSkin : SkinDef("papier", "Papier") {
         else TileLook(fill = SHEET, stroke = EDGE, iconCircle = 0x1433281F, iconTint = 0xCC33281F.toInt(), name = INK, status = 0xFF8A7765.toInt())
     override val dialogOnSheet = true
     override val dialogDim = 0.45f
+    /** Voile de papier clair : la photo reste visible en filigrane sous le texte foncé. */
+    override val photoVeil = 0xD1F6EFE2.toInt()
     override fun bgColors(colors: IntArray): IntArray {
         val paper = 0xFFF6EFE2.toInt()
         return intArrayOf(Skin.mix(colors[0], paper, 0.16f), Skin.mix(colors.getOrElse(1) { colors[0] }, paper, 0.10f), Skin.mix(colors.last(), paper, 0.06f))
@@ -301,6 +308,7 @@ private object NeonSkin : SkinDef("neon", "Néon") {
     override fun bgColors(colors: IntArray) =
         intArrayOf(Skin.mix(colors[0], Color.BLACK, 0.30f), Skin.mix(colors.getOrElse(1) { colors[0] }, Color.BLACK, 0.18f), Skin.mix(colors.last(), Color.BLACK, 0.10f))
     override val decorAlpha = 30
+    override val photoVeil = 0xBF000000.toInt()
 }
 
 // ------------------------------------------------------------ façade
@@ -323,12 +331,14 @@ object Skin {
         private set
 
     private fun def(key: String) = all.firstOrNull { it.key == key } ?: HomeKitSkin
-    fun signatureOf(cfg: ConfigStore) = def(cfg.activeSkin).let { it.key + if (it.usesTint) "|" + cfg.theme + "|" + cfg.wallpaper else "" }
+    fun signatureOf(cfg: ConfigStore) = def(cfg.activeSkin).let { it.key + if (it.usesTint) "|" + cfg.activeTheme + "|" + cfg.wallpaper + "|" + cfg.wallpaperRev else "" }
 
     fun load(cfg: ConfigStore) {
         cur = def(cfg.activeSkin)
         signature = signatureOf(cfg)
-        tint = tintOf(Themes.get(cfg.theme)?.colors ?: Wallpapers.colorsOf(cfg.wallpaper))
+        val theme = Themes.get(cfg.activeTheme)
+        val photo = if (cur.usesTint && theme == null && PhotoWallpaper.isPhoto(cfg.wallpaper)) PhotoWallpaper.averageColor(App.instance, cfg.wallpaper) else null
+        tint = tintOf(theme?.colors ?: photo?.let { intArrayOf(it) } ?: Wallpapers.colorsOf(cfg.wallpaper))
     }
 
     /** Couleur vive tirée de la couleur la plus saturée du fond (ou la couleur de secours si le fond est gris). */
@@ -404,6 +414,14 @@ object Skin {
     val dialogDim get() = cur.dialogDim
 
     // fond
+    val photoVeil get() = cur.photoVeil
+
+    /** Voile de la skin, renforcé ou allégé par le réglage [level] (0 à 100 ; 50 = tel que prévu par la skin). */
+    fun photoVeil(level: Int): Int {
+        val base = cur.photoVeil
+        val alpha = ((base ushr 24) * (level.coerceIn(0, 100) / 50f)).toInt().coerceIn(0x1F, 0xEB)
+        return (base and 0x00FFFFFF) or (alpha shl 24)
+    }
     fun bgColors(colors: IntArray) = cur.bgColors(colors)
     val decorAlpha get() = cur.decorAlpha
 }

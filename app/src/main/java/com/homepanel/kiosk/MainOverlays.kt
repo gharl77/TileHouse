@@ -38,6 +38,21 @@ import kotlin.math.abs
  * Fonctions de [MainActivity] regroupées par fonctionnalité ; l'état reste dans la classe.
  */
 
+/** Icône « Listes » : visible dès qu'une liste est choisie, avec le nombre d'articles restants. */
+internal fun MainActivity.updateTodoButton() {
+    val lists = cfg.todoLists
+    todoButton.set(lists.isNotEmpty(), Todos.remaining(lists, app.ha.states))
+}
+
+internal fun MainActivity.openTodos() {
+    if (haOffline()) return
+    val p = todoPanel ?: TodoPanel(this).also {
+        root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        todoPanel = it
+    }
+    p.show()
+}
+
 internal fun MainActivity.openTimers() {
     val p = timerPanel ?: TimerPanel(this).also {
         root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
@@ -51,9 +66,10 @@ internal fun MainActivity.showTimerDone(t: KitchenTimer) {
     if (dimmed) undim()
     lastTouch = SystemClock.uptimeMillis()
     timerPanel?.hide()
+    todoPanel?.hide()
     morningPanel?.hide()
     center?.hide()
-    noticeCard().show(Notice(tr("Minuterie terminée !"), tr("Minuterie de") + " " + t.label, "⏰", 0, 0xFFFF9F0A.toInt(), null, false),
+    noticeCard().show(Notice(tr("Minuterie terminée !"), t.title, "⏰", 0, 0xFFFF9F0A.toInt(), null, false),
         0) { app.stopTimerAlarm() }
 }
 
@@ -83,10 +99,17 @@ internal fun MainActivity.openNotice(s: StoredNotice) {
     app.notices.markRead(s.id)
 }
 
+/** Relue depuis l'historique : elle s'affiche à nouveau, sans son, et reste dans l'historique. */
+internal fun MainActivity.reopenNotice(s: StoredNotice) {
+    lastTouch = SystemClock.uptimeMillis()
+    noticeCard().show(s.notice.copyNoSound(), cfg.noticeSeconds)
+}
+
 internal fun MainActivity.openCenter() {
-    val c = center ?: NotificationCenter(this, app.notices) { openNotice(it) }.also {
+    val c = center ?: NotificationCenter(this, app.notices, { openNotice(it) }, { reopenNotice(it) }).also {
         root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         center = it
     }
-    c.show()
+    // Rien de non lu : la cloche ouvre directement l'historique.
+    c.show(history = app.notices.count == 0)
 }

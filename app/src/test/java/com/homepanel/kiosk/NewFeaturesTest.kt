@@ -1,0 +1,104 @@
+package com.homepanel.kiosk
+
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class NewFeaturesTest {
+    private val hour = 3_600_000L
+    private val day = 24 * hour
+
+    @Test fun aisleOfCommonItems() {
+        assertEquals("🥛  Produits laitiers et œufs", Aisles.of("Lait 2 %"))
+        assertEquals("🥛  Produits laitiers et œufs", Aisles.of("Œufs"))
+        assertEquals("🥕  Fruits et légumes", Aisles.of("Laitue romaine"))
+        assertEquals("🥫  Épicerie", Aisles.of("Beurre d'arachide"))
+        assertEquals("🥤  Boissons", Aisles.of("Jus d'orange"))
+        assertEquals("🥖  Boulangerie", Aisles.of("Bread"))
+        assertNull(Aisles.of("Appeler le plombier"))
+        assertNull(Aisles.of("Balai"))
+    }
+
+    @Test fun groceryListIsGroupedInStoreOrder() {
+        val g = Aisles.group(listOf("Pain", "Lait", "Pommes", "Truc bizarre", "Fromage")) { it }!!
+        assertEquals(listOf("🥕  Fruits et légumes", "🥛  Produits laitiers et œufs", "🥖  Boulangerie", Aisles.OTHER), g.map { it.first })
+        assertEquals(listOf("Lait", "Fromage"), g[1].second)
+    }
+
+    @Test fun taskListIsNotGrouped() {
+        assertNull(Aisles.group(listOf("Appeler le plombier", "Payer les taxes", "Laver l'auto", "Acheter du lait")) { it })
+        assertNull(Aisles.group(listOf("Lait", "Pain")) { it })
+    }
+
+    @Test fun nightFollowsSunriseAndSunset() {
+        // Lever à 7 h, coucher à 16 h (UTC, pour le calcul) : le prochain lever est demain, le prochain coucher aussi.
+        val rising = 10 * day + 7 * hour; val setting = 10 * day + 16 * hour
+        assertTrue(HomeText.isNight(9 * day + 23 * hour, rising, setting))
+        assertTrue(HomeText.isNight(10 * day + 3 * hour, rising, setting))
+        assertFalse(HomeText.isNight(10 * day + 12 * hour, rising, setting))
+        assertTrue(HomeText.isNight(10 * day + 18 * hour, rising, setting))
+        // En plein jour : le prochain coucher vient avant le prochain lever.
+        assertFalse(HomeText.isNight(10 * day + 9 * hour, 11 * day + 7 * hour, 10 * day + 16 * hour))
+        assertFalse(HomeText.isNight(0, null, null))
+    }
+
+    @Test fun nightIconReplacesTheSun() {
+        assertEquals("🌙", HomeText.emoji("sunny", night = true))
+        assertEquals("☀️", HomeText.emoji("sunny"))
+        assertEquals("🌧️", HomeText.emoji("rainy", night = true))
+    }
+
+    @Test fun remindersRoundTripAndExpire() {
+        val list = Reminders.parse("""[{"key":"k","title":"Dentiste","at":1000,"start":5000,"allDay":false},{"at":0},{"bad":1}]""")
+        assertEquals(1, list.size)
+        assertEquals("Dentiste", list[0].title)
+        assertTrue(Reminders.fresh(list[0], 5000 + hour - 1))
+        assertFalse(Reminders.fresh(list[0], 5000 + hour + 1))
+        assertEquals(emptyList<Reminders.Reminder>(), Reminders.parse("pas du json"))
+        assertEquals("5000|Dentiste", Reminders.keyOf("Dentiste", 5000))
+    }
+
+    @Test fun historyIsParsed() {
+        val pts = Energy.series("""[[{"entity_id":"sensor.x","state":"1.5","last_changed":"2026-11-11T10:00:00.123456+00:00"},
+            {"state":"unavailable","last_changed":"2026-11-11T10:30:00+00:00"},{"state":"2","last_changed":"2026-11-11T11:00:00+00:00"}]]""")
+        assertEquals(2, pts.size)
+        assertEquals(1.5, pts[0].v, 0.0)
+        assertEquals(hour, pts[1].t - pts[0].t)
+        assertEquals(0, Energy.series("[]").size)
+        assertEquals(0, Energy.series(null).size)
+    }
+
+    @Test fun hourlyConsumptionFromACounter() {
+        val pts = listOf(Energy.Point(0, 100.0), Energy.Point(hour + 10, 101.5), Energy.Point(2 * hour + 10, 103.0), Energy.Point(2 * hour + 20, 2.0))
+        val h = Energy.hourly(pts, hour, 3 * hour)
+        assertEquals(2, h.size)
+        assertEquals(1.5, h[0].v, 1e-9)
+        // Remise à zéro du compteur : pas de consommation négative.
+        assertEquals(0.0, h[1].v, 1e-9)
+    }
+
+    @Test fun shortcutGoesToItsRoomOrHome() {
+        val salon = Room("r1", "Salon", "living"); val cuisine = Room("r2", "Cuisine", "kitchen")
+        val rooms = listOf(salon, cuisine)
+        // Automatique : la pièce de la zone Home Assistant, sinon l'accueil.
+        assertEquals(salon, Shortcuts.roomFor(rooms, "", "living"))
+        assertNull(Shortcuts.roomFor(rooms, "", null))
+        assertNull(Shortcuts.roomFor(rooms, "", "garage"))
+        // Choix dans les réglages : il passe avant la zone.
+        assertEquals(cuisine, Shortcuts.roomFor(rooms, "r2", "living"))
+        assertNull(Shortcuts.roomFor(rooms, Shortcuts.HOME, "living"))
+        // Pièce supprimée depuis : retour à l'automatique.
+        assertEquals(salon, Shortcuts.roomFor(rooms, "disparue", "living"))
+    }
+
+    @Test fun aRecentPauseKeepsTheCard() {
+        val iso = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSSSSXXX", java.util.Locale.US)
+        val now = 1_800_000_000_000L
+        assertTrue(HomeText.pausedRecently(iso.format(java.util.Date(now - 5 * 60_000L)), now))
+        assertFalse(HomeText.pausedRecently(iso.format(java.util.Date(now - 11 * 60_000L)), now))
+        assertFalse(HomeText.pausedRecently("", now))
+        assertFalse(HomeText.pausedRecently("n'importe quoi", now))
+    }
+}

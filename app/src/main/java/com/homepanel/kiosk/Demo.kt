@@ -203,6 +203,10 @@ object Demo {
         st("sensor.weather_advisories", "1", n("Avis météo", "Weather advisories"),
             "alert_1" to n("Avis de pluie verglaçante : chaussées glissantes ce soir.", "Freezing rain advisory: slippery roads this evening.")),
         st("script.goodnight", "off", n("Bonne nuit", "Good night")),
+        st("todo.groceries", "4", n("Épicerie", "Groceries")),
+        st("sensor.home_power", "2.4", n("Puissance de la maison", "Home power"), "unit_of_measurement" to "kW", "device_class" to "power", "state_class" to "measurement"),
+        st("sensor.energy_today", "18.6", n("Énergie aujourd'hui", "Energy today"), "unit_of_measurement" to "kWh", "device_class" to "energy", "state_class" to "total_increasing"),
+        st("todo.chores", "2", n("Tâches", "Chores")),
         st("input_select.washer", n("À vider", "To empty"), n("Laveuse", "Washer"), "options" to listOf(n("En cours", "Running"), n("À vider", "To empty"), n("Inactive", "Idle"))),
         st("sensor.morning_summary", "07:00", n("Résumé du matin", "Morning summary"),
             "weather" to n("Nuageux, max **12 °C**, averses en fin de journée.\n\n☂️ **À prévoir** : un parapluie pour le retour.",
@@ -215,7 +219,29 @@ object Demo {
     private val TRACKS = listOf("Blue in Green" to "Miles Davis", "Clair de lune" to "Claude Debussy", "Take Five" to "Dave Brubeck", "Gymnopédie No. 1" to "Erik Satie")
 
     /** Applique un appel de service sur l'état local. Retourne l'entité modifiée. */
+    /** Listes de démonstration (en mémoire) : entité -> articles (texte, coché). */
+    private val todo = HashMap<String, MutableList<Pair<String, Boolean>>>()
+    /** Les listes sont recréées dans la langue en cours. */
+    fun resetLists() = todo.clear()
+    private fun todoItems(id: String) = todo.getOrPut(id) {
+        (if (id == "todo.groceries") listOf(n("Lait", "Milk") to false, n("Œufs", "Eggs") to false, n("Pain", "Bread") to false, n("Pommes", "Apples") to false, n("Café", "Coffee") to true)
+        else listOf(n("Sortir le recyclage", "Take out the recycling") to false, n("Arroser les plantes", "Water the plants") to false, n("Changer le filtre", "Change the filter") to true)).toMutableList()
+    }
+
+    private fun todoApply(states: Map<String, EntityState>, service: String, id: String, data: JSONObject?): String? {
+        val items = todoItems(id)
+        val item = data?.optString("item").orEmpty()
+        when (service) {
+            "add_item" -> if (item.isNotBlank()) items.add(item to false)
+            "update_item" -> items.indexOfFirst { it.first == item }.takeIf { it >= 0 }?.let { items[it] = item to (data?.optString("status") == "completed") }
+            "remove_completed_items" -> items.removeAll { it.second }
+        }
+        states[id]?.state = items.count { !it.second }.toString()
+        return id
+    }
+
     fun apply(states: Map<String, EntityState>, domain: String, service: String, id: String, data: JSONObject?): String? {
+        if (domain == "todo") return todoApply(states, service, id, data)
         val e = states[id] ?: return null
         val a = e.attrs
         when (service) {
@@ -282,12 +308,35 @@ object Demo {
             "config/entity_registry/list_for_display" -> ok.put("result", JSONObject().put("entities", JSONArray().apply {
                 for ((area, ids) in ROOM_ENTITIES) for (id in ids) put(JSONObject().put("ei", id).put("ai", area))
             }))
-            "call_service" -> if (msg.optString("service") == "get_forecasts") {
+            "call_service" -> if (msg.optString("domain") == "todo" && msg.optString("service") == "get_items") {
+                val id = msg.optJSONObject("target")?.optString("entity_id").orEmpty()
+                ok.put("result", JSONObject().put("response", JSONObject().put(id, JSONObject().put("items", JSONArray().apply {
+                    for ((text, done) in todoItems(id)) put(JSONObject().put("summary", text).put("uid", text).put("status", if (done) "completed" else "needs_action"))
+                }))))
+            } else if (msg.optString("service") == "get_forecasts") {
                 val we = msg.optJSONObject("target")?.optString("entity_id") ?: WEATHER
-                ok.put("result", JSONObject().put("response", JSONObject().put(we, JSONObject().put("forecast", forecast()))))
+                val hourly = msg.optJSONObject("service_data")?.optString("type") == "hourly"
+                ok.put("result", JSONObject().put("response", JSONObject().put(we, JSONObject().put("forecast", if (hourly) hourlyForecast() else forecast()))))
             } else ok.put("result", JSONObject())
             else -> JSONObject().put("success", false)
                 .put("error", JSONObject().put("message", tr("Non disponible en mode démo")))
+        }
+    }
+
+    private fun hourlyForecast(): JSONArray {
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:00:00XXX", Locale.US)
+        val c = Calendar.getInstance()
+        val conds = listOf("partlycloudy", "partlycloudy", "cloudy", "rainy", "rainy", "cloudy", "clear-night", "clear-night")
+        return JSONArray().apply {
+            for (i in 0 until 24) {
+                c.add(Calendar.HOUR_OF_DAY, 1)
+                val h = c.get(Calendar.HOUR_OF_DAY)
+                val temp = 9 + (4 * Math.sin((h - 9) * Math.PI / 12)).toInt()
+                val cond = conds[(i / 3) % conds.size]
+                put(JSONObject().put("datetime", iso.format(c.time)).put("condition", cond).put("temperature", temp)
+                    .put("apparent_temperature", temp - (if (cond == "rainy") 3 else if (h < 7) 2 else 0)).put("wind_speed", 8 + (i * 7) % 17)
+                    .put("precipitation_probability", if (cond == "rainy") 70 else if (cond == "cloudy") 20 else 0))
+            }
         }
     }
 
@@ -303,10 +352,25 @@ object Demo {
         }
     }
 
+    /** Courbe de puissance des dernières 24 heures : creux la nuit, bosses au déjeuner et au souper. */
+    private fun history(): String {
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val arr = JSONArray()
+        val now = System.currentTimeMillis()
+        for (i in 0..96) {
+            val t = now - (96 - i) * 900_000L
+            val h = Calendar.getInstance().apply { timeInMillis = t }.let { it.get(Calendar.HOUR_OF_DAY) + it.get(Calendar.MINUTE) / 60.0 }
+            val v = 0.9 + 2.2 * Math.exp(-Math.pow(h - 7.5, 2.0) / 2.5) + 3.4 * Math.exp(-Math.pow(h - 18.0, 2.0) / 4.0) + 0.3 * Math.sin(i * 1.7)
+            arr.put(JSONObject().put("state", (Math.round(v * 10) / 10.0).toString()).put("last_changed", iso.format(Date(t))))
+        }
+        return JSONArray().put(arr).toString()
+    }
+
     // ------------------------------------------------------------ REST (agenda)
 
     /** Réponse REST simulée, ou null si le chemin n'est pas géré. */
     fun rest(path: String): String? {
+        if (path.startsWith("/api/history/period/")) return history()
         if (!path.startsWith("/api/calendars/")) return null
         val cal = path.removePrefix("/api/calendars/").substringBefore('?')
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)

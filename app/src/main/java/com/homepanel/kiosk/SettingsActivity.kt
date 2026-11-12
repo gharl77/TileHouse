@@ -119,18 +119,54 @@ class SettingsActivity : Activity(), HaClient.Listener {
             halfHours.indexOf(cfg.nightSkinEnd).let { if (it < 0) 14 else it }) { cfg.nightSkinEnd = halfHours[it]; app.notifyConfigChanged() })
         look.addRow(nightStartRow)
         look.addRow(nightEndRow)
-        val themeKeys = listOf("") + Themes.all.map { it.key }
-        val themeNames = listOf(tr("Aucun")) + Themes.all.map { "${it.emoji}  ${it.name}" }
-        look.addRow(settingRow(R.drawable.ic_star, Ui.ORANGE, tr("Thème"), tr("Saison ou fête, remplace le fond d'écran"), choice(
-            themeNames, themeKeys.indexOf(cfg.theme).coerceAtLeast(0)) { cfg.theme = themeKeys[it]; app.notifyConfigChanged() }))
-        look.addRow(settingRow(R.drawable.ic_image, Ui.PURPLE, tr("Fond d'écran"), trailing = choice(
-            Wallpapers.names, Wallpapers.keys.indexOf(cfg.wallpaper)) { cfg.wallpaper = Wallpapers.keys[it]; app.notifyConfigChanged() }))
+
+        // ---- Arrière-plan : un thème OU un fond d'écran, jamais les deux
+        display.addView(groupLabel(tr("Arrière-plan")))
+        val bg = Card(this).also { display.addView(it) }
+        bg.addRow(settingRow(R.drawable.ic_image, Ui.PURPLE, tr("Arrière-plan"), tr("Un thème ou un fond d'écran : l'un ou l'autre"), choice(
+            listOf(tr("Thème"), tr("Fond d'écran")), if (cfg.themeMode) 0 else 1) { i ->
+            if ((i == 0) != cfg.themeMode) {
+                if (i == 0) cfg.chooseTheme() else cfg.chooseWallpaper()
+                app.notifyConfigChanged(); syncBackgroundRows()
+            }
+        }))
+        val themeKeys = listOf(Themes.AUTO) + Themes.all.map { it.key }
+        themeSpinner = choice(listOf("🗓  " + tr("Automatique (saison et fêtes)")) + Themes.all.map { "${it.emoji}  ${it.name}" }, themeKeys.indexOf(cfg.theme).coerceAtLeast(0)) {
+            if (cfg.themeMode && themeKeys[it] != cfg.theme) { cfg.chooseTheme(themeKeys[it]); app.notifyConfigChanged() }
+        }
+        themeRow = settingRow(R.drawable.ic_star, Ui.ORANGE, tr("Thème"), tr("Saison ou fête : fond, motifs et salutation"), themeSpinner)
+        bg.addRow(themeRow)
+        wallSpinner = choice(Wallpapers.names, Wallpapers.keys.indexOf(cfg.wallpaper).coerceAtLeast(0)) {
+            val key = Wallpapers.keys[it]
+            when {
+                cfg.themeMode || key == cfg.wallpaper -> {}
+                key == PhotoWallpaper.KEY && !PhotoWallpaper.exists(this) -> pickPhoto()   // pas encore de photo : on en choisit une
+                !Wallpapers.available(this, cfg, key) -> {
+                    toast(tr("Pour la photo Immich du jour, configurez Immich et choisissez un album (Écran de veille → Album photo)."))
+                    syncBackgroundRows()
+                }
+                else -> { cfg.chooseWallpaper(key); app.notifyConfigChanged(); syncBackgroundRows() }
+            }
+        }
+        wallRow = settingRow(R.drawable.ic_image, Ui.TEAL, tr("Fond d'écran"), tr("Un dégradé, ou votre photo"), wallSpinner)
+        bg.addRow(wallRow)
+        photoPickRow = settingRow(R.drawable.ic_image, Ui.PINK, tr("Ma photo"), "", actionButton(tr("Choisir une photo"), primary = false) { pickPhoto() })
+        bg.addRow(photoPickRow)
+        val veils = listOf(10, 30, 50, 70, 90)
+        veilRow = settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Voile sur la photo"), tr("Plus léger : la photo ressort. Plus fort : le texte est plus lisible."), choice(
+            listOf(tr("Très léger"), tr("Léger"), tr("Normal"), tr("Fort"), tr("Très fort")),
+            veils.indexOf(veils.minByOrNull { kotlin.math.abs(it - cfg.photoVeilLevel) } ?: 50)) { cfg.photoVeilLevel = veils[it]; app.notifyConfigChanged() })
+        bg.addRow(veilRow)
+        syncBackgroundRows()
+        display.addView(footnote(tr("La photo peut aussi être envoyée depuis un ordinateur ou un téléphone, par la page web (onglet Affichage).")))
 
         display.addView(groupLabel(tr("Tableau de bord")))
         val board = Card(this).also { display.addView(it) }
         board.addRow(settingRow(R.drawable.ic_grid, Ui.TEAL, tr("Regrouper par catégorie"), tr("Lumières, Climat, Médias…"),
             toggle(cfg.groupByCategory) { cfg.groupByCategory = it }))
         board.addRow(settingRow(R.drawable.ic_clock, Ui.INDIGO, tr("Afficher l'heure et la date"), trailing = toggle(cfg.showClock) { cfg.showClock = it }))
+        board.addRow(settingRow(R.drawable.ic_play, Ui.PINK, tr("Carte « En lecture »"), tr("En haut d'une pièce, quand un de ses haut-parleurs ou sa télé joue"),
+            toggle(cfg.showNowPlaying) { cfg.showNowPlaying = it; app.notifyConfigChanged() }))
         board.addRow(settingRow(R.drawable.ic_bolt, Ui.GREEN, tr("Afficher la batterie"), tr("Niveau de la batterie de la tablette, à côté de l'heure"),
             toggle(cfg.showBattery) { cfg.showBattery = it; app.notifyConfigChanged() }))
 
@@ -446,6 +482,57 @@ class SettingsActivity : Activity(), HaClient.Listener {
                 photoRow.setSubtitle(cfg.photoSourceName.ifEmpty { tr("Aucun") })
             }.show()
         }
+    }
+
+    private lateinit var themeSpinner: android.widget.Spinner
+    private lateinit var wallSpinner: android.widget.Spinner
+    private lateinit var themeRow: View
+    private lateinit var wallRow: View
+    private lateinit var photoPickRow: View
+    private lateinit var veilRow: View
+    private val REQ_PHOTO = 42
+
+    /** Montre les lignes du mode choisi (thème ou fond d'écran) et remet les listes sur les valeurs enregistrées. */
+    private fun syncBackgroundRows() {
+        val theme = cfg.themeMode
+        themeRow.rowVisible(theme)
+        wallRow.rowVisible(!theme)
+        photoPickRow.rowVisible(!theme)
+        veilRow.rowVisible(!theme && PhotoWallpaper.isPhoto(cfg.wallpaper))
+        if (theme) themeSpinner.setSelection(if (cfg.theme == Themes.AUTO) 0 else (Themes.all.indexOfFirst { it.key == cfg.theme } + 1).coerceAtLeast(0))
+        wallSpinner.setSelection(Wallpapers.keys.indexOf(cfg.wallpaper).coerceAtLeast(0))
+        photoPickRow.setSubtitle(if (PhotoWallpaper.exists(this)) tr("Une photo est enregistrée sur la tablette") else tr("Aucune photo pour l'instant"))
+    }
+
+    /** Ouvre le sélecteur de fichiers d'Android pour choisir une image. */
+    private fun pickPhoto() {
+        try {
+            startActivityForResult(Intent(Intent.ACTION_GET_CONTENT).setType("image/*").addCategory(Intent.CATEGORY_OPENABLE), REQ_PHOTO)
+        } catch (_: Exception) {
+            toast(tr("Aucune application pour choisir une image sur cette tablette : envoyez la photo par la page web."))
+            syncBackgroundRows()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != REQ_PHOTO) return
+        val uri = data?.data
+        if (resultCode != RESULT_OK || uri == null) { syncBackgroundRows(); return }
+        photoPickRow.setSubtitle(tr("Enregistrement de la photo…"))
+        Thread {
+            // Lecture et réduction hors du fil principal (une photo de téléphone fait plusieurs Mo).
+            val error = try {
+                val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+                PhotoWallpaper.save(this, bytes)
+            } catch (e: Throwable) { tr("Impossible de lire cette image") }
+            runOnUiThread {
+                if (error != null) toast(error)
+                else { cfg.wallpaperRev = System.currentTimeMillis(); cfg.chooseWallpaper(PhotoWallpaper.KEY); app.notifyConfigChanged() }
+                if (!isFinishing) syncBackgroundRows()
+            }
+        }.start()
     }
 
     private var motionToggle: android.widget.Switch? = null

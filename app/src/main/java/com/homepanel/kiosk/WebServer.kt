@@ -80,6 +80,7 @@ class WebServer(private val app: App) {
                 }
                 val len = headers["content-length"]?.toIntOrNull() ?: 0
                 if (method == "POST" && path == "/api/update/upload") { respond(s, upload(headers, input, len)); return }
+                if (method == "POST" && path == "/api/wallpaper/upload") { respond(s, uploadWallpaper(headers, input, len)); return }
                 if (len > 2_000_000) { respond(s, Reply(413, JSON, err(tr("Requête trop grosse")))); return }
                 val body = ByteArray(len)
                 var off = 0
@@ -195,9 +196,15 @@ class WebServer(private val app: App) {
             }
             "POST /api/settings" -> ok(onMain {
                 val cfg = app.config
-                if (req.has("wallpaper")) cfg.wallpaper = req.str("wallpaper")
+                // Arrière-plan : un thème OU un fond d'écran. Choisir l'un retire l'autre.
+                when (req.str("background")) { "theme" -> cfg.chooseTheme(); "wallpaper" -> cfg.chooseWallpaper() }
+                if (req.has("wallpaper")) req.str("wallpaper").let { k ->
+                    if (Wallpapers.available(app, cfg, k)) cfg.chooseWallpaper(k)
+                }
                 if (req.has("language")) cfg.language = req.str("language").let { if (it in setOf("auto", "fr", "en")) it else "auto" }
-                if (req.has("theme")) cfg.theme = req.str("theme").let { k -> if (Themes.get(k) != null) k else "" }
+                if (req.has("theme")) req.str("theme").let { k -> if (k == Themes.AUTO || Themes.get(k) != null) cfg.chooseTheme(k) else cfg.chooseWallpaper() }
+                if (req.has("photoVeilLevel")) cfg.photoVeilLevel = req.optInt("photoVeilLevel", 50)
+                req.optJSONArray("autoHolidays")?.let { a -> cfg.autoHolidays = (0 until a.length()).map { a.getString(it) }.filter { it in Themes.AUTO_HOLIDAYS }.toSet() }
                 if (req.has("skin")) cfg.skin = req.str("skin").let { k -> if (k in Skin.keys) k else "homekit" }
                 if (req.has("nightSkin")) cfg.nightSkin = req.str("nightSkin").let { k -> if (k in Skin.keys) k else "" }
                 if (req.has("nightSkinStart")) cfg.nightSkinStart = req.optInt("nightSkinStart", 19 * 60)
@@ -226,9 +233,15 @@ class WebServer(private val app: App) {
                 if (req.has("peakCalendar")) cfg.peakCalendar = req.str("peakCalendar")
                 if (req.has("peakReminder")) cfg.peakReminder = req.optInt("peakReminder", 60)
                 req.optJSONArray("weatherAlerts")?.let { a -> cfg.weatherAlerts = (0 until a.length()).map { a.getString(it) } }
-                req.optJSONArray("shortcuts")?.let { a -> cfg.shortcuts = (0 until a.length()).map { a.getString(it) } }
+                if (!cfg.demo) req.optJSONArray("shortcuts")?.let { a -> cfg.shortcuts = (0 until a.length()).map { a.getString(it) }; app.refreshShortcutAreas() }
+                if (!cfg.demo) req.optJSONObject("shortcutRooms")?.let { cfg.shortcutRooms = it }
                 req.optJSONArray("customChips")?.let { cfg.customChips = it }
                 req.optJSONArray("morningSources")?.let { cfg.morningSources = it }
+                req.optJSONArray("timerPresets")?.let { cfg.timerPresets = it }
+                if (!cfg.demo) req.optJSONArray("todoLists")?.let { a -> cfg.todoLists = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("todo.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("energySensors")?.let { a -> cfg.energySensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("nowPlayingHidden")?.let { a -> cfg.nowPlayingHidden = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("media_player.") } }
+                if (req.has("showNowPlaying")) cfg.showNowPlaying = req.optBoolean("showNowPlaying", true)
                 if (req.has("morningStart")) cfg.morningStart = req.optInt("morningStart", 300)
                 if (req.has("morningEnd")) cfg.morningEnd = req.optInt("morningEnd", 600)
                 val homeExtras = listOf("weatherAlerts", "shortcuts", "customChips", "morningSources").any { req.has(it) }
@@ -303,6 +316,18 @@ class WebServer(private val app: App) {
                 return ok(JSONObject().put("ok", f.items.isNotEmpty()).put("error", f.error ?: "").put("count", f.items.size)
                     .put("first", first?.title ?: "").put("images", f.items.count { it.image != null }))
             }
+            "POST /api/crash/clear" -> ok(onMain { CrashLog.clear(app); app.mqtt.publishAll(); state() })
+            "GET /api/wallpaper/preview" -> ok(JSONObject().put("data", if (app.config.demo) "" else PhotoWallpaper.previewBase64(app) ?: "")
+                .put("immich", if (app.config.demo) "" else PhotoWallpaper.previewBase64(app, PhotoWallpaper.IMMICH) ?: ""))
+            "POST /api/wallpaper/next" -> ok(onMain { app.refreshImmichWallpaper(force = true); state() })
+            "POST /api/wallpaper/delete" -> ok(onMain {
+                PhotoWallpaper.delete(app)
+                val cfg = app.config
+                if (cfg.wallpaper == PhotoWallpaper.KEY) cfg.wallpaper = "nuit"
+                cfg.wallpaperRev = System.currentTimeMillis()
+                app.notifyConfigChanged()
+                state()
+            })
             "POST /api/attrs" -> {
                 // Attributs texte d'une entité (sources « texte » de Ce matin) : nom et aperçu.
                 val id = req.str("entity")
@@ -322,6 +347,12 @@ class WebServer(private val app: App) {
                     }
                 } catch (_: Exception) {}
                 ok(JSONObject().put("attributes", attrs))
+            }
+            "POST /api/crash/test" -> ok(onMain { app.testCrash(); JSONObject().put("ok", true) })
+            "POST /api/catalog/refresh" -> {
+                onMain { app.catalog = null }
+                val cat = loadCatalog() ?: return Reply(502, JSON, err(lastCatalogError ?: tr("Liste indisponible")))
+                ok(catalogJson(cat))
             }
             "GET /api/catalog" -> {
                 val cat = loadCatalog() ?: return Reply(502, JSON, err(lastCatalogError ?: tr("Liste indisponible")))
@@ -392,12 +423,21 @@ class WebServer(private val app: App) {
                 .put("recycleCalendar", cfg.recycleCalendar).put("wasteCalendar", cfg.wasteCalendar)
                 .put("recycleKeyword", cfg.recycleKeyword).put("wasteKeyword", cfg.wasteKeyword)
                 .put("peakCalendar", cfg.peakCalendar).put("peakReminder", cfg.peakReminder)
-                .put("weatherAlerts", JSONArray(cfg.weatherAlerts)).put("shortcuts", JSONArray(cfg.shortcuts))
+                .put("weatherAlerts", JSONArray(cfg.weatherAlerts)).put("shortcuts", JSONArray(cfg.shortcuts)).put("shortcutRooms", cfg.shortcutRooms).put("shortcutAreas", cfg.shortcutAreas)
                 .put("customChips", cfg.customChips).put("morningSources", cfg.morningSources)
                 .put("morningStart", cfg.morningStart).put("morningEnd", cfg.morningEnd)
                 .put("floors", JSONArray().also { a -> for (f in cfg.floors) a.put(JSONObject().put("id", f.id).put("name", f.name)) }))
             .put("settings", JSONObject()
                 .put("wallpaper", cfg.wallpaper)
+                .put("background", if (cfg.themeMode) "theme" else "wallpaper")
+                .put("hasPhoto", !cfg.demo && PhotoWallpaper.exists(app)).put("wallpaperRev", cfg.wallpaperRev)
+                .put("wallpaperOk", JSONObject().also { o -> for (k in Wallpapers.keys) o.put(k, Wallpapers.available(app, cfg, k)) })
+                .put("photoVeilLevel", cfg.photoVeilLevel)
+                .put("timerPresets", cfg.timerPresets)
+                .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("energySensors", JSONArray(cfg.energySensors))
+                .put("activeTheme", cfg.activeTheme)
+                .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
+                .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
                 .put("theme", cfg.theme)
                 .put("skin", cfg.skin)
                 .put("nightSkin", cfg.nightSkin).put("nightSkinStart", cfg.nightSkinStart).put("nightSkinEnd", cfg.nightSkinEnd)
@@ -462,7 +502,7 @@ class WebServer(private val app: App) {
             for ((id, name) in list) a.put(JSONObject().put("id", id).put("name", name))
             extras.put(dom, a)
         }
-        return JSONObject().put("areas", areas).put("entities", ents).put("extras", extras)
+        return JSONObject().put("areas", areas).put("entities", ents).put("extras", extras).put("partial", cat.partial)
     }
 
     private fun <T> onMain(block: () -> T): T {
@@ -512,6 +552,31 @@ class WebServer(private val app: App) {
         }
         val error = onMain { app.updater.installFile(file) }
         return if (error != null) Reply(400, JSON, err(error)) else ok(onMain { updateState() })
+    }
+
+    /** Reçoit une image (corps binaire) et en fait le fond d'écran « Ma photo ». */
+    private fun uploadWallpaper(headers: Map<String, String>, input: InputStream, len: Int): Reply {
+        // Un refus est envoyé après avoir lu le fichier reçu (s'il est de taille raisonnable) : sinon le navigateur
+        // voit une connexion coupée au lieu du message d'erreur.
+        fun refuse(r: Reply): Reply {
+            if (len in 1..30_000_000) { val buf = ByteArray(64 * 1024); var left = len; while (left > 0) { val n = input.read(buf, 0, minOf(buf.size, left)); if (n < 0) break; left -= n } }
+            return r
+        }
+        checkPin(headers["x-pin"])?.let { return refuse(it) }
+        if (headers["content-type"]?.startsWith("image/") != true) return refuse(Reply(400, JSON, err(tr("Type de contenu invalide"))))
+        if (app.config.demo) return refuse(Reply(409, JSON, err(tr("Quittez le mode démo pour changer la photo."))))
+        if (len <= 0 || len > 25_000_000) return refuse(Reply(413, JSON, err(tr("Fichier vide ou trop gros"))))
+        val bytes = ByteArray(len)
+        var off = 0
+        while (off < len) { val n = input.read(bytes, off, len - off); if (n < 0) break; off += n }
+        if (off < len) return Reply(400, JSON, err(tr("Envoi interrompu")))
+        PhotoWallpaper.save(app, bytes)?.let { return Reply(400, JSON, err(it)) }
+        return ok(onMain {
+            app.config.wallpaperRev = System.currentTimeMillis()
+            app.config.chooseWallpaper(PhotoWallpaper.KEY)
+            app.notifyConfigChanged()
+            state()
+        })
     }
 
     private fun err(msg: String) = JSONObject().put("error", msg).toString()

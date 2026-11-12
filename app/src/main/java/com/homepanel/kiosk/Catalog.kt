@@ -19,6 +19,8 @@ class Catalog(
     val areas: List<Area>,
     /** Entités utiles à l'accueil (weather, calendar, person) : id -> nom. */
     val extras: Map<String, List<Pair<String, String>>> = emptyMap(),
+    /** Liste prise pendant le démarrage de Home Assistant : incomplète, à redemander plus tard. */
+    val partial: Boolean = false,
 ) {
     val byId: Map<String, CatalogEntity> = entities.associateBy { it.id }
     private val areaNames = areas.associate { it.id to it.name }
@@ -35,9 +37,15 @@ object CatalogLoader {
             ha.request("config/area_registry/list") { ar ->
                 ha.request("config/device_registry/list") { dr ->
                     ha.request("config/entity_registry/list_for_display") { er ->
-                        val cat = try { build(st, ar, dr, er) } catch (_: Exception) { null }
-                        app.catalog = cat
-                        cb(cat, if (cat == null) tr("Réponse inattendue de Home Assistant") else null)
+                        // Pendant son démarrage, Home Assistant ne connaît encore qu'une partie des entités :
+                        // la liste sert quand même, mais elle n'est pas gardée en mémoire.
+                        ha.request("get_config") { cf ->
+                            val state = cf.optJSONObject("result")?.optString("state").orEmpty()
+                            val starting = state.isNotEmpty() && state != "RUNNING"
+                            val cat = try { build(st, ar, dr, er, starting) } catch (_: Exception) { null }
+                            app.catalog = cat.takeIf { !starting }
+                            cb(cat, if (cat == null) tr("Réponse inattendue de Home Assistant") else null)
+                        }
                     }
                 }
             }
@@ -46,7 +54,7 @@ object CatalogLoader {
 
     private fun err(msg: JSONObject) = msg.optJSONObject("error")?.optString("message") ?: tr("Erreur inconnue")
 
-    private fun build(st: JSONObject, ar: JSONObject, dr: JSONObject, er: JSONObject): Catalog {
+    private fun build(st: JSONObject, ar: JSONObject, dr: JSONObject, er: JSONObject, partial: Boolean = false): Catalog {
         val areas = ArrayList<Area>()
         ar.optJSONArray("result")?.let { arr ->
             for (i in 0 until arr.length()) {
@@ -92,7 +100,10 @@ object CatalogLoader {
                 // Alertes météo (Environnement Canada : warnings, watches, advisory, statements)
                 if (dom == "sensor" && Regex("_(warnings|watches|advisory|advisories|statements|alertes|veilles|avis|bulletins)$").containsMatchIn(id))
                     extras.getOrPut("alerts") { ArrayList() }.add(id to fname)
-                if (dom == "weather" || dom == "calendar" || dom == "person") {
+                // Capteurs d'électricité (puissance, énergie) pour la fenêtre Énergie
+                if (dom == "sensor" && o.optJSONObject("attributes")?.str("device_class").let { it == "power" || it == "energy" })
+                    extras.getOrPut("energy") { ArrayList() }.add(id to fname)
+                if (dom == "weather" || dom == "calendar" || dom == "person" || dom == "todo") {
                     val n = o.optJSONObject("attributes")?.str("friendly_name")?.ifEmpty { id } ?: id
                     extras.getOrPut(dom) { ArrayList() }.add(id to n)
                     continue
@@ -115,7 +126,7 @@ object CatalogLoader {
         }
         ents.sortBy { it.name.lowercase() }
         for (l in extras.values) l.sortBy { it.second.lowercase() }
-        return Catalog(ents, areas, extras)
+        return Catalog(ents, areas, extras, partial)
     }
 
     /** Crée une pièce par zone HA absente. Retourne le nombre de pièces ajoutées. */

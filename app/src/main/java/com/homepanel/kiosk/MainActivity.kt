@@ -102,6 +102,14 @@ class MainActivity : Activity(), HaClient.Listener {
             if (roomIndex != HOME && !dimmed && dialog?.isShowing != true &&
                 SystemClock.uptimeMillis() - lastTouch > AUTO_HOME_MS) goHome()
             if (roomIndex == HOME && System.currentTimeMillis() - homeDataAt > 15 * 60_000L) loadHomeData()
+            // Thème automatique : à minuit le fond et la salutation suivent la nouvelle date. Photo Immich du jour : vérifiée ici aussi.
+            if (cfg.theme == Themes.AUTO && cfg.activeTheme != shownTheme) {
+                shownTheme = cfg.activeTheme
+                root.background = Themes.background(this@MainActivity, cfg)
+                if (roomIndex == HOME) updateHomeHeader()
+                app.mqtt.publishSettings()
+            }
+            app.refreshImmichWallpaper()
             // Skin de nuit : on change de dessin à l'heure dite, mais pas sous le doigt ni pendant une fenêtre ouverte.
             if (Skin.signatureOf(cfg) != Skin.signature && dialog?.isShowing != true && notice?.showing != true &&
                 SystemClock.uptimeMillis() - lastTouch > 15_000) { recreate(); return }
@@ -109,6 +117,7 @@ class MainActivity : Activity(), HaClient.Listener {
             updateMorningButton()
             if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
             checkPeakReminder()
+            checkReminders()
             handler.postDelayed(this, 10_000)
         }
     }
@@ -167,6 +176,8 @@ class MainActivity : Activity(), HaClient.Listener {
             setOnClickListener { openTimers() }
         }
         timeRow.addView(timerButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
+        todoButton = TodoButton(this).apply { setOnClickListener { openTodos() } }
+        timeRow.addView(todoButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         morningButton = HomeExtras.MorningButton(this).apply { setOnClickListener { openMorning() } }
         timeRow.addView(morningButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         bellView = BellView(this).apply { setOnClickListener { openCenter() } }
@@ -223,7 +234,7 @@ class MainActivity : Activity(), HaClient.Listener {
             homeDataAt = 0L // météo/calendriers peuvent avoir changé : on recharge
             if (!dimmed) applyBrightness() else { shownDimStyle = ""; updateDimScreen() }
             updateMotion()
-            root.background = Themes.background(this, cfg)
+            root.background = Themes.background(this, cfg); shownTheme = cfg.activeTheme
             rebuild()
             updateStatus(app.ha.status)
         }
@@ -233,7 +244,7 @@ class MainActivity : Activity(), HaClient.Listener {
         super.onResume()
         if (Skin.signatureOf(cfg) != Skin.signature) { recreate(); return }
         hideSystemUi()
-        root.background = Themes.background(this, cfg)
+        root.background = Themes.background(this, cfg); shownTheme = cfg.activeTheme
         app.ha.setEntities(cfg.allEntityIds())
         app.ha.addListener(this)
         app.configListeners.add(onConfigChanged)
@@ -305,6 +316,7 @@ class MainActivity : Activity(), HaClient.Listener {
     @Deprecated("Kiosque : le bouton retour ramène à l'accueil")
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
+        if (todoPanel?.showing == true) { todoPanel?.hide(); return }
         if (morningPanel?.showing == true) { morningPanel?.hide(); return }
         if (center?.showing == true) { center?.hide(); return }
         if (roomIndex != HOME) goHome()
@@ -324,6 +336,7 @@ class MainActivity : Activity(), HaClient.Listener {
 
     internal fun rebuild() {
         houseCache = null
+        updateTodoButton()
         clockView.visibility = if (cfg.showClock) View.VISIBLE else View.GONE
         dateView.visibility = clockView.visibility
         batteryView.visibility = if (cfg.showBattery) View.VISIBLE else View.GONE
@@ -353,6 +366,7 @@ class MainActivity : Activity(), HaClient.Listener {
         cameraTiles.clear()
         weatherCard = null
         calendarCard = null
+        nowPlayingBox = null
         handler.removeCallbacks(snapshotTick)
     }
 
@@ -374,6 +388,8 @@ class MainActivity : Activity(), HaClient.Listener {
     // ------------------------------------------------------------ accueil
 
     /** Pièce virtuelle regroupant toutes les entités, pour la vue d'ensemble. */
+    /** Thème affiché lors du dernier dessin du fond (pour repérer le changement de date en mode automatique). */
+    internal var shownTheme = ""
     internal val headerUpdate = Runnable { if (roomIndex == HOME) updateHomeHeader() }
     internal var houseCache: Room? = null
 
@@ -388,6 +404,12 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var collectChips: List<Present.Chip> = emptyList()
 
     internal var peaks: List<HomeExtras.Peak> = emptyList()
+    internal lateinit var todoButton: TodoButton
+    internal var todoPanel: TodoPanel? = null
+    /** Carte(s) « En lecture » de la pièce affichée, et ce qu'elles montrent (pour ne redessiner que si ça change). */
+    internal var nowPlayingBox: LinearLayout? = null
+    internal var nowPlayingKey = ""
+    internal val lastPlaying = HashMap<String, Long>()
     internal lateinit var morningButton: HomeExtras.MorningButton
     internal val morningReady get() = ::morningButton.isInitialized
 
@@ -424,6 +446,10 @@ class MainActivity : Activity(), HaClient.Listener {
 
     override fun onHaEntities(ids: Set<String>) {
         chipDetailRefresh?.invoke()
+        // On note quand un lecteur joue, même si sa pièce n'est pas à l'écran : la carte « En lecture » sait ainsi
+        // qu'une pause est récente quand on ouvre la pièce ensuite.
+        for (id in ids) if (id.startsWith("media_player.") && app.ha.states[id]?.state == "playing") lastPlaying[id] = SystemClock.uptimeMillis()
+        if (cfg.todoLists.any { it in ids }) { updateTodoButton(); todoPanel?.onEntities(ids) }
         // Une source de « Ce matin » a changé (ex. résumé publié à 5 h) : l'icône réapparaît avec son point.
         val ms = cfg.morningSources
         if ((0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) updateMorningButton()
@@ -444,6 +470,7 @@ class MainActivity : Activity(), HaClient.Listener {
         for (id in ids) tiles[id]?.let { (t, re) -> bindTile(t, re, room); touched = true }
         for (id in ids) cameraTiles[id]?.let { v -> room.find(id)?.let { v.name = Present.displayName(it, app.ha.states[id], room.name) } }
         if (touched || ids.any { room.find(it) != null }) updateChips(room)
+        if (ids.any { it.startsWith("media_player.") }) updateNowPlaying()
     }
 
     override fun onHaStatus(status: HaClient.Status) {
@@ -583,7 +610,7 @@ class MainActivity : Activity(), HaClient.Listener {
     }
 
     internal lateinit var bellView: BellView
-    internal val onNoticesChanged: () -> Unit = { bellView.setCount(app.notices.count) }
+    internal val onNoticesChanged: () -> Unit = { bellView.setCount(app.notices.count, app.notices.historyCount > 0) }
 
     // ------------------------------------------------------------ réglages
 

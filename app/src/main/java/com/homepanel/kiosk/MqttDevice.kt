@@ -114,8 +114,9 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         var configChanged = false
         when (key) {
             "theme" -> {
-                val k = if (v == tr("Aucun")) "" else Themes.all.firstOrNull { it.name == v }?.key
-                if (k != null && k != cfg.theme) { cfg.theme = k; configChanged = true }
+                // « Aucun » = on affiche le fond d'écran ; un thème remplace le fond d'écran (l'un ou l'autre).
+                val k = when (v) { tr("Aucun") -> ""; tr("Automatique") -> Themes.AUTO; else -> Themes.all.firstOrNull { it.name == v }?.key }
+                if (k != null && k != cfg.theme) { if (k.isEmpty()) cfg.chooseWallpaper() else cfg.chooseTheme(k); configChanged = true }
             }
             "skin" -> {
                 val i = Skin.names.indexOf(v)
@@ -125,10 +126,18 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
                 val k = if (v == tr("Aucune")) "" else Skin.keys.getOrNull(Skin.names.indexOf(v))
                 if (k != null && k != cfg.nightSkin) { cfg.nightSkin = k; configChanged = true }
             }
-            "fond" -> {
-                val i = Wallpapers.names.indexOf(v)
-                if (i >= 0) { cfg.wallpaper = Wallpapers.keys[i]; configChanged = true }
+            "arriere_plan" -> {
+                val wantTheme = v == tr("Thème")
+                if (v == tr("Thème") || v == tr("Fond d'écran")) {
+                    if (wantTheme != cfg.themeMode) { if (wantTheme) cfg.chooseTheme() else cfg.chooseWallpaper(); configChanged = true }
+                }
             }
+            "fond" -> {
+                // Choisir un fond d'écran retire le thème. « Ma photo » est refusée tant qu'aucune photo n'est enregistrée.
+                val k = Wallpapers.keys.getOrNull(Wallpapers.names.indexOf(v))
+                if (k != null && Wallpapers.available(app, cfg, k)) { cfg.chooseWallpaper(k); configChanged = true }
+            }
+            "voile_photo" -> v.toDoubleOrNull()?.toInt()?.let { cfg.photoVeilLevel = it; configChanged = true }
             "veille" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimMinutes = it.coerceIn(0, 240); configChanged = true }
             "veille_style" -> { cfg.dimStyle = when (v) { tr("Écran noir") -> "black"; tr("Cadre photo") -> "photos"; else -> "clock" }; configChanged = true }
             "heures_calmes" -> { cfg.quietEnabled = v == "ON"; configChanged = true }
@@ -155,6 +164,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     fun publishAll() {
         if (!client.connected) return
         publishSettings()
+        publishTimers(force = true)
         publishBattery()
         publishDiagnostics()
         publishUpdate()
@@ -164,7 +174,10 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
     fun publishSettings() {
         if (!client.connected) return
         val c = cfg
-        st(sel("theme"), Themes.get(c.theme)?.name ?: tr("Aucun"))
+        st(sel("arriere_plan"), if (c.themeMode) tr("Thème") else tr("Fond d'écran"))
+        st(sel("theme"), if (c.theme == Themes.AUTO) tr("Automatique") else Themes.get(c.theme)?.name ?: tr("Aucun"))
+        st(sel("theme_affiche"), Themes.get(c.activeTheme)?.name ?: tr("Aucun"))
+        st("voile_photo", c.photoVeilLevel.toString())
         st(sel("skin"), Skin.names.getOrNull(Skin.keys.indexOf(c.skin)) ?: Skin.names[0])
         st(sel("skin_nuit"), Skin.names.getOrNull(Skin.keys.indexOf(c.nightSkin)) ?: tr("Aucune"))
         st(sel("fond"), Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
@@ -188,6 +201,30 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         val u = app.updaterOrNull ?: return
         if (!client.connected) return
         client.publish("$base/update", u.mqttState().toString(), retain = true)
+    }
+
+    private var timersKey = ""
+
+    /** Minuteries en cours et heure de fin de la prochaine. Rappelé chaque seconde : ne publie que si quelque chose a changé. */
+    fun publishTimers(force: Boolean = false) {
+        if (!client.connected) return
+        val list = KitchenTimers.list
+        val key = list.joinToString(",") { "${it.id}:${it.endAt}:${it.paused}" }
+        if (!force && key == timersKey) return
+        timersKey = key
+        st("minuteries", list.size.toString())
+        val next = list.filter { !it.paused }.minByOrNull { it.endAt }
+        // endAt est compté depuis le démarrage de la tablette : on le ramène à l'heure réelle.
+        st("minuterie_fin", next?.let { iso(System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime() + it.endAt) } ?: "None")
+        client.publish("$base/minuteries_attr", JSONObject().put("minuteries", JSONArray().also { a ->
+            for (t in list) a.put(JSONObject().put("nom", t.title).put("duree", t.label).put("en_pause", t.paused))
+        }).toString(), retain = true)
+    }
+
+    /** Événement « minuterie terminée », pour l'annoncer ailleurs dans la maison. */
+    fun timerFinished(t: KitchenTimer) {
+        if (!client.connected) return
+        client.publish("$base/minuterie_terminee", JSONObject().put("event_type", "terminee").put("nom", t.title).put("duree", t.label).toString(), retain = false)
     }
 
     /** Nombre de notifications non lues, pour Home Assistant. */
@@ -241,8 +278,16 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         st(sel("alimentation"), plugName(plug))
     }
 
+    private fun iso(ms: Long) = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US).format(java.util.Date(ms))
+
     private fun publishDiagnostics() {
         if (!client.connected) return
+        st("demarrage", iso(CrashLog.startedAt))
+        st("plantage", CrashLog.last(app)?.let { iso(it.time) } ?: "None")
+        client.publish("$base/plantage_attr", JSONObject().apply {
+            CrashLog.last(app)?.let { put("version", it.version); put("resume", it.summary) }
+            put("erreurs_reseau_ignorees", CrashLog.ignored)
+        }.toString(), retain = true)
         st("temperature_batterie", String.format(java.util.Locale.US, "%.1f", temperature))
         @Suppress("DEPRECATION")
         val wifi = app.applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
@@ -303,6 +348,14 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             state("notifications_non_lues"); put("state_class", "measurement")
         }
 
+        entity("sensor", "minuteries", tr("Minuteries en cours"), "mdi:timer-outline") {
+            state("minuteries"); put("state_class", "measurement"); put("json_attributes_topic", "$base/minuteries_attr")
+        }
+        entity("sensor", "minuterie_fin", tr("Fin de la prochaine minuterie"), "mdi:timer-sand-complete") { state("minuterie_fin"); put("device_class", "timestamp") }
+        entity("event", "minuterie_terminee", tr("Minuterie terminée"), "mdi:alarm-check") {
+            state("minuterie_terminee"); put("event_types", JSONArray(listOf("terminee")))
+        }
+
         // ---- Réglages de l'appareil (catégorie « Configuration » dans Home Assistant)
         entity("select", "skin", tr("Skin"), "mdi:brush-variant", "config") {
             both("skin", sel("skin")); put("options", JSONArray(Skin.names))
@@ -310,8 +363,15 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         entity("select", "skin_nuit", tr("Skin de nuit"), "mdi:weather-night", "config") {
             both("skin_nuit", sel("skin_nuit")); put("options", JSONArray(listOf(tr("Aucune")) + Skin.names))
         }
+        entity("select", "arriere_plan", tr("Arrière-plan"), "mdi:image-multiple", "config") {
+            both("arriere_plan", sel("arriere_plan")); put("options", JSONArray(listOf(tr("Thème"), tr("Fond d'écran"))))
+        }
         entity("select", "theme", tr("Thème"), "mdi:palette", "config") {
-            both("theme", sel("theme")); put("options", JSONArray(listOf(tr("Aucun")) + Themes.all.map { it.name }))
+            both("theme", sel("theme")); put("options", JSONArray(listOf(tr("Aucun"), tr("Automatique")) + Themes.all.map { it.name }))
+        }
+        entity("sensor", "theme_affiche", tr("Thème affiché"), "mdi:palette-outline") { state(sel("theme_affiche")) }
+        entity("number", "voile_photo", tr("Voile sur la photo de fond"), "mdi:circle-opacity", "config") {
+            both("voile_photo"); put("min", 0); put("max", 100); put("step", 10); put("unit_of_measurement", "%"); put("mode", "slider")
         }
         entity("select", "fond", tr("Fond d'écran"), "mdi:image-filter-hdr", "config") {
             both("fond", sel("fond")); put("options", JSONArray(Wallpapers.names))
@@ -356,6 +416,10 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             state("wifi"); put("device_class", "signal_strength"); put("unit_of_measurement", "dBm"); put("state_class", "measurement")
         }
         entity("sensor", "ip", tr("Adresse IP"), "mdi:ip-network", "diagnostic") { state("ip") }
+        entity("sensor", "demarrage", tr("Dernier démarrage"), "mdi:restart", "diagnostic") { state("demarrage"); put("device_class", "timestamp") }
+        entity("sensor", "plantage", tr("Dernier plantage"), "mdi:alert-octagon-outline", "diagnostic") {
+            state("plantage"); put("device_class", "timestamp"); put("json_attributes_topic", "$base/plantage_attr")
+        }
         entity("sensor", "memoire", tr("Mémoire utilisée"), "mdi:memory", "diagnostic") {
             state("memoire"); put("device_class", "data_size"); put("unit_of_measurement", "MB"); put("state_class", "measurement")
         }

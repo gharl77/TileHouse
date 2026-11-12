@@ -37,9 +37,12 @@ class BellView(ctx: Context) : FrameLayout(ctx) {
         visibility = View.GONE
     }
 
-    fun setCount(n: Int) {
+    /** [history] : il y a des notifications lues à relire — la cloche reste alors visible, sans pastille. */
+    fun setCount(n: Int, history: Boolean = false) {
         badge.text = if (n > 99) "99+" else n.toString()
-        visibility = if (n > 0) View.VISIBLE else View.GONE
+        badge.visibility = if (n > 0) View.VISIBLE else View.GONE
+        visibility = if (n > 0 || history) View.VISIBLE else View.GONE
+        alpha = if (n > 0) 1f else 0.6f
         contentDescription = "$n " + tr("notifications non lues")
     }
 }
@@ -59,7 +62,13 @@ fun relativeTime(t: Long): String {
  * Centre de notifications (plein écran) : liste des notifications non lues.
  * Toucher une notification l'ouvre (elle devient lue) ; mode sélection ; « Tout marquer comme lu ».
  */
-class NotificationCenter(private val act: MainActivity, private val store: NoticeStore, private val open: (StoredNotice) -> Unit) : FrameLayout(act) {
+class NotificationCenter(private val act: MainActivity, private val store: NoticeStore, private val open: (StoredNotice) -> Unit,
+                         private val reopen: (StoredNotice) -> Unit) : FrameLayout(act) {
+    /** Faux : notifications non lues. Vrai : historique des dernières notifications lues. */
+    private var showHistory = false
+    private val titleView = act.label(26f, Skin.ink, true, tr("Notifications"))
+    private val historyBtn = smallButton(tr("Lues")) { showHistory = !showHistory; selecting = false; selected.clear(); render() }
+    private val clearBtn = smallButton(tr("Effacer l'historique")) { store.clearHistory() }
     private val list = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
     private val countView = act.label(15f, Skin.mute)
     private val selectBtn = smallButton(tr("Sélectionner")) { selecting = !selecting; selected.clear(); render() }
@@ -98,9 +107,11 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         head.addView(LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
-            addView(act.label(26f, Skin.ink, true, tr("Notifications")))
+            addView(titleView)
             addView(countView)
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        head.addView(historyBtn, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = act.dp(10) })
+        head.addView(clearBtn, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = act.dp(10) })
         head.addView(selectBtn)
         head.addView(allBtn, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = act.dp(10) })
         head.addView(act.roundIcon(R.drawable.ic_close, 44, Skin.fg(0x1F), Skin.ink) { hide() }.apply {
@@ -125,7 +136,9 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         setOnClickListener { onClick() }
     }
 
-    fun show() {
+    /** [history] : ouvrir directement sur l'historique (quand il n'y a rien de non lu). */
+    fun show(history: Boolean = false) {
+        showHistory = history
         selecting = false; selected.clear()
         if (onStore !in store.listeners) store.listeners.add(onStore)
         render()
@@ -146,16 +159,20 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
     }
 
     private fun render() {
-        val items = store.unread
+        val items = if (showHistory) store.history else store.unread
         selected.retainAll(items.map { it.id }.toSet())
-        countView.text = when (items.size) {
+        titleView.text = if (showHistory) tr("Notifications lues") else tr("Notifications")
+        countView.text = if (showHistory) tr("Les") + " ${NoticeStore.HISTORY} " + tr("dernières sont gardées") else when (items.size) {
             0 -> tr("Aucune notification non lue")
             1 -> tr("1 non lue")
             else -> "${items.size} " + tr("non lues")
         }
+        historyBtn.text = if (showHistory) tr("Non lues") + (if (store.count > 0) " (${store.count})" else "") else tr("Lues")
+        historyBtn.visibility = if (showHistory || store.historyCount > 0) View.VISIBLE else View.GONE
+        clearBtn.visibility = if (showHistory && items.isNotEmpty()) View.VISIBLE else View.GONE
         selectBtn.text = if (selecting) tr("Annuler") else tr("Sélectionner")
-        selectBtn.visibility = if (items.isEmpty()) View.GONE else View.VISIBLE
-        allBtn.visibility = if (items.isEmpty() || selecting) View.GONE else View.VISIBLE
+        selectBtn.visibility = if (items.isEmpty() || showHistory) View.GONE else View.VISIBLE
+        allBtn.visibility = if (items.isEmpty() || selecting || showHistory) View.GONE else View.VISIBLE
         footer.visibility = if (selecting) View.VISIBLE else View.GONE
         markSel.text = tr("Marquer comme lu") + if (selected.isNotEmpty()) " (${selected.size})" else ""
         markSel.background = roundRect(if (selected.isEmpty()) 0x33FFB300 else Skin.accent, act.dpf(14))
@@ -164,9 +181,9 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
         for (b in thumbs) b.recycle()
         thumbs.clear()
         if (items.isEmpty()) {
-            // Tout est lu : le centre se ferme de lui-même un instant après.
-            postDelayed({ if (showing && store.count == 0) hide() }, 1200)
-            list.addView(act.label(18f, Skin.mute, text = "🔔  " + tr("Tout est lu.")).apply {
+            // Tout est lu : le centre se ferme de lui-même un instant après (sauf si on consulte l'historique).
+            if (!showHistory) postDelayed({ if (showing && !showHistory && store.count == 0) hide() }, 1200)
+            list.addView(act.label(18f, Skin.mute, text = if (showHistory) tr("Aucune notification lue pour l'instant.") else "🔔  " + tr("Tout est lu.")).apply {
                 gravity = Gravity.CENTER; setPadding(0, act.dp(60), 0, act.dp(60))
             }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
             return
@@ -184,10 +201,13 @@ class NotificationCenter(private val act: MainActivity, private val store: Notic
             background = roundRect(if (sel) 0x33FFB300 else Skin.fg(0x0F), act.dpf(16))
             isClickable = true
             setOnClickListener {
-                if (selecting) { if (!selected.remove(s.id)) selected.add(s.id); render() }
-                else open(s)
+                when {
+                    showHistory -> reopen(s)
+                    selecting -> { if (!selected.remove(s.id)) selected.add(s.id); render() }
+                    else -> open(s)
+                }
             }
-            setOnLongClickListener { if (!selecting) { selecting = true; selected.add(s.id); render() }; true }
+            setOnLongClickListener { if (!selecting && !showHistory) { selecting = true; selected.add(s.id); render() }; !showHistory }
         }
         if (selecting) r.addView(act.label(20f, if (sel) Skin.onPrimary else Color.TRANSPARENT, true, "✓").apply {
             gravity = Gravity.CENTER

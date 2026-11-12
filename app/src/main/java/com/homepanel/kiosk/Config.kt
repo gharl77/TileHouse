@@ -45,9 +45,55 @@ class ConfigStore(ctx: Context) {
     var pin: String
         get() = secret("pin")
         set(v) = setSecret("pin", v)
+    /**
+     * Fond d'écran : un dégradé ([Wallpapers.keys]) ou "photo" (photo personnelle, [PhotoWallpaper]).
+     * Il n'est affiché que s'il n'y a pas de thème : c'est l'un ou l'autre (voir [chooseTheme] et [chooseWallpaper]).
+     * En démo, la photo personnelle n'est jamais montrée.
+     */
     var wallpaper: String
-        get() = p.getString("wallpaper", "nuit") ?: "nuit"
+        get() = (p.getString("wallpaper", "nuit") ?: "nuit").let { if (it == PhotoWallpaper.KEY && demo) "nuit" else it }
         set(v) = p.edit().putString("wallpaper", v).apply()
+    /** Change à chaque nouvelle photo : sert à redessiner le fond. */
+    var wallpaperRev: Long
+        get() = p.getLong("wallpaperRev", 0L)
+        set(v) = p.edit().putLong("wallpaperRev", v).apply()
+    /** Dernier thème utilisé, repris quand on revient du fond d'écran au thème. */
+    var lastTheme: String
+        get() = p.getString("lastTheme", "") ?: ""
+        set(v) = p.edit().putString("lastTheme", v).apply()
+
+    /** Vrai si l'arrière-plan est un thème (choisi ou automatique), faux si c'est un fond d'écran. */
+    val themeMode: Boolean get() = theme == Themes.AUTO || Themes.get(theme) != null
+
+    /** Thème réellement affiché : celui choisi, ou celui du jour en mode automatique ("" = aucun, fond d'écran). */
+    val activeTheme: String get() = if (theme == Themes.AUTO) Themes.forDate(java.util.Calendar.getInstance(), autoHolidays, java.util.Locale.getDefault().country) else theme
+
+    /** Fêtes suivies par le thème automatique (clés de thèmes). Par défaut : celles du pays de la tablette. */
+    var autoHolidays: Set<String>
+        get() = p.getString("autoHolidays", null)?.split(',')?.filter { it.isNotEmpty() }?.toSet() ?: Themes.defaultHolidays(java.util.Locale.getDefault().country)
+        set(v) = p.edit().putString("autoHolidays", v.joinToString(",")).apply()
+
+    /** Force du voile posé sur une photo de fond, de 0 (photo bien visible) à 100 (texte très lisible) ; 50 = réglage de la skin. */
+    var photoVeilLevel: Int
+        get() = p.getInt("photoVeilLevel", 50)
+        set(v) = p.edit().putInt("photoVeilLevel", v.coerceIn(0, 100)).apply()
+    /** Jour (AAAAMMJJ) de la dernière photo Immich du jour. */
+    var immichDay: Int
+        get() = p.getInt("immichDay", 0)
+        set(v) = p.edit().putInt("immichDay", v).apply()
+
+    /** Affiche un thème (et donc plus le fond d'écran). Clé vide ou inconnue : le dernier thème utilisé, sinon l'automatique. */
+    fun chooseTheme(key: String = "") {
+        fun ok(k: String) = k == Themes.AUTO || Themes.get(k) != null
+        val k = if (ok(key)) key else if (ok(lastTheme)) lastTheme else Themes.AUTO
+        theme = k; lastTheme = k
+    }
+
+    /** Affiche un fond d'écran (et donc plus de thème). Clé vide : on garde le fond déjà choisi. */
+    fun chooseWallpaper(key: String = "") {
+        if (theme.isNotEmpty()) { lastTheme = theme; theme = "" }
+        if (key.isNotEmpty()) wallpaper = key
+    }
     /** Skin : façon d'afficher l'app ("homekit", "epure", "papier"). */
     var skin: String
         get() = p.getString("skin", "homekit") ?: "homekit"
@@ -182,9 +228,45 @@ class ConfigStore(ctx: Context) {
         get() = if (demo) listOf("scene.movie_night", "script.goodnight") else csv("shortcuts")
         set(v) = p.edit().putString("shortcuts", v.joinToString(",")).apply()
     /** Pastilles personnalisées : [{entity, states:[..], text, color}] (JSON). */
+    /** Pièce choisie pour un raccourci : entité → "" (automatique), "home" (accueil) ou identifiant de pièce. */
+    var shortcutRooms: JSONObject
+        get() = if (demo) JSONObject() else jsonObj("shortcutRooms")
+        set(v) = p.edit().putString("shortcutRooms", v.toString()).apply()
+    /** Zone Home Assistant de chaque raccourci (entité → zone), relue à chaque connexion. */
+    var shortcutAreas: JSONObject
+        get() = if (demo) JSONObject() else jsonObj("shortcutAreas")
+        set(v) = p.edit().putString("shortcutAreas", v.toString()).apply()
+    private val objCache = HashMap<String, Pair<String, JSONObject>>()
+    private fun jsonObj(k: String): JSONObject {
+        val raw = p.getString(k, "{}") ?: "{}"
+        objCache[k]?.let { if (it.first == raw) return it.second }
+        val o = try { JSONObject(raw) } catch (_: Exception) { JSONObject() }
+        objCache[k] = raw to o
+        return o
+    }
     var customChips: JSONArray
         get() = if (demo) JSONArray().put(JSONObject().put("entity", "input_select.washer").put("states", JSONArray().put(if (I18n.english) "To empty" else "À vider")).put("text", if (I18n.english) "🧺 Washer to empty" else "🧺 Laveuse à vider").put("color", "orange")) else json("customChips")
         set(v) = p.edit().putString("customChips", v.toString()).apply()
+    /** Listes d'épicerie et de tâches affichées (entités todo.* de Home Assistant). */
+    var todoLists: List<String>
+        get() = if (demo) listOf("todo.groceries", "todo.chores") else csv("todoLists")
+        set(v) = p.edit().putString("todoLists", v.joinToString(",")).apply()
+    /** Capteurs d'électricité (puissance, énergie) : le premier fait la pastille de l'accueil, tous sont dans la fenêtre Énergie. */
+    var energySensors: List<String>
+        get() = if (demo) listOf("sensor.home_power", "sensor.energy_today") else csv("energySensors")
+        set(v) = p.edit().putString("energySensors", v.joinToString(",")).apply()
+    /** Lecteurs qui ne font pas de carte « En lecture » (les autres lecteurs des pièces en font une). */
+    var nowPlayingHidden: List<String>
+        get() = if (demo) emptyList() else csv("nowPlayingHidden")
+        set(v) = p.edit().putString("nowPlayingHidden", v.joinToString(",")).apply()
+    /** Carte « En lecture » en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue. */
+    var showNowPlaying: Boolean
+        get() = p.getBoolean("showNowPlaying", true)
+        set(v) = p.edit().putBoolean("showNowPlaying", v).apply()
+    /** Minuteries favorites : [{name, minutes}] (JSON), réglées sur la page web. */
+    var timerPresets: JSONArray
+        get() = if (demo) JSONArray().put(JSONObject().put("name", if (I18n.english) "Pasta" else "Pâtes").put("minutes", 10)).put(JSONObject().put("name", if (I18n.english) "Eggs" else "Œufs").put("minutes", 7)).put(JSONObject().put("name", if (I18n.english) "Tea" else "Thé").put("minutes", 4)) else json("timerPresets")
+        set(v) = p.edit().putString("timerPresets", v.toString()).apply()
     /** Ce matin : sources [{type:"rss", title, url, count} ou {entity, attribute, title}] (JSON) et plage horaire (minutes). */
     var morningSources: JSONArray
         get() = if (demo) JSONArray().put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "weather").put("title", if (I18n.english) "Weather" else "Météo")).put(JSONObject().put("entity", "sensor.morning_summary").put("attribute", "commute").put("title", if (I18n.english) "Commute" else "Trajet")).put(JSONObject().put("type", "rss").put("url", "demo:news").put("count", 6).put("title", if (I18n.english) "Local news" else "Nouvelles locales")) else json("morningSources")
@@ -249,7 +331,7 @@ class ConfigStore(ctx: Context) {
     private var demoCalendars = Demo.CALENDARS
     private var demoPersons = Demo.PERSONS
     /** Reconstruit la maison fictive (ex. après un changement de langue). */
-    fun resetDemo() { demoRooms = null; demoFloors = null; demoWeather = Demo.WEATHER; demoCalendars = Demo.CALENDARS; demoPersons = Demo.PERSONS }
+    fun resetDemo() { Demo.resetLists(); demoRooms = null; demoFloors = null; demoWeather = Demo.WEATHER; demoCalendars = Demo.CALENDARS; demoPersons = Demo.PERSONS }
 
     // --- Page d'accueil
     var weatherEntity: String
@@ -408,7 +490,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("skin", skin).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
+                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
@@ -418,7 +500,7 @@ class ConfigStore(ctx: Context) {
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
                 .put("peakCalendar", peakCalendar).put("peakReminder", peakReminder).put("weatherAlerts", JSONArray(weatherAlerts))
-                .put("shortcuts", JSONArray(shortcuts)).put("customChips", customChips).put("morningSources", morningSources)
+                .put("shortcuts", JSONArray(shortcuts)).put("shortcutRooms", shortcutRooms).put("customChips", customChips).put("morningSources", morningSources).put("timerPresets", timerPresets).put("todoLists", JSONArray(todoLists)).put("showNowPlaying", showNowPlaying).put("nowPlayingHidden", JSONArray(nowPlayingHidden)).put("energySensors", JSONArray(energySensors))
                 .put("morningStart", morningStart).put("morningEnd", morningEnd)
                 .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
@@ -437,6 +519,8 @@ class ConfigStore(ctx: Context) {
         o.optJSONObject("display")?.let { d ->
             if (d.has("theme")) theme = d.str("theme")
             if (d.has("skin")) skin = d.str("skin")
+            if (d.has("photoVeilLevel")) photoVeilLevel = d.optInt("photoVeilLevel", 50)
+            d.optJSONArray("autoHolidays")?.let { a -> autoHolidays = (0 until a.length()).map { a.getString(it) }.toSet() }
             if (d.has("nightSkin")) nightSkin = d.str("nightSkin")
             if (d.has("nightSkinStart")) nightSkinStart = d.optInt("nightSkinStart", 19 * 60)
             if (d.has("nightSkinEnd")) nightSkinEnd = d.optInt("nightSkinEnd", 7 * 60)
@@ -476,8 +560,14 @@ class ConfigStore(ctx: Context) {
             if (h.has("peakReminder")) peakReminder = h.optInt("peakReminder", 60)
             h.optJSONArray("weatherAlerts")?.let { a -> weatherAlerts = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("shortcuts")?.let { a -> shortcuts = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONObject("shortcutRooms")?.let { shortcutRooms = it }
             h.optJSONArray("customChips")?.let { customChips = it }
             h.optJSONArray("morningSources")?.let { morningSources = it }
+            h.optJSONArray("timerPresets")?.let { timerPresets = it }
+            h.optJSONArray("todoLists")?.let { a -> todoLists = (0 until a.length()).map { a.getString(it) } }
+            if (h.has("showNowPlaying")) showNowPlaying = h.optBoolean("showNowPlaying", true)
+            h.optJSONArray("nowPlayingHidden")?.let { a -> nowPlayingHidden = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("energySensors")?.let { a -> energySensors = (0 until a.length()).map { a.getString(it) } }
             if (h.has("morningStart")) morningStart = h.optInt("morningStart", 300)
             if (h.has("morningEnd")) morningEnd = h.optInt("morningEnd", 600)
             h.optJSONArray("floorOrder")?.let { a -> setFloorOrder((0 until a.length()).map { a.getString(it) }) }
@@ -507,11 +597,14 @@ class ConfigStore(ctx: Context) {
         val s = HashSet<String>()
         for (r in rooms) for (e in r.entities) s.add(e.id)
         // Accueil : météo et personnes
-        if (weatherEntity.isNotEmpty()) s.add(weatherEntity)
+        // Le soleil dit s'il fait nuit (icônes de la météo).
+        if (weatherEntity.isNotEmpty()) { s.add(weatherEntity); s.add("sun.sun") }
         s.addAll(persons)
         // Accueil : alertes météo, raccourcis, pastilles personnalisées, Ce matin
         s.addAll(weatherAlerts)
         s.addAll(shortcuts)
+        s.addAll(todoLists)
+        s.addAll(energySensors)
         for (a in listOf(customChips, morningSources)) for (i in 0 until a.length()) a.optJSONObject(i)?.optString("entity")?.takeIf { it.isNotEmpty() }?.let { s.add(it) }
         return s
     }

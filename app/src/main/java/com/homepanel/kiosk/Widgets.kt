@@ -34,8 +34,16 @@ const val GLASS = 0x73303034
 const val GLASS_LIGHT = 0x40FFFFFF
 
 object Wallpapers {
-    val keys = listOf("nuit", "aube", "ocean", "foret", "graphite")
-    val names get() = listOf(tr("Nuit"), tr("Aube"), tr("Océan"), tr("Forêt"), "Graphite")
+    /** Dégradés fournis, puis la photo personnelle ([PhotoWallpaper]). */
+    val keys = listOf("nuit", "aube", "ocean", "foret", "graphite", PhotoWallpaper.KEY, PhotoWallpaper.IMMICH)
+    val names get() = listOf(tr("Nuit"), tr("Aube"), tr("Océan"), tr("Forêt"), "Graphite", tr("Ma photo"), tr("Photo Immich du jour"))
+
+    /** « Ma photo » demande une photo enregistrée ; « Photo Immich du jour » demande Immich et un album choisi. */
+    fun available(ctx: Context, cfg: ConfigStore, key: String): Boolean = when (key) {
+        PhotoWallpaper.KEY -> PhotoWallpaper.exists(ctx)
+        PhotoWallpaper.IMMICH -> PhotoFrame.configured && cfg.photoSource.isNotEmpty() && !cfg.demo
+        else -> key in keys
+    }
 
     fun colorsOf(key: String): IntArray = colors(key)
 

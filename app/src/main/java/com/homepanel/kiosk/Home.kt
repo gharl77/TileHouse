@@ -60,7 +60,39 @@ object HomeText {
         }
     }
 
-    fun condition(c: String) = when (c) {
+    /** Durée pendant laquelle un lecteur en pause garde sa carte « En lecture ». */
+    const val PAUSE_GRACE = 10 * 60_000L
+
+    /**
+     * Un lecteur en pause l'est-il depuis peu ? D'après l'heure de sa dernière position (attribut
+     * media_position_updated_at de Home Assistant, mise à jour au moment de la pause). Sert quand l'app
+     * n'a pas vu le lecteur jouer elle-même (elle vient de démarrer).
+     */
+    fun pausedRecently(updatedAt: String, now: Long): Boolean {
+        if (updatedAt.isEmpty()) return false
+        val t = try {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", java.util.Locale.US).parse(updatedAt.replace(Regex("\\.\\d+"), "").replace("Z", "+00:00"))?.time
+        } catch (_: Exception) { null } ?: return false
+        return now - t in 0 until PAUSE_GRACE
+    }
+
+    /** Vrai quand le soleil est couché (entité sun.sun de Home Assistant) ; faux si elle est inconnue. */
+    fun nightNow(): Boolean = try { App.instance.ha.states["sun.sun"]?.state == "below_horizon" } catch (_: Throwable) { false }
+
+    /**
+     * Fait-il nuit à l'instant [t] ? Calculé d'après le prochain lever et le prochain coucher du soleil
+     * (attributs de sun.sun), en supposant que leurs heures bougent peu d'un jour à l'autre.
+     */
+    fun isNight(t: Long, nextRising: Long?, nextSetting: Long?): Boolean {
+        if (nextRising == null || nextSetting == null) return false
+        val day = 86_400_000L
+        val r = Math.floorMod(nextRising, day); val s = Math.floorMod(nextSetting, day); val x = Math.floorMod(t, day)
+        val light = if (r <= s) x in r until s else x >= r || x < s
+        return !light
+    }
+
+    fun condition(c: String, night: Boolean = false) = when (c) {
+        "sunny" -> if (night) tr("Nuit claire") else tr("Ensoleillé")
         "clear-night" -> tr("Nuit claire")
         "cloudy" -> tr("Nuageux")
         "fog" -> tr("Brouillard")
@@ -72,22 +104,22 @@ object HomeText {
         "rainy" -> tr("Pluie")
         "snowy" -> tr("Neige")
         "snowy-rainy" -> tr("Pluie et neige")
-        "sunny" -> tr("Ensoleillé")
         "windy", "windy-variant" -> tr("Venteux")
         "exceptional" -> tr("Exceptionnel")
         else -> c
     }
 
-    fun emoji(c: String) = when (c) {
+    /** [night] : certaines sources annoncent « ensoleillé » en pleine nuit ; on montre alors la lune. */
+    fun emoji(c: String, night: Boolean = false) = when (c) {
         "clear-night" -> "🌙"
         "cloudy" -> "☁️"
         "fog" -> "🌫️"
         "hail", "snowy-rainy" -> "🌨️"
         "lightning", "lightning-rainy" -> "⛈️"
-        "partlycloudy" -> "⛅"
+        "partlycloudy" -> if (night) "☁️" else "⛅"
         "pouring", "rainy" -> "🌧️"
         "snowy" -> "❄️"
-        "sunny" -> "☀️"
+        "sunny" -> if (night) "🌙" else "☀️"
         "windy", "windy-variant" -> "💨"
         else -> "🌡️"
     }
@@ -133,9 +165,10 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
     fun update(e: EntityState?) {
         if (e == null) { cond.text = tr("Météo non configurée"); temp.text = ""; emoji.text = "🌡️"; details.text = ""; return }
         val a = e.attrs
-        emoji.text = HomeText.emoji(e.state)
+        val night = HomeText.nightNow()
+        emoji.text = HomeText.emoji(e.state, night)
         temp.text = a.dbl("temperature")?.let { Present.num(it) + "°" } ?: "—"
-        cond.text = HomeText.condition(e.state)
+        cond.text = HomeText.condition(e.state, night)
         val parts = ArrayList<String>()
         a.dbl("humidity")?.let { parts.add("${tr("Humidité")} ${Present.num(it)} %") }
         a.dbl("wind_speed")?.let { parts.add("${tr("Vent")} ${Math.round(it)} ${a.str("wind_speed_unit").ifEmpty { "km/h" }}") }
@@ -167,7 +200,11 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
 
 /** Carte agenda : prochains événements des calendriers choisis. */
 class CalendarCard(ctx: Context) : LinearLayout(ctx) {
-    class Event(val title: String, val start: Date, val allDay: Boolean, val color: Int)
+    class Event(val title: String, val start: Date, val allDay: Boolean, val color: Int,
+                val end: Date? = null, val location: String = "", val description: String = "")
+
+    /** Appelé quand on touche un événement (ouvre son détail). */
+    var onEvent: ((Event) -> Unit)? = null
 
     private val rows = LinearLayout(ctx).apply { orientation = VERTICAL }
     private val timeFmt = SimpleDateFormat("HH:mm", I18n.locale)
@@ -196,11 +233,14 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
             col.addView(context.label(15f, Skin.ink, text = ev.title).apply { maxLines = 1; ellipsize = TextUtils.TruncateAt.END })
             col.addView(context.label(13f, Skin.fg(0xB3), text = whenText(ev)))
             row.addView(col, LayoutParams(0, WRAP_CONTENT, 1f))
+            row.isClickable = true
+            row.setOnClickListener { onEvent?.invoke(ev) }
             rows.addView(row)
         }
     }
 
-    private fun whenText(ev: Event): String {
+    /** « Aujourd'hui · 19:00 – 21:30 », « Demain · toute la journée »… [withEnd] ajoute l'heure de fin. */
+    fun whenText(ev: Event, withEnd: Boolean = false): String {
         val c = Calendar.getInstance().apply { time = ev.start }
         val today = Calendar.getInstance()
         // Midi pile des deux jours (minutes et secondes comprises), puis arrondi : un événement
@@ -212,7 +252,9 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
             1 -> tr("Demain")
             else -> dayFmt.format(ev.start).replaceFirstChar { it.uppercase() }
         }
-        return if (ev.allDay) "$day · " + tr("toute la journée") else "$day · ${timeFmt.format(ev.start)}"
+        if (ev.allDay) return "$day · " + tr("toute la journée")
+        val end = if (withEnd && ev.end != null && ev.end.after(ev.start)) " – " + timeFmt.format(ev.end) else ""
+        return "$day · ${timeFmt.format(ev.start)}$end"
     }
 }
 

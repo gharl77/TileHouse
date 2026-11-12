@@ -91,6 +91,7 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
   <h1>TileHouse</h1>
   <span id="status" class="badge">…</span>
   <span id="saved" class="saved" role="status" aria-live="polite"></span>
+  <button id="refreshCat" title="Relit dans Home Assistant la liste des appareils, calendriers, listes et capteurs proposés dans ces réglages.">↻ Actualiser les entités</button>
 </header>
 <nav class="tabs" id="tabs" role="tablist" aria-label="Sections des réglages">
   <button data-tab="rooms" role="tab">Pièces</button>
@@ -158,6 +159,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <div id="personList" class="muted">Connexion requise…</div>
   </section>
 
+  <section class="card" style="grid-column:1/-1">
+    <h2>🛒 Listes d'épicerie et de tâches</h2>
+    <p class="muted">Les listes « À faire » de Home Assistant que vous cochez ici apparaissent derrière une icône en haut de la tablette, avec le nombre d'articles restants. On y coche, ajoute et retire des articles ; les changements faits ailleurs (téléphone, assistant vocal) s'y reflètent.</p>
+    <div id="todoList" class="muted">Connexion requise…</div>
+  </section>
+
   <h3 class="group" id="g-chips">Pastilles d'information</h3>
   <section class="card">
     <h2>🗑️ Collectes</h2>
@@ -172,13 +179,16 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     </div>
   </section>
   <section class="card">
-    <h2>⚡ Pointes d'électricité</h2>
+    <h2>⚡ Électricité</h2>
     <p class="muted">« Pointe demain / aujourd'hui » la veille et le jour même, puis « Pointe en cours » (rouge) pendant la pointe. Le rappel arrive dans le centre de notifications.</p>
     <div class="row">
       <div style="flex:2"><label class="f" for="peakCal">Calendrier des pointes (Hydro-Québec)</label><select id="peakCal"></select></div>
       <div style="flex:1"><label class="f" for="peakReminder">Rappel</label>
         <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select></div>
     </div>
+      <label class="f" style="margin-top:14px">Capteurs de puissance ou d'énergie</label>
+    <div id="energyList" class="muted">Connexion requise…</div>
+    <p class="muted">Le premier capteur coché fait une pastille sur l'accueil (« 2,4 kW »). Touchez-la, ou la pastille de pointe, pour voir tous les capteurs cochés, les pointes à venir et la courbe des dernières 24 heures.</p>
   </section>
   <section class="card">
     <h2>⚠️ Alertes météo</h2>
@@ -202,12 +212,20 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <h2>📅 Agenda</h2>
     <label class="f">Calendriers affichés</label>
     <div id="calList" class="muted">Connexion requise…</div>
+    <p class="muted">Sur la tablette, touchez un événement pour voir son lieu, sa durée et sa description, et la carte météo pour les prévisions heure par heure.</p>
+  </section>
+  <section class="card" style="grid-column:1/-1">
+    <h2>🎵 En lecture</h2>
+    <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher une carte en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue</label>
+    <p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté.</p>
+    <label class="f" style="margin-top:12px">Lecteurs qui affichent la carte</label>
+    <div id="npList" class="muted"></div>
   </section>
 
   <h3 class="group" id="g-buttons">Raccourcis</h3>
   <section class="card" style="grid-column:1/-1">
     <h2>▶️ Raccourcis</h2>
-    <p class="muted">Scripts, scènes et boutons affichés en gros boutons sous les cartes, dans l'ordre où vous les cochez.</p>
+    <p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p>
     <input id="scQ" placeholder="Rechercher…">
     <ul class="ents pick" id="scList" style="max-height:260px"></ul>
   </section>
@@ -247,11 +265,41 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
       <div style="flex:1"><label class="f" for="nightSkinEnd">Fin</label><input type="time" id="nightSkinEnd"></div>
     </div>
     <p class="muted">La skin de nuit remplace la skin pendant la plage horaire (par exemple Papier le jour et Néon le soir).</p>
-    <label class="f" for="theme">Thème de saison ou de fête</label>
-    <select id="theme"></select>
-    <p class="muted">Un thème remplace le fond d'écran et adapte la salutation de l'accueil. Choisissez « Aucun » pour revenir au fond habituel.</p>
-    <label class="f" for="wallpaper">Fond d'écran</label>
-    <select id="wallpaper"></select>
+  </section>
+  <section class="card">
+    <h2>Arrière-plan</h2>
+    <p class="muted">Un thème ou un fond d'écran : l'un ou l'autre. Un thème apporte son fond, ses motifs et sa salutation ; un fond d'écran est un dégradé ou votre photo.</p>
+    <div class="row" role="radiogroup" aria-label="Arrière-plan">
+      <label class="check" style="flex:1"><input type="radio" name="bgMode" id="bgTheme" value="theme"> Thème</label>
+      <label class="check" style="flex:1"><input type="radio" name="bgMode" id="bgWallpaper" value="wallpaper"> Fond d'écran</label>
+    </div>
+    <div id="themeBox">
+      <label class="f" for="theme">Thème de saison ou de fête</label>
+      <select id="theme"></select>
+      <div id="holidayBox" hidden>
+        <label class="f">Fêtes suivies par le thème automatique</label>
+        <div id="holidayList" class="row"></div>
+        <p class="muted">Le thème suit la date : une fête cochée le jour venu (Noël du 1er au 26 décembre, Halloween du 25 au 31 octobre, Pâques du vendredi au lundi…), sinon la saison. Le Nouvel An lunaire et Hanoukka changent de date chaque année : choisissez-les à la main.</p>
+      </div>
+    </div>
+    <div id="wallBox">
+      <label class="f" for="wallpaper">Fond d'écran</label>
+      <select id="wallpaper"></select>
+      <label class="f">Ma photo</label>
+      <div class="row" style="align-items:center">
+        <img id="photoPreview" alt="Aperçu de la photo" hidden style="width:160px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--line)">
+        <button id="photoPick">Choisir une photo…</button>
+        <button id="photoDelete" class="danger" hidden>Supprimer la photo</button>
+        <button id="photoNext" hidden>Autre photo</button>
+        <input type="file" id="photoFile" accept="image/jpeg,image/png,image/webp" hidden>
+      </div>
+      <div id="veilRow" hidden>
+        <label class="f" for="photoVeilLevel">Voile sur la photo : <span id="veilVal"></span></label>
+        <input type="range" id="photoVeilLevel" min="0" max="100" step="10">
+        <p class="muted">Plus léger : la photo ressort. Plus fort : le texte est plus lisible.</p>
+      </div>
+      <p class="muted" id="photoInfo">La photo est envoyée à la tablette, réduite à la taille de l'écran et gardée seulement sur la tablette. Un voile est ajouté pour que le texte reste lisible, selon la skin.</p>
+    </div>
   </section>
   <section class="card">
     <h2>Tableau de bord</h2>
@@ -313,6 +361,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     <label class="f" for="noticeSeconds">Durée d'affichage maximale</label>
     <select id="noticeSeconds"><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
     <p class="muted">Une notification qui n'a pas été confirmée par OK reste non lue : une clochette apparaît sur la tablette avec leur nombre. <span id="unreadInfo"></span></p>
+  </section>
+  <section class="card">
+    <h2>Minuteries favorites</h2>
+    <p class="muted">Des minuteries nommées, lancées d'un toucher depuis le panneau des minuteries (par exemple « Pâtes » 10 min). Le nom apparaît quand elle sonne.</p>
+    <div id="timerPresets"></div>
+    <button id="addPreset">+ Ajouter une minuterie</button>
   </section>
   <section class="card">
     <h2>Alertes des caméras</h2>
@@ -397,6 +451,12 @@ table.kv td:last-child{color:var(--mute);text-align:right;word-break:break-all}
     </div>
     <h2 style="margin-top:22px">Informations</h2>
     <table class="kv" id="aboutInfo"></table>
+    <details id="crashBox" hidden style="margin:10px 0">
+      <summary class="muted" style="cursor:pointer;font-weight:600">Détail du dernier plantage</summary>
+      <pre id="crashTrace" style="white-space:pre-wrap;font-size:12px;max-height:260px;overflow:auto;background:rgba(0,0,0,.25);padding:10px;border-radius:10px"></pre>
+      <button id="crashClear">Effacer ce plantage</button>
+    </details>
+    <button id="crashTest">Tester le journal de plantage</button>
     <p class="muted">Logiciel libre sous licence MIT. TileHouse n'est affilié ni à Apple ni à Home Assistant.</p>
   </section>
   <section class="card">
@@ -580,6 +640,10 @@ $("mqttEnabled").onchange = () => saveSettings({mqttEnabled: $("mqttEnabled").ch
 
 // ---- À propos
 function renderAbout(a) {
+  if (a) {
+    $("crashBox").hidden = !a.crash;
+    if (a.crash) $("crashTrace").textContent = new Date(a.crash.time).toLocaleString() + " · " + a.crash.version + "\n" + a.crash.summary + "\n\n" + a.crash.trace;
+  }
   if (!a) return;
   $("aboutVer").textContent = "Version " + a.version;
   $("lnkRepo").href = a.repo; $("lnkRel").href = a.releases; $("lnkIss").href = a.issues;
@@ -599,12 +663,13 @@ const mins = v => { const [a, b] = (v || "0:0").split(":").map(Number); return a
 let H = null, EX = null;
 function renderHomeExtras(ex, h) {
   H = h; EX = ex;
+  if (cat && !ex.alerts) ex.alerts = []; // liste reçue sans capteur d'alertes : « aucun », pas « non connecté »
   const dl = $("allEnts");
   if (ex.all && dl.childElementCount !== ex.all.length) dl.replaceChildren(...ex.all.map(e => el("option", {value: e.id, textContent: e.name})));
   // Pointes
   const pc = $("peakCal");
   pc.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
-  for (const c of (ex.calendar || [])) pc.append(el("option", {value: c.id, textContent: c.name}));
+  for (const c of withCurrent(ex.calendar, h.peakCalendar)) pc.append(el("option", {value: c.id, textContent: c.name}));
   pc.value = h.peakCalendar || "";
   pc.onchange = () => saveSettings({peakCalendar: pc.value});
   $("peakReminder").value = String(h.peakReminder);
@@ -630,6 +695,22 @@ function renderHomeExtras(ex, h) {
 $("mStart").onchange = () => saveSettings({morningStart: mins($("mStart").value)});
 $("mEnd").onchange = () => saveSettings({morningEnd: mins($("mEnd").value)});
 
+// Où s'affiche un raccourci coché : automatique (pièce de sa zone Home Assistant, sinon l'accueil), l'accueil, ou une pièce choisie.
+function shortcutPlace(e) {
+  const choice = (H.shortcutRooms || {})[e.id] || "";
+  const area = (H.shortcutAreas || {})[e.id] || e.area || "";
+  const auto = rooms.find(r => area && r.area === area);
+  const s = el("select", {style: "width:auto;max-width:260px", title: t("Où afficher ce raccourci"), onclick: ev => ev.stopPropagation(), onchange: () => {
+    const next = Object.assign({}, H.shortcutRooms || {});
+    if (s.value) next[e.id] = s.value; else delete next[e.id];
+    H.shortcutRooms = next; saveSettings({shortcutRooms: next});
+  }});
+  s.append(el("option", {value: "", textContent: t("Automatique") + " : " + (auto ? auto.name : t("Accueil"))}),
+    el("option", {value: "home", textContent: t("Accueil")}));
+  for (const r of rooms) s.append(el("option", {value: r.id, textContent: r.name}));
+  s.value = [...s.options].some(o => o.value === choice) ? choice : "";
+  return s;
+}
 function renderShortcuts() {
   const ul = $("scList"), q = $("scQ").value.trim().toLowerCase();
   const doms = ["script", "scene", "button", "input_button"];
@@ -645,7 +726,8 @@ function renderShortcuts() {
       const next = on ? sel.filter(x => x !== e.id) : [...sel, e.id];
       H.shortcuts = next; saveSettings({shortcuts: next}); renderShortcuts();
     }}, el("span", {class: "dot", textContent: on ? "✓" : (ICON[domain(e.id)] || "•")}),
-      el("div", {class: "info"}, el("div", {textContent: e.name}), el("div", {class: "id", textContent: e.id}))));
+      el("div", {class: "info"}, el("div", {textContent: e.name}), el("div", {class: "id", textContent: e.id})),
+      on ? shortcutPlace(e) : ""));
   }
 }
 $("scQ").oninput = renderShortcuts;
@@ -767,6 +849,36 @@ async function loadSuggestions() {
   for (const c of cands) for (const a of await attrsOf(c.id)) add("📝 " + c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name});
 }
 
+$("showNowPlaying").onchange = () => saveSettings({showNowPlaying: $("showNowPlaying").checked});
+
+$("refreshCat").onclick = () => { flash(t("Lecture de la liste des entités…")); loadCatalog(true); };
+$("crashTest").onclick = async () => {
+  if (!confirm(t("L'application va se fermer puis se rouvrir toute seule sur la tablette, pour vérifier que le plantage est bien noté. Continuer ?"))) return;
+  try {
+    await api("POST", "/api/crash/test", {});
+    flash(t("Essai lancé : la tablette redémarre l'application…"));
+    setTimeout(async () => { try { S = await api("GET", "/api/state"); renderAbout(S.about); flash(t("✓ Essai terminé : voyez « Dernier plantage »")); } catch (e) {} }, 9000);
+  } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+$("crashClear").onclick = async () => { try { S = await api("POST", "/api/crash/clear", {}); renderAbout(S.about); } catch (e) { if (e.message !== "pin") alert(e.message); } };
+
+// ---- Minuteries favorites
+function renderPresets() {
+  const box = $("timerPresets");
+  const list = S.settings.timerPresets || [];
+  if (box.contains(document.activeElement)) return;
+  box.replaceChildren();
+  const save = () => saveSettings({timerPresets: list.filter(p => p.name && p.minutes > 0)});
+  if (!list.length) box.append(el("p", {class: "muted", textContent: t("Aucune minuterie favorite pour l'instant.")}));
+  list.forEach((p, i) => {
+    box.append(el("div", {class: "rule"},
+      el("div", {style: "flex:2"}, el("label", {class: "f", textContent: t("Nom")}), el("input", {value: p.name || "", placeholder: t("Pâtes"), maxLength: 24, onchange: ev => { p.name = ev.target.value.trim(); save(); }})),
+      el("div", {}, el("label", {class: "f", textContent: t("Minutes")}), el("input", {type: "number", min: 1, max: 600, value: p.minutes || "", inputMode: "numeric", onchange: ev => { p.minutes = Math.max(1, Math.min(600, +ev.target.value || 0)); save(); }})),
+      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { list.splice(i, 1); S.settings.timerPresets = list; save(); renderPresets(); }})));
+  });
+}
+$("addPreset").onclick = () => { (S.settings.timerPresets = S.settings.timerPresets || []).push({name: "", minutes: 10}); renderPresets(); };
+
 // ---- Mise à jour
 function renderUpdate(u) {
   if (!u) return;
@@ -884,13 +996,16 @@ function renderPresence(ex, selected) {
 }
 for (const j of document.querySelectorAll("[data-jump]")) j.onclick = () => $(j.dataset.jump).scrollIntoView({behavior: "smooth", block: "start"});
 
+// Options d'une liste déroulante : ce que Home Assistant propose, plus le choix actuel s'il n'y figure pas
+// (entité renommée, Home Assistant en démarrage), pour que le réglage ne paraisse jamais vide.
+const withCurrent = (list, id) => { const l = list || []; return id && !l.some(x => x.id === id) ? [...l, {id, name: id}] : l; };
 function renderHome() {
   const h = S.home;
   if (!h) return;
   const ex = (cat && cat.extras) || {};
   const ws = $("weather");
   ws.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
-  const weathers = ex.weather || (h.weather ? [{id: h.weather, name: h.weather}] : []);
+  const weathers = withCurrent(ex.weather, h.weather);
   for (const w of weathers) ws.append(el("option", {value: w.id, textContent: w.name}));
   ws.value = h.weather || "";
   const checks = (box, list, selected, key) => {
@@ -907,11 +1022,55 @@ function renderHome() {
       b.append(el("label", {class: "check"}, cb, " " + it.name));
     }
   };
-  checks("calList", ex.calendar, h.calendars, "calendars");
+  // Liste des entités reçue : un type absent veut dire « aucune entité de ce type », pas « non connecté ».
+  const have = k => cat ? (ex[k] || []) : ex[k];
+  checks("calList", have("calendar"), h.calendars, "calendars");
+  checks("todoList", have("todo"), S.settings.todoLists || [], "todoLists");
+  if (cat && !have("calendar").length) $("calList").textContent = t("Aucun calendrier dans Home Assistant.");
+  if (cat && !have("todo").length) $("todoList").textContent = t("Aucune liste « À faire » dans Home Assistant. Ajoutez-en une dans Home Assistant (Paramètres → Appareils et services → Ajouter → Liste de tâches locale).");
+  // Capteurs d'électricité : l'ordre des coches est gardé (le premier coché fait la pastille).
+  {
+    const b = $("energyList"), list = have("energy"), sel = S.settings.energySensors || [];
+    if (!list) b.textContent = sel.length ? sel.join(", ") : t("Connexion requise…");
+    else if (!list.length) b.textContent = t("Aucun capteur de puissance ou d'énergie dans Home Assistant.");
+    else {
+      b.replaceChildren(); b.className = "";
+      const box = el("div", {style: "max-height:220px;overflow:auto"});
+      for (const it of [...sel.map(id => list.find(x => x.id === id) || {id, name: id}), ...list.filter(x => !sel.includes(x.id))]) {
+        const cb = el("input", {type: "checkbox", checked: sel.includes(it.id), onchange: () => {
+          const next = cb.checked ? [...sel, it.id] : sel.filter(x => x !== it.id);
+          S.settings.energySensors = next; saveSettings({energySensors: next});
+        }});
+        box.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.id})));
+      }
+      b.append(box);
+    }
+  }
+  $("showNowPlaying").checked = S.settings.showNowPlaying !== false;
+  // Lecteurs des pièces : tous affichent la carte, sauf ceux qu'on décoche ici.
+  {
+    const b = $("npList"), hidden = S.settings.nowPlayingHidden || [];
+    const players = [];
+    for (const r of rooms) for (const e of r.entities) if (e.id.startsWith("media_player.") && !players.some(x => x.id === e.id))
+      players.push({id: e.id, name: e.name || (catById[e.id] || {}).name || e.id, room: r.name});
+    b.replaceChildren();
+    if (!players.length) b.textContent = t("Aucun haut-parleur ni télé dans vos pièces. Ajoutez-en dans l'onglet Pièces.");
+    else {
+      b.className = "";
+      for (const it of players) {
+        const cb = el("input", {type: "checkbox", checked: !hidden.includes(it.id), disabled: S.settings.showNowPlaying === false, onchange: () => {
+          const next = cb.checked ? hidden.filter(x => x !== it.id) : [...hidden, it.id];
+          S.settings.nowPlayingHidden = next; saveSettings({nowPlayingHidden: next});
+        }});
+        b.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.room})));
+      }
+    }
+  }
+  renderPresets();
   for (const [id, key] of [["recycleCal", "recycleCalendar"], ["wasteCal", "wasteCalendar"]]) {
     const s = $(id);
     s.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
-    const cals = ex.calendar || (h[key] ? [{id: h[key], name: h[key]}] : []);
+    const cals = withCurrent(ex.calendar, h[key]);
     for (const c of cals) s.append(el("option", {value: c.id, textContent: c.name}));
     s.value = h[key] || "";
     s.onchange = () => saveSettings({[key]: s.value});
@@ -942,7 +1101,27 @@ function renderSettings() {
   const st = S.settings;
   const w = $("wallpaper");
   if (!w.options.length) for (const [k, n] of S.wallpapers) w.append(el("option", {value: k, textContent: n}));
+  // « Ma photo » ne peut être choisie que si une photo est enregistrée
+  for (const o of w.options) o.disabled = st.wallpaperOk ? !st.wallpaperOk[o.value] : (o.value === "photo" && !st.hasPhoto);
   w.value = st.wallpaper;
+  const themeMode = st.background === "theme";
+  $("bgTheme").checked = themeMode; $("bgWallpaper").checked = !themeMode;
+  $("themeBox").hidden = !themeMode; $("wallBox").hidden = themeMode;
+  $("photoDelete").hidden = !st.hasPhoto;
+  $("photoNext").hidden = st.wallpaper !== "immich";
+  const isPhoto = st.wallpaper === "photo" || st.wallpaper === "immich";
+  $("veilRow").hidden = !isPhoto;
+  $("photoVeilLevel").value = st.photoVeilLevel;
+  $("veilVal").textContent = st.photoVeilLevel < 35 ? t("léger") : st.photoVeilLevel > 65 ? t("fort") : t("normal");
+  $("holidayBox").hidden = st.theme !== "auto";
+  const hl = $("holidayList");
+  hl.replaceChildren(...(st.holidays || []).map(([k, n]) => {
+    const cb = el("input", {type: "checkbox", checked: (st.autoHolidays || []).includes(k), onchange: () =>
+      saveSettings({autoHolidays: [...hl.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.k)})});
+    cb.dataset.k = k;
+    return el("label", {class: "check", style: "min-width:210px;margin:4px 0"}, cb, " " + n);
+  }));
+  loadPhotoPreview(st);
   const sk = $("skin");
   if (!sk.options.length) for (const [k, n] of S.skins || []) sk.append(el("option", {value: k, textContent: n}));
   sk.value = st.skin || "homekit";
@@ -954,14 +1133,14 @@ function renderSettings() {
   if (document.activeElement !== $("nightSkinEnd")) $("nightSkinEnd").value = hm2(st.nightSkinEnd);
   const th = $("theme");
   if (!th.options.length) {
-    th.append(el("option", {value: "", textContent: t("Aucun")}));
+    th.append(el("option", {value: "auto", textContent: "🗓  " + t("Automatique (saison et fêtes)")}));
     const groups = {};
     for (const tm of S.themes || []) {
       if (!groups[tm.group]) { groups[tm.group] = el("optgroup", {label: tm.group}); th.append(groups[tm.group]); }
       groups[tm.group].append(el("option", {value: tm.key, textContent: tm.emoji + "  " + tm.name}));
     }
   }
-  th.value = st.theme || "";
+  if (st.theme) th.value = st.theme;
   $("language").value = st.language || "auto";
   w.disabled = !!st.theme;
   $("dim").value = String(st.dim);
@@ -1016,6 +1195,50 @@ async function saveSettings(data) {
   catch (e) { if (e.message !== "pin") flash("⚠ " + e.message); }
 }
 $("wallpaper").onchange = () => saveSettings({wallpaper: $("wallpaper").value});
+$("bgTheme").onchange = () => saveSettings({background: "theme"});
+$("bgWallpaper").onchange = () => saveSettings({background: "wallpaper"});
+
+// ---- Photo personnelle comme fond d'écran
+let photoRev = null;
+async function loadPhotoPreview(st) {
+  const img = $("photoPreview");
+  // Aperçu de la photo utilisée : celle d'Immich si c'est le fond choisi, sinon la photo personnelle.
+  const key = st.wallpaper + ":" + st.wallpaperRev + ":" + st.hasPhoto;
+  if (photoRev === key) return;
+  photoRev = key;
+  try {
+    const r = await api("GET", "/api/wallpaper/preview");
+    const data = st.wallpaper === "immich" ? r.immich : r.data;
+    if (data) { img.src = "data:image/jpeg;base64," + data; img.hidden = false; } else img.hidden = true;
+  } catch (e) { img.hidden = true; }
+}
+$("photoVeilLevel").onchange = () => saveSettings({photoVeilLevel: +$("photoVeilLevel").value});
+$("photoNext").onclick = async () => {
+  $("photoInfo").textContent = t("Nouvelle photo demandée à Immich…");
+  try { S = await api("POST", "/api/wallpaper/next", {}); setTimeout(load, 6000); } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
+$("photoPick").onclick = () => $("photoFile").click();
+$("photoFile").onchange = async () => {
+  const f = $("photoFile").files[0];
+  $("photoFile").value = "";
+  if (!f) return;
+  if (f.size > 25000000) { alert(t("Cette image est trop grosse (25 Mo au plus).")); return; }
+  $("photoInfo").textContent = t("Envoi de la photo…");
+  try {
+    const headers = {"Content-Type": f.type || "image/jpeg"};
+    if (PIN) headers["X-Pin"] = PIN;
+    const res = await fetch("/api/wallpaper/upload", {method: "POST", headers, body: f});
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error || res.status);
+    S = j; photoRev = null; renderSettings();
+    $("photoInfo").textContent = t("✓ Photo enregistrée : c'est maintenant le fond d'écran.");
+    flash(t("✓ Photo enregistrée"));
+  } catch (e) { $("photoInfo").textContent = "⚠️ " + e.message; }
+};
+$("photoDelete").onclick = async () => {
+  if (!confirm(t("Supprimer la photo de la tablette ?"))) return;
+  try { S = await api("POST", "/api/wallpaper/delete", {}); photoRev = null; renderSettings(); $("photoInfo").textContent = t("Photo supprimée."); } catch (e) { if (e.message !== "pin") alert(e.message); }
+};
 $("theme").onchange = () => saveSettings({theme: $("theme").value});
 $("skin").onchange = () => saveSettings({skin: $("skin").value});
 $("nightSkin").onchange = () => { dependents(); saveSettings({nightSkin: $("nightSkin").value}); };
@@ -1306,12 +1529,13 @@ function renderCatalog() {
   }
 }
 
-async function loadCatalog() {
-  if (cat || loadingCat) return;
+async function loadCatalog(fresh) {
+  if ((cat && !fresh) || loadingCat) return;
   loadingCat = true;
   $("catMsg").textContent = t("Chargement de la liste des appareils…");
   try {
-    cat = await api("GET", "/api/catalog");
+    cat = fresh ? await api("POST", "/api/catalog/refresh", {}) : await api("GET", "/api/catalog");
+    if (fresh) flash(t("✓ Liste des entités relue dans Home Assistant"));
     catById = {};
     for (const e of cat.entities) catById[e.id] = e;
     const fa = $("fArea");
@@ -1320,6 +1544,11 @@ async function loadCatalog() {
     setAreaFilterFor(rooms.find(x => x.id === cur));
     renderEditor();
     renderHome();
+    // Home Assistant démarre encore : sa liste est incomplète, on la redemande un peu plus tard.
+    if (cat.partial) {
+      flash(t("Home Assistant démarre : la liste des entités se complète…"));
+      setTimeout(() => loadCatalog(true), 20000);
+    }
   } catch (e) {
     if (e.message !== "pin") $("catMsg").textContent = t("Liste indisponible : ") + e.message;
   } finally { loadingCat = false; }

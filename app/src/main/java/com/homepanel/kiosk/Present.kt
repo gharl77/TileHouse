@@ -22,7 +22,8 @@ object Present {
     private val nf get() = NumberFormat.getNumberInstance(I18n.locale).apply { maximumFractionDigits = 1 }
 
     fun domain(id: String) = id.substringBefore('.')
-    fun num(v: Double): String = nf.format(v)
+    /** Nombre affiché ; une petite valeur négative arrondie à zéro s'écrit « 0 », pas « -0 ». */
+    fun num(v: Double): String = nf.format(v).let { if (it.trimStart('-', '−').all { c -> c == '0' || c == ',' || c == '.' }) it.trimStart('-', '−') else it }
 
     fun unavailable(e: EntityState?) = e == null || e.state == "unavailable"
 

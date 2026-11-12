@@ -2,6 +2,32 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.7 (in progress)
+
+- Background: a theme **or** a wallpaper, one or the other. The settings show a single choice (Theme / Wallpaper) with the matching list underneath; choosing one turns the other off, and coming back to *Theme* brings back the last theme used (or the season's).
+- Your own photo as the wallpaper: send it from the web page or pick a file on the tablet. It is reduced to the screen size, kept only on the tablet, straightened if the phone saved it sideways, and covered with a veil that depends on the skin so the text stays readable. Pastel and Neon take their colour from it. Demo mode never shows it.
+- Home Assistant: new **Background** select (Theme / Wallpaper); the Wallpaper select gains "My photo". Picking a wallpaper sets Theme to "None", and picking a theme switches Background to Theme. An automation that sets the theme will therefore replace a wallpaper: add a condition on Background if you want to keep it.
+
+- Shopping and to-do lists: Home Assistant to-do lists behind a header icon with the number of items left; tick, add, remove the ticked ones, several lists as tabs. Chosen on the web page.
+- Now playing card in a room, only while one of its speakers or its TV is playing: title, player, pause, previous, next and volume. The home screen does not show it, and the web page lists the players of your rooms so you choose which ones show the card.
+- Weather: tap the card for the next 24 hours, hour by hour. Calendar: tap an event for its end time, place and description.
+- Favourite timers: named timers started with one tap, set on the web page. Home Assistant gets "Running timers", "Next timer ends" and a "Timer finished" event.
+- Notification history: the last 20 read notifications can be read again from the bell, which stays dimmed in the header while there are some.
+- Automatic theme: follows the date (the holidays you tick, otherwise the season), without Home Assistant. New "Theme shown" sensor.
+- Wallpaper: "Immich photo of the day" (a new photo of the photo-frame album every day) and an adjustable veil on the photo.
+- Crash journal: the last fatal error is kept and shown in About (tablet and web page), with "Last start" and "Last crash" sensors in Home Assistant.
+- Fix: a temperature just below zero was shown as "-0°".
+- Settings no longer look empty after a Home Assistant restart: an entity list taken while Home Assistant is still starting is not kept, the web page asks again by itself, a current choice always stays visible in its list, and *None found* replaces *Connection required* when Home Assistant simply has no entity of that kind.
+- Electricity: tick power or energy sensors on the web page; the first makes a chip on the home screen, and the chip (or the peak chip) opens a window with the coming peaks, the sensors and the last 24 hours.
+- Calendar reminders: from an event's window, ask to be reminded 15 min or 1 h before, or the day before; the reminder is a notification with a sound and survives a restart.
+- Grocery lists are sorted by aisle; long-press an item of a list to start a timer with its name.
+- Hourly forecast: feels-like temperature and wind; a moon instead of the sun at night, on the weather card too.
+- Timers: a warning with a "Turn it up" button when the tablet's alarm volume is at zero.
+- Web page: "Refresh entities" button; the entity list is read again after every reconnection to Home Assistant. "Test the crash journal" in About.
+- After a fatal error the app reopens by itself two seconds later instead of staying frozen behind Android's "has stopped" window.
+- Shortcuts show in the room they belong to (the room of their Home Assistant area, or the one chosen on the web page); a shortcut with no room stays on the home screen.
+- A room is always laid out in the same order: cameras, shortcuts, Now playing card, then the tiles.
+
 ## 2026.11.6
 
 **Skins**

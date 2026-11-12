@@ -20,7 +20,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 /** Minuterie de cuisson. [endAt] en temps « elapsedRealtime » ; [left] = temps restant quand elle est en pause. */
-class KitchenTimer(val id: Int, var label: String, val totalMs: Long) {
+class KitchenTimer(val id: Int, var label: String, val totalMs: Long, /** Nom donné par un favori (« Pâtes »), sinon vide. */ val name: String = "") {
+    /** Ce qu'on affiche pour la reconnaître : son nom, sinon « Minuterie de 10:00 ». */
+    val title get() = name.ifEmpty { tr("Minuterie de") + " " + label }
     var endAt = SystemClock.elapsedRealtime() + totalMs
     var left: Long? = null
     val paused get() = left != null
@@ -44,10 +46,10 @@ object KitchenTimers {
         }
     }
 
-    fun start(minutes: Int, seconds: Int = 0) {
+    fun start(minutes: Int, seconds: Int = 0, name: String = "") {
         val ms = (minutes * 60L + seconds) * 1000L
         if (ms <= 0) return
-        list.add(KitchenTimer(nextId++, format(ms), ms))
+        list.add(KitchenTimer(nextId++, format(ms), ms, name.trim()))
         list.sortBy { it.remaining() }
         restart()
     }
@@ -72,8 +74,23 @@ object KitchenTimers {
 /** Panneau des minuteries : choix rapide de la durée et minuteries en cours. */
 class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
     private val running = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
+    /** Favoris nommés (« Pâtes · 10 min »), réglés sur la page web. */
+    private val favorites = FlowLayout(act)
     private val customView = act.label(44f, Skin.ink).apply { gravity = Gravity.CENTER; typeface = Skin.light }
     private var customMin = 5
+    /** Avertissement : le volume d'alarme de la tablette est à zéro, la sonnerie de fin ne s'entendrait pas. */
+    private val muted = LinearLayout(act).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        background = roundRect(0x33FF9F0A, act.dpf(14))
+        setPadding(act.dp(16), act.dp(10), act.dp(10), act.dp(10))
+        addView(act.label(15f, Skin.ink, text = "🔇  " + tr("Le volume d'alarme de la tablette est à zéro : la sonnerie de fin ne s'entendra pas.")), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        addView(act.label(15f, Skin.onPrimary, true, tr("Monter le volume")).apply {
+            background = roundRect(Skin.accent, act.dpf(12))
+            setPadding(act.dp(14), act.dp(9), act.dp(14), act.dp(9))
+            setOnClickListener { TimerAlarm.raiseVolume(act); checkVolume() }
+        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = act.dp(10) })
+    }
+    private fun checkVolume() { muted.visibility = if (TimerAlarm.silent(act)) View.VISIBLE else View.GONE }
     private val onChange: () -> Unit = { if (showing) renderRunning() }
     val showing get() = visibility == View.VISIBLE
 
@@ -96,6 +113,8 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
             layoutParams = LinearLayout.LayoutParams(act.dp(44), act.dp(44))
         })
         panel.addView(head)
+        panel.addView(muted, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = act.dp(12) })
+        panel.addView(favorites, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = act.dp(14); marginStart = act.dp(5) })
 
         // Durées rapides
         val presets = listOf(1, 3, 5, 10, 15, 20, 30, 45, 60)
@@ -142,6 +161,8 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
     fun show() {
         if (onChange !in KitchenTimers.listeners) KitchenTimers.listeners.add(onChange)
         built = false
+        checkVolume()
+        renderFavorites()
         renderRunning()
         visibility = View.VISIBLE; bringToFront()
         alpha = 0f; animate().alpha(1f).setDuration(180).start()
@@ -151,6 +172,24 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
         if (!showing) return
         KitchenTimers.listeners.remove(onChange)
         animate().alpha(0f).setDuration(150).withEndAction { visibility = View.GONE }.start()
+    }
+
+    private fun renderFavorites() {
+        favorites.removeAllViews()
+        val presets = App.instance.config.timerPresets
+        favorites.visibility = if (presets.length() == 0) View.GONE else View.VISIBLE
+        for (i in 0 until presets.length()) {
+            val p = presets.optJSONObject(i) ?: continue
+            val name = p.optString("name").trim(); val min = p.optInt("minutes")
+            if (name.isEmpty() || min <= 0) continue
+            favorites.addView(act.label(17f, Skin.onPrimary).apply {
+                text = "$name · " + (if (min < 60) "$min min" else "${min / 60} h" + if (min % 60 > 0) " ${min % 60}" else "")
+                typeface = Skin.medium
+                background = roundRect(Skin.accent, act.dpf(16))
+                setPadding(act.dp(18), act.dp(12), act.dp(18), act.dp(12))
+                setOnClickListener { KitchenTimers.start(min, name = name) }
+            })
+        }
     }
 
     private val rows = HashMap<Int, Pair<View, TextView>>()
@@ -174,7 +213,8 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
                 }
                 val col = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
                 col.addView(time)
-                col.addView(act.label(14f, Skin.mute, text = tr("Minuterie de") + " " + t.label))
+                col.addView(act.label(if (t.name.isEmpty()) 14f else 16f, if (t.name.isEmpty()) Skin.mute else Skin.ink, t.name.isNotEmpty(),
+                    if (t.name.isEmpty()) t.title else t.name + " · " + t.label))
                 r.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
                 r.addView(chip("+1 min") { KitchenTimers.add(t, 60_000L) }, LinearLayout.LayoutParams(act.dp(96), act.dp(52)).apply { marginEnd = act.dp(8) })
                 r.addView(act.roundIcon(if (t.paused) R.drawable.ic_play else R.drawable.ic_pause, 52, Skin.fg(0x24), Skin.ink) { KitchenTimers.toggle(t); rows.clear(); renderRunning() })
@@ -192,6 +232,19 @@ class TimerPanel(private val act: MainActivity) : FrameLayout(act) {
 
 /** Alarme de fin de minuterie : sonnerie en boucle (max 2 min) jusqu'au toucher de « Arrêter ». */
 class TimerAlarm(private val ctx: Context) {
+    companion object {
+        private fun audio(ctx: Context) = ctx.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+        /** Vrai si la sonnerie de fin serait inaudible (volume d'alarme à zéro). */
+        fun silent(ctx: Context) = try { audio(ctx).getStreamVolume(android.media.AudioManager.STREAM_ALARM) == 0 } catch (_: Exception) { false }
+        /** Remet le volume d'alarme aux deux tiers. */
+        fun raiseVolume(ctx: Context) {
+            try {
+                val a = audio(ctx)
+                a.setStreamVolume(android.media.AudioManager.STREAM_ALARM, maxOf(1, a.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM) * 2 / 3), 0)
+            } catch (_: Exception) {}
+        }
+    }
+
     private var player: MediaPlayer? = null
     private val main = Handler(Looper.getMainLooper())
     private val autoStop = Runnable { stop() }

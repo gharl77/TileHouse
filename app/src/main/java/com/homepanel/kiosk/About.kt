@@ -13,7 +13,7 @@ object About {
     const val ISSUES_URL = "$REPO_URL/issues"
     const val LICENSE = "MIT"
     const val AUTHOR = "gharl77"
-    private val started = System.currentTimeMillis()
+    private val started get() = CrashLog.startedAt
 
     class Info(val label: String, val value: String)
 
@@ -59,6 +59,9 @@ object About {
             // Mode démo (captures d'écran) : adresse d'exemple plutôt que celle du réseau réel.
             Info(tr("Page web"), if (app.config.demo) "http://192.168.1.42:8080" else app.web.url() ?: tr("Désactivée")),
             Info(tr("En marche depuis"), duration(System.currentTimeMillis() - started)),
+            Info(tr("Dernier plantage"), CrashLog.last(app)?.let {
+                DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, I18n.locale).format(Date(it.time)) + " · " + it.version + " · " + it.summary
+            } ?: tr("Aucun")),
             Info(tr("Licence"), "$LICENSE · © 2026 $AUTHOR"),
         )
     }
@@ -66,5 +69,6 @@ object About {
     fun json(app: App): JSONObject = JSONObject()
         .put("version", version(app))
         .put("repo", REPO_URL).put("releases", RELEASES_URL).put("issues", ISSUES_URL)
+        .put("crash", CrashLog.last(app)?.let { JSONObject().put("time", it.time).put("version", it.version).put("summary", it.summary).put("trace", it.trace) } ?: JSONObject.NULL)
         .put("info", JSONArray().also { a -> for (i in info(app)) a.put(JSONArray().put(i.label).put(i.value)) })
 }

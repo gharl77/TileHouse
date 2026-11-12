@@ -131,7 +131,7 @@ internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, ac
     val shown = if (Skin.chipRows == Int.MAX_VALUE) chips else chips.sortedByDescending { it.level }
     fun chip(c: Present.Chip, before: () -> Unit = {}) = chipView(c).apply {
         isClickable = true
-        setOnClickListener { before(); if (c.kind == "wx") showWeatherAlerts() else room?.let { showChipDetail(it, c) } }
+        setOnClickListener { before(); if (c.kind == "wx") showWeatherAlerts() else if (c.kind == "energy" || c.kind == "peak") showEnergy() else room?.let { showChipDetail(it, c) } }
     }
     for (c in shown) chipsView.addView(chip(c))
     if (Skin.chipRows != Int.MAX_VALUE) {
@@ -177,7 +177,7 @@ internal fun MainActivity.showSheet(d: android.app.Dialog, box: View) {
 }
 
 /** Fenêtre de lecture (texte long, défilant). */
-internal fun MainActivity.showReader(title: String, body: CharSequence) {
+internal fun MainActivity.showReader(title: String, body: CharSequence, footer: ((android.app.Dialog) -> View)? = null) {
     val d = android.app.Dialog(this)
     d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
     val box = LinearLayout(this).apply {
@@ -190,5 +190,6 @@ internal fun MainActivity.showReader(title: String, body: CharSequence) {
     box.addView(MaxHeightScrollView(this, (resources.displayMetrics.heightPixels * 0.7f).toInt()).apply {
         addView(label(16f, Skin.fg(0xE6)).apply { text = body; setLineSpacing(0f, 1.15f) })
     })
+    footer?.let { box.addView(it(d), LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(16) }) }
     showSheet(d, box)
 }

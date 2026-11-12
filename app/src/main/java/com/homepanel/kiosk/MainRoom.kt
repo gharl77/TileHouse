@@ -45,6 +45,7 @@ internal fun MainActivity.showRoom() {
     subtitleView.visibility = View.GONE
     titleView.text = room.name
 
+    // Ordre d'une pièce : les caméras d'abord, puis les raccourcis, puis la carte « En lecture », puis les tuiles.
     // Les caméras ont toujours leur propre grille de grandes vignettes, en haut.
     val cams = room.entities.filter { Present.domain(it.id) == "camera" }
     if (cams.isNotEmpty()) {
@@ -59,6 +60,14 @@ internal fun MainActivity.showRoom() {
         content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
         handler.post(snapshotTick)
     }
+    // Raccourcis associés à cette pièce (ceux sans pièce restent sur l'accueil).
+    addShortcuts(Shortcuts.forRoom(cfg, room), dp(if (cams.isEmpty()) 4 else 12))
+
+    // Carte « En lecture » : seulement quand un lecteur choisi de cette pièce joue.
+    nowPlayingBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also { content.addView(it) }
+    nowPlayingKey = "?"
+    updateNowPlaying()
+
     // Les capteurs résumés dans l'en-tête (température, portes, mouvement…) n'ont pas de tuile.
     val others = room.entities.filter {
         Present.domain(it.id) != "camera" && !Present.isHeaderSensor(it.id, app.ha.states[it.id])

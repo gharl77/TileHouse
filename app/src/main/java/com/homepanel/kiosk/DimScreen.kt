@@ -75,7 +75,7 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
             .replaceFirstChar { it.uppercase() }
         weather.text = weatherState?.let { w ->
             val temp = w.attrs.dbl("temperature")?.let { Present.num(it) + "°" } ?: ""
-            "${HomeText.emoji(w.state)}  $temp  ${HomeText.condition(w.state)}".trim()
+            "${HomeText.emoji(w.state, HomeText.nightNow())}  $temp  ${HomeText.condition(w.state, HomeText.nightNow())}".trim()
         } ?: ""
         weather.visibility = if (weather.text.isNullOrEmpty()) View.GONE else View.VISIBLE
         // Horloge seule : léger déplacement à chaque nouvelle minute (anti-marquage).

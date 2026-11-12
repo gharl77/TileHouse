@@ -157,8 +157,23 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 
 - **Greeting** that follows the time of day (or the active holiday theme), with **who's home** underneath.
 - **Weather card**: current condition, temperature, humidity and wind, plus a **5‑day forecast**
-  (any `weather.*` entity, via `weather.get_forecasts`).
+  (any `weather.*` entity, via `weather.get_forecasts`). **Tap it** for the next 24 hours, hour by hour: condition, temperature,
+  feels-like temperature (when it differs by 2° or more), chance of rain and wind (when the weather source provides hourly
+  forecasts). At night a moon replaces the sun, even when the weather source says "sunny" (from Home Assistant's `sun.sun`).
 - **Calendar card**: upcoming events from the calendars you choose (today and the next few days), colour‑coded by calendar.
+  **Tap an event** to see its end time, place and description, and to ask for a **reminder** (15 min or 1 h before, the day
+  before at 7 pm; for an all-day event, the day before or that morning). The reminder arrives in the notification center with a
+  sound, is kept on the tablet across restarts, and can be cancelled from the same window.
+- **Shopping and to-do lists** (☑ next to the timer): the Home Assistant to-do lists you choose on the web page
+  (*Home → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
+  the keyboard, remove the ticked ones; several lists become tabs. Changes made elsewhere (phone, voice assistant) show up, and
+  the other way round. A grocery list is sorted **by aisle** (fruit & vegetables, dairy, meat, bakery, frozen, drinks, pantry,
+  household), recognised from common French and English words; a list that isn't groceries stays as it is. **Long-press an
+  item** to start a kitchen timer with its name ("Bread · 45 min").
+
+  | Lists | Next hours |
+  |---|---|
+  | <img src="docs/screenshots/lists.png" alt="Shopping list"> | <img src="docs/screenshots/hourly-forecast.png" alt="Hourly forecast"> |
 - **Header summary** for the whole house, showing only what needs attention: lights on, unlocked locks, open doors, open windows
   (nothing at all when everything is off, locked and closed). Tap a chip to see which devices, with a **Turn off** / **Lock** button
   on each one that can be controlled.
@@ -167,13 +182,21 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
   (case and accents ignored; empty = every event of that calendar). Both can use the same calendar.
 - **Electricity peaks** (e.g. Hydro-Québec): "Peak tomorrow 06:00–09:00" the day before and the same day, then a red "Peak now ·
-  ends 09:00" during the peak, from the calendar you pick (*Home → Electricity peaks*). An optional reminder (30 min to 3 h
+  ends 09:00" during the peak, from the calendar you pick (*Home → Electricity*). An optional reminder (30 min to 3 h
   before) goes to the notification center.
+- **Electricity**: tick power or energy sensors on the web page (*Home → Electricity*). The first one makes a chip ("2.4 kW");
+  tap it, or the peak chip, for the **Electricity window**: the peak in progress or coming, every ticked sensor, and the last
+  24 hours of the first one (a curve for a power sensor, consumption per hour for an energy meter).
+
+  <img src="docs/screenshots/energy.png" width="640" alt="Electricity window">
 - **Weather alerts**: pick the sensors that count the alerts in effect (Environment Canada: warnings, watches, advisories); a chip
   appears when one is above 0 (red for a warning), tap it for details.
 - **Custom chips**: show a chip when an entity is in a given state, e.g. "🧺 Washer to empty" when the washer status is *To empty*
   (entity, states, text and colour on the web page).
-- **Shortcuts**: large buttons for the scripts, scenes and buttons you choose.
+- **Shortcuts**: large buttons for the scripts, scenes and buttons you choose. A shortcut shows **in the room it
+  belongs to, under the cameras** — the room of its Home Assistant area, or the one you pick next to it on the web page (*Home → Shortcuts*) — and
+  stays on the home screen when it has no room (or when you pick *Home*). A scene that already has its tile in the room isn't
+  shown twice.
 - **This morning** (☀️ next to the bell): during a time range (default 05:00–10:00), a sun icon appears at the top, with a blue
   dot until you have read the content. Tap it to open a full-screen panel with the sources you choose (*Home → This morning* on
   the web page):
@@ -212,6 +235,12 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 <img src="docs/screenshots/room-living.png" width="860" alt="A room">
 
 - Tap a room on the home screen to open it; the **←** arrow brings you back. **Swipe left/right** to move between rooms.
+- **Order of a room**: the cameras always come first, then the shortcuts of the room, then the *Now playing* card, then the tiles.
+- **Now playing card**: in a room, only while one of its speakers or its TV is playing: title, player, pause, previous, next
+  and volume. It stays ten minutes after a pause so you can resume, and disappears when everything is stopped. The home screen
+  doesn't show it. **You choose which players show it** on the web page (*Home → Now playing*): every speaker and TV of your
+  rooms is listed with its room, all ticked at first; untick the ones you don't want (a voice assistant, for instance). The
+  card can also be turned off entirely (same place, or *Display → Dashboard* on the tablet).
 - Devices are shown as tiles, **grouped by category** (Cameras, Scenes, Lights, Climate, Blinds & shades, Media, Plugs & switches,
   Security, Sensors…), or in your own order if you turn grouping off.
 - **Tap** a tile to toggle it (light, switch, cover, lock, scene, media play/pause…). Active tiles turn white with a coloured icon,
@@ -319,10 +348,14 @@ on its base). With the helper script below, use its `tag` field.
 **Camera alerts** (person detected, doorbell, motion) are kept in the notification center too, like Home Assistant's camera
 notifications but without a description: the camera name, the time and a **thumbnail** captured a few seconds after the
 detection. Open one to see the capture large. There is at most one entry per camera and type per minute, and the capture is
-deleted from the tablet once the alert is read.
+deleted from the tablet when the alert leaves the history.
 
 Unread notifications are kept across restarts and updates (50 at most). The sensor *Unread notifications* gives their number to
 Home Assistant, e.g. to light a lamp while messages are waiting. Emoji newer than the tablet supports are shown as 💬.
+
+**History**: the last 20 notifications you have read are kept too. While there are some, the bell stays in the header (dimmed,
+without a counter); the **Read** button of the notification center lists them, and tapping one shows it again. **Clear history**
+empties the list, and `clear_notification` with a tag removes that notification from the history as well.
 
 
 <img src="docs/screenshots/notification-center.png" width="860" alt="Notification center with camera alerts">
@@ -387,13 +420,19 @@ With a button:
 <img src="docs/screenshots/timers.png" width="860" alt="Kitchen timers">
 
 - Tap **⏱** next to the time, then a quick duration (1 min to 1 h) or set your own with − / + and **Start**.
+- **Favourite timers**: named timers started with one tap ("Pasta · 10 min"), set on the web page (*Sounds & alerts → Favourite
+  timers*). The name shows in the list and on the card when it rings.
+- In Home Assistant: the sensors *Running timers* and *Next timer ends*, and the event *Timer finished* (with the timer's name),
+  e.g. to announce on a speaker elsewhere that the pasta is ready.
 - Several timers can run at once; each has **+1 min**, pause / resume and cancel. The next one to end counts down in the header
   (e.g. `4:32 +1`).
 - When a timer ends, the screen wakes up, an **alarm** rings (up to 2 minutes, at the tablet's alarm volume) and a large card stays
   until you tap **OK**. Timers ring even when notification sounds are off or during quiet hours: you started them yourself.
 - If the settings or a camera's live view are open at that moment, the dashboard comes back to the front with the card, so the
   **OK** button is always there to stop the alarm.
-- The alarm uses Android's **alarm volume** (*Android settings → Sounds → Volume → Alarm*). If it is at 0, timers are silent.
+- The alarm uses Android's **alarm volume** (*Android settings → Sounds → Volume → Alarm*). If it is at 0, timers would be
+  silent: the timers window then shows a warning with a **Turn it up** button.
+- **Long-press an item of a list** to start a timer with its name.
 
 ### Sleep, screen saver and sounds
 
@@ -430,8 +469,27 @@ Tap any chip to see the individual devices.
 
 ### Themes and wallpapers
 
-Pick one of **5 wallpapers** (Night, Dawn, Ocean, Forest, Graphite) or one of **18 themes** that add a gradient, a few discreet
-decorations and a matching greeting. Themes are switched manually (from the tablet, the web page, or a Home Assistant automation):
+The background is **a theme or a wallpaper, one or the other**: choosing one turns the other off, and the settings show a single
+*Background* choice (Theme / Wallpaper) with the matching list underneath.
+
+- A **wallpaper** is one of 5 gradients (Night, Dawn, Ocean, Forest, Graphite) or **your own photo**. Send the photo from the web
+  page (*Display → Background → Choose a photo*, JPEG, PNG or WebP up to 25 MB) or pick a file on the tablet itself
+  (*Display → Background → My photo*). It is reduced to the screen size, kept only on the tablet, and covered with a veil that
+  depends on the skin so the text stays readable (dark for most skins, light paper for Paper). Pastel and Neon take their
+  colour from the photo. A photo taken sideways by a phone is straightened. Demo mode never shows your photo.
+- A **theme** is one of 18 that add a gradient, a few discreet decorations and a matching greeting. Coming back from a wallpaper
+  to *Theme* brings back the last theme used, or the season's.
+
+- **Automatic theme**: pick *Automatic (season and holidays)* and the theme follows the date by itself — a holiday when its day
+  comes (Christmas from December 1 to 26, Halloween from October 25 to 31, Easter from Good Friday to Easter Monday, Thanksgiving
+  weekend…), otherwise the season. Tick the holidays you follow on the web page; the default list depends on the tablet's country.
+  Lunar New Year and Hanukkah move every year and are picked by hand. If a Home Assistant automation also sets the theme, it will
+  replace *Automatic*: use one or the other.
+- **Immich photo of the day** as the wallpaper: a new photo from the album of the photo frame every day (*Another photo* on the
+  web page for a different one right away). Needs Immich and an album chosen in the screen saver settings.
+- **Veil on the photo**: lighter to let the photo stand out, stronger for more readable text (tablet, web page, Home Assistant).
+
+Themes can also be switched by hand (from the tablet, the web page, or a Home Assistant automation):
 
 - **Seasons**: Spring, Summer, Autumn, Winter
 - **Holidays**: New Year, Lunar New Year, Valentine's Day, St. Patrick's Day, Easter, Mother's Day, Father's Day,
@@ -497,7 +555,7 @@ The tablet runs a small web server (port **8080**). Open the address shown in th
   (collections, electricity peaks, weather alerts, custom chips), **Weather and calendar** cards, **Shortcuts** and **This morning** (time range and sources). For who's home, the people from the companion app and the per-person
   presence sensors are listed side by side with the current selection on top; room detectors and tracked devices are folded
   under *Other sources*, with a search field.
-- **Display**: appearance (language, skin, theme, wallpaper), dashboard options, screen (brightness, sleep delay, wake on motion)
+- **Display**: appearance (language, skin), background (theme or wallpaper, your photo), dashboard options, screen (brightness, sleep delay, wake on motion)
   and screen saver (including the Immich photo frame).
 - **Sounds & alerts**: notification sounds and quiet hours, notification duration, and camera alerts.
 - **Connection & security**: Home Assistant address and token, demo mode, PIN, backup and restore, and MQTT.
@@ -520,7 +578,14 @@ browser), the page reloads it instead of overwriting it. Deep links work too: `h
 The same options are available on the tablet itself (⋮ menu → settings), protected by the PIN if you set one.
 
 The **About** tab shows the version, GitHub links (repository, release notes, issues), the tablet and Android version, the
-Home Assistant version and connection, and memory use.
+Home Assistant version and connection, memory use, and the **last crash** if there was one (date, version and error; the web
+page shows the full trace and can clear it). After a fatal error the app **reopens by itself** two seconds later, instead
+of staying frozen behind Android's "TileHouse has stopped" window (if it crashes again within two minutes, Android's window is
+left in place so it doesn't restart in a loop). **Test the crash journal** (web page) causes a real crash on purpose, to check
+that it is recorded, that the app comes back and that Home Assistant is told.
+
+**↻ Refresh entities**, at the top of the web page, reads the list of devices, calendars, lists and sensors again from Home
+Assistant, for instance right after creating a to-do list. The list is also read again by itself after every reconnection.
 
 Six tabs, named and grouped like the web page: **Rooms**, **Display** (appearance, dashboard options, screen brightness and
 sleep, screen saver), **Sounds & alerts** (sounds and quiet hours, notifications, camera alerts), **Connection**, **Security**
@@ -557,8 +622,13 @@ The entities follow Home Assistant's conventions: what you use every day is show
 | Message | notify | show a notification card in the middle of the screen (`notify.send_message`, see [Notifications](#notifications)) |
 | Screen shown | sensor | which screen/room is displayed |
 | Unread notifications | sensor | number of unread notifications |
+| Theme shown | sensor | the theme on screen (useful with the automatic theme) |
+| Running timers, Next timer ends | sensors | how many kitchen timers run, and when the next one ends |
+| Timer finished | event | fires when a kitchen timer ends, with its name and duration |
 | **Configuration** | | |
-| Skin / Night skin / Theme / Wallpaper | selects | e.g. switch to the Christmas theme on December 1st |
+| Skin / Night skin | selects | |
+| Background / Theme / Wallpaper | selects | Background is *Theme* or *Wallpaper*; picking a theme or a wallpaper switches it. E.g. the Christmas theme on December 1st. An automation that sets the theme can first check that Background is *Theme*, so it does not replace a wallpaper you chose |
+| Veil on the wallpaper photo | number (0–100 %) | |
 | Group by category, Show clock, Show battery | switches | |
 | Dim after | number (min) | |
 | Screen saver, Screen saver brightness | select, number | time and weather, photo frame or black screen; its brightness |
@@ -570,6 +640,7 @@ The entities follow Home Assistant's conventions: what you use every day is show
 | Charging | binary sensor | |
 | Power source | sensor (AC / USB / wireless / unplugged) | |
 | Battery temperature, Wi‑Fi signal, IP address, Memory used (MB) | sensors | |
+| Last start, Last crash | sensors (date and time) | when the app last started; when it last closed on an error (with a short summary), to notice a problem on a tablet nobody watches |
 
 The device stays the same even if you reinstall the app or move your configuration to another tablet (its ID is kept in backups).
 

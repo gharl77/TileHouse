@@ -54,13 +54,82 @@ object Themes {
 
     fun get(key: String): Theme? = all.firstOrNull { it.key == key }
 
-    /** Fond de l'écran : thème actif, sinon le fond d'écran choisi. */
-    fun background(ctx: Context, cfg: ConfigStore): Drawable =
-        get(cfg.theme)?.let { ThemeDrawable(ctx, it) } ?: Wallpapers.skinned(cfg.wallpaper)
+    /** Valeur du réglage « thème » en mode automatique : le thème suit la date (fêtes, sinon saison). */
+    const val AUTO = "auto"
+
+    /** Fêtes dont la date se calcule (les fêtes lunaires — Nouvel An lunaire, Hanoukka — se choisissent à la main). */
+    val AUTO_HOLIDAYS = listOf("jour_an", "st_valentin", "st_patrick", "paques", "fete_meres", "fete_peres", "st_jean", "canada",
+        "independance_us", "action_grace", "halloween", "noel")
+
+    /** Fêtes suivies par défaut selon le pays de la tablette. */
+    fun defaultHolidays(country: String): Set<String> = when (country.uppercase()) {
+        "CA" -> setOf("jour_an", "st_valentin", "st_patrick", "paques", "fete_meres", "fete_peres", "st_jean", "canada", "action_grace", "halloween", "noel")
+        "US" -> setOf("jour_an", "st_valentin", "st_patrick", "paques", "fete_meres", "fete_peres", "independance_us", "action_grace", "halloween", "noel")
+        else -> setOf("jour_an", "st_valentin", "paques", "halloween", "noel")
+    }
+
+    /** Jour du mois du [n]-ième [weekday] (Calendar.SUNDAY…) du mois [month] (1 à 12) de l'année [year]. */
+    private fun nth(year: Int, month: Int, weekday: Int, n: Int): Int {
+        val c = java.util.GregorianCalendar(year, month - 1, 1)
+        val shift = (weekday - c.get(java.util.Calendar.DAY_OF_WEEK) + 7) % 7
+        return 1 + shift + (n - 1) * 7
+    }
+
+    /** Dimanche de Pâques (calendrier grégorien) : mois et jour. */
+    private fun easter(year: Int): Pair<Int, Int> {
+        val a = year % 19; val b = year / 100; val c = year % 100
+        val d = b / 4; val e = b % 4; val f = (b + 8) / 25; val g = (b - f + 1) / 3
+        val h = (19 * a + b - d - g + 15) % 30
+        val i = c / 4; val k = c % 4
+        val l = (32 + 2 * e + 2 * i - h - k) % 7
+        val m = (a + 11 * h + 22 * l) / 451
+        val month = (h + l - 7 * m + 114) / 31
+        return month to ((h + l - 7 * m + 114) % 31) + 1
+    }
+
+    /**
+     * Thème du jour : une fête de [enabled] si c'en est une, sinon la saison.
+     * Fenêtres : Noël du 1er au 26 décembre, Halloween du 25 au 31 octobre, Pâques du Vendredi saint au lundi,
+     * jour de l'An le 31 décembre et le 1er janvier, Action de grâce la fin de semaine (Canada) ou le jeudi et le
+     * lendemain (États-Unis, [country] = "US") ; les autres fêtes le jour même.
+     */
+    fun forDate(cal: java.util.Calendar, enabled: Set<String>, country: String): String {
+        val y = cal.get(java.util.Calendar.YEAR); val m = cal.get(java.util.Calendar.MONTH) + 1; val d = cal.get(java.util.Calendar.DAY_OF_MONTH)
+        fun on(key: String, hit: Boolean) = if (hit && key in enabled) key else null
+        val (em, ed) = easter(y)
+        val easterDay = java.util.GregorianCalendar(y, em - 1, ed).get(java.util.Calendar.DAY_OF_YEAR)
+        val today = java.util.GregorianCalendar(y, m - 1, d).get(java.util.Calendar.DAY_OF_YEAR)
+        val thanksgiving = if (country.uppercase() == "US") nth(y, 11, java.util.Calendar.THURSDAY, 4).let { m == 11 && d in it..it + 1 }
+            else nth(y, 10, java.util.Calendar.MONDAY, 2).let { m == 10 && d in it - 2..it }
+        return on("noel", m == 12 && d in 1..26)
+            ?: on("jour_an", (m == 12 && d == 31) || (m == 1 && d == 1))
+            ?: on("st_valentin", m == 2 && d == 14)
+            ?: on("st_patrick", m == 3 && d == 17)
+            ?: on("paques", today in easterDay - 2..easterDay + 1)
+            ?: on("fete_meres", m == 5 && d == nth(y, 5, java.util.Calendar.SUNDAY, 2))
+            ?: on("fete_peres", m == 6 && d == nth(y, 6, java.util.Calendar.SUNDAY, 3))
+            ?: on("st_jean", m == 6 && d == 24)
+            ?: on("canada", m == 7 && d == 1)
+            ?: on("independance_us", m == 7 && d == 4)
+            ?: on("action_grace", thanksgiving)
+            ?: on("halloween", m == 10 && d in 25..31)
+            ?: seasonFor(m)
+    }
+
+    /** Thème de saison pour un mois (1 à 12), dans l'hémisphère nord. */
+    fun seasonFor(month: Int): String = when (month) { 12, 1, 2 -> "hiver"; 3, 4, 5 -> "printemps"; 6, 7, 8 -> "ete"; else -> "automne" }
+
+    /** Fond de l'écran : le thème s'il y en a un, sinon le fond d'écran (dégradé ou photo personnelle). */
+    fun background(ctx: Context, cfg: ConfigStore): Drawable {
+        get(cfg.activeTheme)?.let { return ThemeDrawable(ctx, it) }
+        if (PhotoWallpaper.isPhoto(cfg.wallpaper))
+            PhotoWallpaper.drawable(ctx, cfg.wallpaper, Skin.photoVeil(cfg.photoVeilLevel), cfg.wallpaperRev)?.let { return it }
+        return Wallpapers.skinned(cfg.wallpaper)
+    }
 
     /** Titre de l'accueil : vœu de fête, ou salutation + motif de saison. */
     fun greeting(cfg: ConfigStore, hour: Int): String {
-        val t = get(cfg.theme) ?: return HomeText.greeting(hour)
+        val t = get(cfg.activeTheme) ?: return HomeText.greeting(hour)
         return (t.wish ?: HomeText.greeting(hour)) + " " + t.emoji
     }
 }
