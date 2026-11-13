@@ -70,16 +70,18 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
   **notification center** (bell with an unread counter) for the ones nobody confirmed.
 - **Screen saver** with the time and weather (or a black screen), and optional **wake on motion** with the tablet's front camera.
 - **Robot vacuums**: state, battery, start / pause / stop / return to base.
+- **Music** with Music Assistant: favourites, playlists, radio and albums, on the speakers you choose, with volume, shuffle,
+  repeat, queue and transfer to another speaker.
 - **Kitchen timers**, **collection reminders** (recycling, garbage) and a **photo frame** screen saver (Immich).
 - **Quiet hours**: silent notifications and a black screen at night.
-- **Header chips** summarising temperature, humidity, motion, doors, windows, leaks and locks, tap for the details and quick actions.
+- **Header chips** summarising temperature, humidity, motion, doors, windows, blinds and curtains, leaks and locks, tap for the details and quick actions.
 - **Web configuration page** served by the tablet itself: set everything up comfortably from a computer or phone.
 - **MQTT discovery**: the tablet shows up in Home Assistant as a device (battery, charging, screen, brightness, theme, notifications, updates…).
 - **18 themes** for seasons and holidays, plus 5 wallpapers.
 - **Updates over Wi‑Fi** from GitHub releases, from Home Assistant, or by uploading an APK.
 - **English and French**, automatic by default.
 - **Demo mode** to try everything without Home Assistant.
-- Secrets (HA token, MQTT password, PIN) **encrypted with the Android Keystore**.
+- Secrets (HA token, MQTT password, PIN, Immich and Music Assistant keys) **encrypted with the Android Keystore**.
 
 ---
 
@@ -172,7 +174,12 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   (off, whole queue, one title), previous, pause and next, plus the title that comes next and the position in the queue
   ("Up next: … · 3 of 442"). A **progress bar** shows the position in the title; drag it to move. The **queue button** lists
   the titles to come (tap one to jump to it): Home Assistant does not expose the queue, so this asks the Music Assistant
-  server directly and needs a token from Music Assistant, pasted on the web page (*Header tools → Music → Queue*). **Transfer** moves the music that is playing to another speaker, where it carries on from the same spot.
+  server directly and needs a token from Music Assistant, pasted on the web page (*Header tools → Music → Queue*; the server
+  address is guessed from Home Assistant's, port 8095, and can be changed there). Without a token everything else works.
+  **Transfer** moves the music that is playing to another speaker, where it carries on from the same spot.
+  When Music Assistant refuses a title, or a speaker accepts the music but does not start within ten seconds, the window says
+  so in red instead of waiting. The covers are downloaded from the addresses Music Assistant gives, which are often your music
+  service's servers on the internet.
 - **Shopping and to-do lists** (☑ next to the timer): the Home Assistant to-do lists you choose on the web page
   (*Header tools → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
   the keyboard, remove the ticked ones; several lists become tabs. Changes made elsewhere (phone, voice assistant) show up, and
@@ -606,7 +613,8 @@ Long explanations sit behind *Learn more*.
   groups the rooms by. **Now playing** (the card at the top of a room, its players and what happens after a pause) is here too.
 - **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
   **Information chips** (collections, electricity, weather alerts, custom chips) and **Shortcuts**.
-- **Header tools**: the icons at the top of the tablet — shopping and to-do lists, favourite timers, and This morning.
+- **Header tools**: the icons at the top of the tablet — shopping and to-do lists, music (the Music Assistant speakers offered,
+  and the server token for the queue), favourite timers, and This morning.
 
 **Tablet**
 - **Appearance**: language, skin and night skin, background (theme or wallpaper, your photo) and dashboard options.
@@ -774,8 +782,10 @@ TileHouse reopens by itself once the update is installed.
 
 ## Security and privacy
 
-- TileHouse talks **only** to your Home Assistant, your MQTT broker, and GitHub (to check for updates). No analytics, no accounts, no cloud.
-- The Home Assistant token, the MQTT password and the PIN are **encrypted at rest** with a key kept in the Android Keystore.
+- TileHouse talks to your Home Assistant, your MQTT broker and GitHub (to check for updates), plus the services you turn on
+  yourself: your Immich server (photo frame), the feeds you add to This morning, and for music your Music Assistant server and
+  the servers that host the covers (usually your music service). No analytics, no accounts.
+- The Home Assistant token, the MQTT password, the PIN, the Immich key and the Music Assistant token are **encrypted at rest** with a key kept in the Android Keystore.
   They are never displayed again once saved, and never included in a backup unless you ask for it.
 - **Wake on motion** is off by default. When you turn it on, the front camera's frames are compared in memory at very low resolution
   and thrown away: nothing is recorded, saved or sent.
