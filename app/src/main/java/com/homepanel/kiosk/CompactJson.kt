@@ -13,7 +13,7 @@ import java.io.StringReader
  */
 object CompactJson {
     private val CONTAINERS = setOf("result", "entities")
-    private val ATTRS = setOf("friendly_name", "device_class", "unit_of_measurement")
+    private val ATTRS = setOf("friendly_name", "device_class", "unit_of_measurement", "mass_player_type")
 
     fun parse(text: String): JSONObject = JsonReader(StringReader(text)).use { readObj(it, false) }
 

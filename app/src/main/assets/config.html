@@ -393,6 +393,19 @@ details.more>p{margin:6px 0 0}
     <div id="todoList" class="muted">Connexion requise…</div>
   </section>
   <section class="card">
+    <h2>🎵 Musique (Music Assistant)</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Les enceintes de Music Assistant que vous choisissez ici apparaissent dans la fenêtre Musique, derrière une icône en haut de la tablette. On y lance ses favoris, listes, radios et albums, on cherche un titre, on règle le volume, et on transfère la musique d'une enceinte à une autre. La première enceinte de la liste est proposée d'office. Sans enceinte choisie, l'icône n'apparaît pas.</p></details>
+    <h3 class="sub">Enceintes proposées</h3>
+    <div id="musicList" class="muted">Connexion requise…</div>
+    <h3 class="sub">File de lecture</h3>
+    <p class="muted">Pour afficher les titres à venir, la tablette interroge directement le serveur Music Assistant, qui demande un jeton. Créez-en un dans Music Assistant (Paramètres → votre profil → jetons d'accès) et collez-le ici. Sans jeton, tout le reste fonctionne.</p>
+    <div class="row">
+      <div style="flex:3"><label class="f" for="musicUrl">Serveur Music Assistant</label><input id="musicUrl" placeholder="http://192.168.1.20:8095"></div>
+      <div style="flex:3"><label class="f" for="musicToken">Jeton</label><input id="musicToken" type="password" autocomplete="new-password"></div>
+    </div>
+    <button id="saveMusic">Enregistrer</button> <span id="musicInfo" class="muted"></span>
+  </section>
+  <section class="card">
     <h2>Minuteries favorites</h2>
     <p class="muted">Des minuteries nommées, lancées d'un toucher depuis le panneau des minuteries (par exemple « Pâtes » 10 min). Le nom apparaît quand elle sonne.</p>
     <div id="timerPresets"></div>
@@ -703,7 +716,7 @@ async function initI18n() {
 const LEADS = {
   rooms: "Les pièces de la maison, leurs appareils et ce qui s'affiche en haut d'une pièce.",
   home: "Ce que la page principale de la tablette affiche.",
-  tools: "Les icônes en haut de la tablette : listes, minuteries et Ce matin.",
+  tools: "Les icônes en haut de la tablette : listes, musique, minuteries et Ce matin.",
   display: "Le style, le fond et les options d'affichage du tableau de bord.",
   screen: "La luminosité, la mise en veille et ce que l'écran montre pendant la veille.",
   sound: "Les sons, les notifications et les alertes des caméras.",
@@ -1430,6 +1443,14 @@ function renderHome() {
   checks("todoList", have("todo"), S.settings.todoLists || [], "todoLists");
   if (cat && !have("calendar").length) $("calList").textContent = t("Aucun calendrier dans Home Assistant.");
   if (cat && !have("todo").length) $("todoList").textContent = t("Aucune liste « À faire » dans Home Assistant. Ajoutez-en une dans Home Assistant (Paramètres → Appareils et services → Ajouter → Liste de tâches locale).");
+  // Enceintes de Music Assistant : l'ordre est gardé (la première est proposée d'office).
+  {
+    const b = $("musicList"), list = have("music"), sel = S.settings.musicPlayers || [];
+    if (list && !list.length && !sel.length) { b.className = "muted"; b.textContent = t("Aucune enceinte Music Assistant dans Home Assistant. Installez l'intégration Music Assistant pour en ajouter."); }
+    else tokens(b, (list || []).map(x => ({id: x.id, name: x.name, note: x.id})), sel,
+      next => { S.settings.musicPlayers = next; saveSettings({musicPlayers: next}); renderHome(); },
+      {offline: !list, first: t("par défaut"), placeholder: t("Ajouter une enceinte"), empty: t("Aucune enceinte choisie.")});
+  }
   // Capteurs d'électricité : l'ordre des coches est gardé (le premier coché fait la pastille).
   {
     const b = $("energyList"), list = have("energy"), sel = S.settings.energySensors || [];
@@ -1456,7 +1477,7 @@ function renderHome() {
     else {
       b.className = "";
       const save = () => { S.settings.summaryHidden = hidden; S.settings.summaryShown = shown; saveSettings({summaryHidden: hidden, summaryShown: shown}); renderHome(); };
-      const kinds = [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")]].filter(([k]) => all.some(x => x.kind === k));
+      const kinds = [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")], ["cover", t("Stores et rideaux")]].filter(([k]) => all.some(x => x.kind === k));
       if (!kinds.some(([k]) => k === sumKind)) sumKind = kinds[0][0];
       // Un filtre par type, avec son compte ; puis les appareils de ce type, pièce par pièce.
       b.append(el("div", {class: "pills"}, ...kinds.map(([k, title]) => {
@@ -1586,6 +1607,8 @@ function renderSettings() {
   $("photoRow").hidden = st.dimStyle !== "photos";
   $("photoSeconds").value = String(st.photoSeconds);
   if (document.activeElement !== $("immichUrl")) $("immichUrl").value = st.immichUrl || "";
+  if (document.activeElement !== $("musicUrl")) $("musicUrl").value = st.musicUrl || "";
+  $("musicToken").placeholder = st.hasMusicToken ? t("•••••••• jeton enregistré (laisser vide pour le garder)") : t("Jeton de Music Assistant");
   $("immichKey").placeholder = st.hasImmichKey ? t("•••••••• clé enregistrée (laisser vide pour la garder)") : t("Clé API d'Immich");
   if (st.dimStyle === "photos") loadPhotoSources(st);
   $("unreadInfo").textContent = st.unreadNotices ? "(" + st.unreadNotices + " " + t("non lues") + ")" : "";
@@ -1711,6 +1734,13 @@ async function loadPhotoSources(st) {
   } catch (e) { photoSourcesLoaded = false; s.replaceChildren(el("option", {value: "", textContent: t("Albums indisponibles")})); }
   s.value = st.photoSource;
 }
+$("saveMusic").onclick = async () => {
+  const body = {musicUrl: $("musicUrl").value.trim()};
+  if ($("musicToken").value.trim()) body.musicToken = $("musicToken").value.trim();
+  await saveSettings(body);
+  $("musicToken").value = "";
+  $("musicInfo").textContent = t("Enregistré.");
+};
 $("saveImmich").onclick = async () => {
   const body = {immichUrl: $("immichUrl").value.trim()};
   if ($("immichKey").value.trim()) body.immichKey = $("immichKey").value.trim();

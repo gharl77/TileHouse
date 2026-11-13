@@ -40,14 +40,19 @@ object Energy {
         val text = when {
             !cumulative(e) || today == null || today.value <= 0 -> value(e)
             today.sinceMidnight -> format(today.value, unit) + " " + tr("aujourd'hui")
+            // Compteur relevé une fois par jour (Hydro-Québec) : aujourd'hui vaut toujours zéro, on montre la journée d'hier.
+            today.yesterday -> format(today.value, unit) + " " + tr("hier")
             // Compteur relevé une fois par jour (Hydro-Québec) : on montre ce que le dernier relevé a ajouté.
             else -> "+" + format(today.value, unit) + " · " + tr("dernier relevé")
         }
         return listOf(Present.Chip(R.drawable.ic_bolt, text, 0, "energy"))
     }
 
-    /** Consommation récente d'un compteur : depuis minuit s'il est relevé souvent, sinon l'ajout du dernier relevé. */
-    class Recent(val value: Double, val sinceMidnight: Boolean)
+    /**
+     * Consommation récente d'un compteur : depuis minuit s'il est relevé souvent ; sinon celle d'hier d'après les
+     * statistiques ([yesterday]), ou à défaut l'ajout du dernier relevé.
+     */
+    class Recent(val value: Double, val sinceMidnight: Boolean, val yesterday: Boolean = false)
 
     /**
      * [points] : historique des deux derniers jours. Un compteur qui a changé au moins trois fois depuis [midnight]

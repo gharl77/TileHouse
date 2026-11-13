@@ -164,7 +164,8 @@ class HaClient {
                 // Le décodage JSON se fait hors du thread principal. Les grosses réponses
                 // (liste de toutes les entités) sont lues au fil de l'eau et allégées.
                 val msg = try {
-                    if (text.length > 50_000 && text.indexOf("\"type\":\"result\"").let { it in 0..120 }) CompactJson.parse(text)
+                    // La réponse d'un service (bibliothèque de Music Assistant) est gardée entière, même longue.
+                    if (text.length > 50_000 && text.indexOf("\"type\":\"result\"").let { it in 0..120 } && text.indexOf("\"response\":").let { it !in 0..400 }) CompactJson.parse(text)
                     else JSONObject(text)
                 } catch (_: Exception) { return }
                 main.post { if (myGen == gen) handle(webSocket, msg) }

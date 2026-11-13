@@ -165,6 +165,14 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   before at 7 pm; for an all-day event, the day before or that morning). The reminder arrives in the notification center with a
   sound, is kept on the tablet across restarts, and can be cancelled from the same window. A small bell marks the events
   that have a reminder.
+- **Music** (♪ next to the lists, needs the Music Assistant integration): pick the Music Assistant speakers you want on the web
+  page (*Header tools → Music*); the icon appears and turns to the accent colour while one of them plays. The window has the
+  speakers on the left (**where to play**: tick one, or several to play together, each with its volume), the library on the
+  right (favourites, playlists, radio, albums, and a search field) and what is playing at the bottom with shuffle, repeat
+  (off, whole queue, one title), previous, pause and next, plus the title that comes next and the position in the queue
+  ("Up next: … · 3 of 442"). A **progress bar** shows the position in the title; drag it to move. The **queue button** lists
+  the titles to come (tap one to jump to it): Home Assistant does not expose the queue, so this asks the Music Assistant
+  server directly and needs a token from Music Assistant, pasted on the web page (*Header tools → Music → Queue*). **Transfer** moves the music that is playing to another speaker, where it carries on from the same spot.
 - **Shopping and to-do lists** (☑ next to the timer): the Home Assistant to-do lists you choose on the web page
   (*Header tools → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
   the keyboard, remove the ticked ones; several lists become tabs. Changes made elsewhere (phone, voice assistant) show up, and
@@ -177,10 +185,10 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   | <img src="docs/screenshots/lists.png" alt="Shopping list"> | <img src="docs/screenshots/hourly-forecast.png" alt="Hourly forecast"> |
 
   <img src="docs/screenshots/event-detail.png" width="640" alt="Calendar event with its reminder choices">
-- **Header summary** for the whole house, showing only what needs attention: lights on, unlocked locks, open doors, open windows
+- **Header summary** for the whole house, showing only what needs attention: lights on, unlocked locks, open doors, open windows, open blinds or curtains
   (nothing at all when everything is off, locked and closed). Tap a chip to see which devices, with a **Turn off** / **Lock** button
   on each one that can be controlled.
-  **You choose what counts** on the web page (*Home → Whole-house overview*): the lights, locks, doors and windows of your rooms
+  **You choose what counts** on the web page (*Home → Whole-house overview*): the lights, locks, doors, windows and blinds or curtains of your rooms
   are listed by kind with their room, all ticked at first. Untick a device and it no longer counts (an inside door that is
   always open, a night light); untick a whole kind and its chip disappears. Appliance doors (fridge, freezer, washer…) and the
   door state published by a lock are **unticked by default**, marked as such in the list; tick them again if you want them.
@@ -193,7 +201,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   before) goes to the notification center.
 - **Electricity**: tick power or energy sensors on the web page (*Home → Electricity*). The first one makes a chip ("2.4 kW";
   for an energy meter that only counts up, the consumption since midnight — "42 kWh today" — or, when the meter is read once a
-  day like Hydro-Québec's, what the last reading added: "+65 kWh · last reading"). In a room, the tile of a power or energy
+  day like Hydro-Québec's, yesterday's consumption, since today's stays at zero: "65 kWh yesterday"). In a room, the tile of a power or energy
   sensor opens the same window with that sensor's curve. Tap the chip, or the peak chip, for the **Electricity window**: the peak in progress or coming, every ticked sensor, and the last
   24 hours of the first one (a curve for a power sensor, consumption per hour for an energy meter). A meter that is read
   once a day, like Hydro-Québec's, shows the **last 14 days** instead, one bar per day, with the daily average.

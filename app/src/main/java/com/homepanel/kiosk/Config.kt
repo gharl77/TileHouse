@@ -252,6 +252,19 @@ class ConfigStore(ctx: Context) {
         get() = if (demo) listOf("todo.groceries", "todo.chores") else csv("todoLists")
         set(v) = p.edit().putString("todoLists", v.joinToString(",")).apply()
     /** Capteurs d'électricité (puissance, énergie) : le premier fait la pastille de l'accueil, tous sont dans la fenêtre Énergie. */
+    /** Enceintes de Music Assistant proposées dans la fenêtre Musique (vide = pas d'icône). */
+    var musicPlayers: List<String>
+        get() = if (demo) listOf("media_player.living_room_speaker", "media_player.kids_speaker") else csv("musicPlayers")
+        set(v) = p.edit().putString("musicPlayers", v.joinToString(",")).apply()
+
+    /** Serveur Music Assistant (vide = la machine de Home Assistant, port 8095) et son jeton, pour la file de lecture. */
+    var musicUrl: String
+        get() = p.getString("musicUrl", "") ?: ""
+        set(v) = p.edit().putString("musicUrl", v.trim().trimEnd('/')).apply()
+    var musicToken: String
+        get() = if (demo) "" else secret("musicToken")
+        set(v) = setSecret("musicToken", v.trim())
+
     var energySensors: List<String>
         get() = if (demo) listOf("sensor.home_power", "sensor.energy_today") else csv("energySensors")
         set(v) = p.edit().putString("energySensors", v.joinToString(",")).apply()
@@ -509,14 +522,14 @@ class ConfigStore(ctx: Context) {
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
-                .put("immichUrl", immichUrl).put("brightness", brightness)
+                .put("immichUrl", immichUrl).put("musicUrl", musicUrl).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
                 .put("peakCalendar", peakCalendar).put("peakReminder", peakReminder).put("weatherAlerts", JSONArray(weatherAlerts))
                 .put("shortcuts", JSONArray(shortcuts)).put("shortcutRooms", shortcutRooms).put("customChips", customChips).put("morningSources", morningSources).put("timerPresets", timerPresets).put("todoLists", JSONArray(todoLists)).put("showNowPlaying", showNowPlaying).put("nowPlayingHidden", JSONArray(nowPlayingHidden)).put("nowPlayingShown", JSONArray(nowPlayingShown)).put("nowPlayingPause", nowPlayingPause)
-                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors))
+                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors)).put("musicPlayers", JSONArray(musicPlayers))
                 .put("morningStart", morningStart).put("morningEnd", morningEnd)
                 .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
@@ -524,7 +537,7 @@ class ConfigStore(ctx: Context) {
                 .put("enabled", mqttEnabled).put("host", mqttHost).put("port", mqttPort)
                 .put("user", mqttUser).put("deviceName", deviceName).put("deviceId", mqttDeviceId))
             .put("web", JSONObject().put("enabled", webEnabled))
-        if (withSecrets) o.put("secrets", JSONObject().put("token", token).put("mqttPass", mqttPass).put("pin", pin).put("immichKey", immichKey))
+        if (withSecrets) o.put("secrets", JSONObject().put("token", token).put("mqttPass", mqttPass).put("pin", pin).put("immichKey", immichKey).put("musicToken", musicToken))
         return o
     }
 
@@ -557,6 +570,7 @@ class ConfigStore(ctx: Context) {
             if (d.has("photoSourceName")) photoSourceName = d.str("photoSourceName")
             if (d.has("photoSeconds")) photoSeconds = d.optInt("photoSeconds", 30)
             if (d.has("immichUrl")) immichUrl = d.str("immichUrl")
+            if (d.has("musicUrl")) musicUrl = d.str("musicUrl")
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)
             if (d.has("language")) language = d.str("language")
             if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")
@@ -588,6 +602,7 @@ class ConfigStore(ctx: Context) {
             if (h.has("nowPlayingPause")) nowPlayingPause = h.optInt("nowPlayingPause", 10)
             h.optJSONArray("nowPlayingHidden")?.let { a -> nowPlayingHidden = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("energySensors")?.let { a -> energySensors = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("musicPlayers")?.let { a -> musicPlayers = (0 until a.length()).map { a.getString(it) } }
             if (h.has("morningStart")) morningStart = h.optInt("morningStart", 300)
             if (h.has("morningEnd")) morningEnd = h.optInt("morningEnd", 600)
             h.optJSONArray("floorOrder")?.let { a -> setFloorOrder((0 until a.length()).map { a.getString(it) }) }
@@ -608,6 +623,7 @@ class ConfigStore(ctx: Context) {
             if (s.str("mqttPass").isNotEmpty()) mqttPass = s.str("mqttPass")
             if (s.has("pin")) pin = s.str("pin")
             if (s.str("immichKey").isNotEmpty()) immichKey = s.str("immichKey")
+            if (s.str("musicToken").isNotEmpty()) musicToken = s.str("musicToken")
         }
     }
 
@@ -625,6 +641,7 @@ class ConfigStore(ctx: Context) {
         s.addAll(shortcuts)
         s.addAll(todoLists)
         s.addAll(energySensors)
+        s.addAll(musicPlayers)
         for (a in listOf(customChips, morningSources)) for (i in 0 until a.length()) a.optJSONObject(i)?.optString("entity")?.takeIf { it.isNotEmpty() }?.let { s.add(it) }
         return s
     }

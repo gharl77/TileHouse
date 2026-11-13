@@ -126,6 +126,42 @@ class NewFeaturesTest {
         assertFalse(Choices.hidden("a", emptyList(), emptyList(), auto = false))
     }
 
+    @Test fun blindsAndCurtainsHaveTheirOwnChip() {
+        fun cover(dc: String?) = EntityState("cover.x", "open", org.json.JSONObject().apply { if (dc != null) put("device_class", dc) })
+        assertEquals("cover", Present.chipKind("cover.x", cover("blind")))
+        assertEquals("cover", Present.chipKind("cover.x", cover(null)))
+        assertNull(Present.chipKind("cover.x", cover("garage")))
+    }
+
+    @Test fun musicLibraryItemsAndTargets() {
+        val arr = org.json.JSONArray("""[{"media_type":"album","uri":"library://album/1","name":"Kind of Blue","image":null,"artists":[{"name":"Miles Davis"}]},
+            {"media_type":"radio","uri":"library://radio/2","name":"ICI Musique","image":"https://x/y.jpg"},{"media_type":"track","uri":"","name":"sans adresse"}]""")
+        val items = Music.items(arr)
+        assertEquals(2, items.size)
+        assertEquals("Miles Davis", items[0].sub); assertEquals("", items[0].image)
+        assertEquals("https://x/y.jpg", items[1].image)
+        assertEquals(1, Music.searchItems(org.json.JSONObject("""{"tracks":[],"radio":[{"media_type":"radio","uri":"a://b","name":"R"}]}""")).size)
+        fun p(id: String, state: String) = id to EntityState(id, state, org.json.JSONObject().put("mass_player_type", "player"))
+        val states = mapOf(p("media_player.a", "idle"), p("media_player.b", "playing"), p("media_player.c", "unavailable"))
+        val players = listOf("media_player.a", "media_player.b", "media_player.c")
+        // La cible ne joue pas : on montre l'enceinte qui joue ; rien ne joue : la cible.
+        assertEquals("media_player.b", Music.current(listOf("media_player.a"), players, states))
+        assertEquals("media_player.a", Music.current(listOf("media_player.a"), players, mapOf(p("media_player.a", "idle"))))
+        // Transfert : ni l'enceinte qui joue, ni celle qui est hors ligne.
+        assertEquals(listOf("media_player.a"), Music.transferTargets("media_player.b", players, states))
+        assertEquals("all", Music.nextRepeat("off")); assertEquals("one", Music.nextRepeat("all")); assertEquals("off", Music.nextRepeat("one"))
+        val up = Music.nextUp(org.json.JSONObject("""{"items":442,"current_index":2,"next_item":{"name":"LIVE - Lightning Crashes"}}"""))
+        assertTrue(up.contains("LIVE - Lightning Crashes") && up.contains("3") && up.contains("442"))
+        assertEquals("", Music.nextUp(org.json.JSONObject("""{"items":0,"current_index":null,"next_item":null}""")))
+        assertEquals("3:07", Music.clock(187)); assertEquals("1:02:05", Music.clock(3725))
+        assertEquals("http://192.168.1.5:8095", Music.serverUrl("", "http://192.168.1.5:8123")); assertEquals("http://ma:1", Music.serverUrl("http://ma:1/", "http://x:8123"))
+        val paused = EntityState("media_player.a", "paused", org.json.JSONObject().put("media_duration", 264).put("media_position", 30.4))
+        assertEquals(30 to 264, Music.position(paused, 0L)); assertNull(Music.position(states["media_player.a"], 0L))
+        assertEquals(2, Music.queueItems("""[{"queue_item_id":"a","name":"X - Y","duration":200},{"queue_item_id":"b","media_item":{"name":"Z"}},{"name":"sans id"}]""")!!.size)
+        assertEquals(1, Music.queueItems("""{"result":[{"queue_item_id":"a","name":"n"}]}""")!!.size); assertNull(Music.queueItems("Authentication required"))
+        assertTrue(Music.isPlayer(states["media_player.a"]!!.attrs)); assertFalse(Music.isPlayer(org.json.JSONObject()))
+    }
+
     @Test fun todaysConsumptionFromACounter() {
         val midnight = 100L
         // Relevé une fois par jour : l'ajout du dernier relevé.

@@ -225,6 +225,8 @@ class WebServer(private val app: App) {
                 if (req.has("photoSource")) { cfg.photoSource = req.str("photoSource"); cfg.photoSourceName = req.str("photoSourceName") }
                 if (req.has("photoSeconds")) cfg.photoSeconds = req.optInt("photoSeconds", 30)
                 if (req.has("immichUrl")) cfg.immichUrl = req.str("immichUrl")
+                if (req.has("musicUrl")) cfg.musicUrl = req.str("musicUrl")
+                if (req.str("musicToken").isNotBlank()) cfg.musicToken = req.str("musicToken")
                 if (req.str("immichKey").isNotBlank()) cfg.immichKey = req.str("immichKey")
                 if (req.has("recycleCalendar")) cfg.recycleCalendar = req.str("recycleCalendar")
                 if (req.has("wasteCalendar")) cfg.wasteCalendar = req.str("wasteCalendar")
@@ -239,6 +241,7 @@ class WebServer(private val app: App) {
                 req.optJSONArray("morningSources")?.let { cfg.morningSources = it }
                 req.optJSONArray("timerPresets")?.let { cfg.timerPresets = it }
                 if (!cfg.demo) req.optJSONArray("todoLists")?.let { a -> cfg.todoLists = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("todo.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("musicPlayers")?.let { a -> cfg.musicPlayers = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("media_player.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("energySensors")?.let { a -> cfg.energySensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("summaryHidden")?.let { a -> cfg.summaryHidden = (0 until a.length()).map { a.getString(it) } }
                 if (!cfg.demo) req.optJSONArray("summaryShown")?.let { a -> cfg.summaryShown = (0 until a.length()).map { a.getString(it) } }
@@ -456,7 +459,7 @@ class WebServer(private val app: App) {
                 .put("photoVeilLevel", cfg.photoVeilLevel)
                 .put("timerPresets", cfg.timerPresets)
                 .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("summaryHidden", JSONArray(cfg.summaryHidden)).put("summaryShown", JSONArray(cfg.summaryShown)).put("summaryDevices", summaryDevices())
-                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors))
+                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors)).put("musicPlayers", JSONArray(cfg.musicPlayers))
                 .put("activeTheme", cfg.activeTheme)
                 .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
                 .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
@@ -480,6 +483,7 @@ class WebServer(private val app: App) {
                 .put("photoSource", cfg.photoSource).put("photoSourceName", cfg.photoSourceName).put("photoSeconds", cfg.photoSeconds)
                 // Mode démo (captures d'écran) : l'adresse réelle du serveur Immich n'est pas montrée.
                 .put("immichUrl", if (cfg.demo) "" else cfg.immichUrl).put("hasImmichKey", cfg.immichKey.isNotEmpty())
+                .put("musicUrl", if (cfg.demo) "" else cfg.musicUrl).put("hasMusicToken", cfg.musicToken.isNotEmpty())
                 .put("unreadNotices", app.notices.count)
                 .put("personAlert", cfg.personAlert)
                 .put("alertSeconds", cfg.alertSeconds)
@@ -488,14 +492,14 @@ class WebServer(private val app: App) {
                 .put("pinSet", cfg.pin.isNotEmpty()))
     }
 
-    /** Lumières, serrures, portes et fenêtres des pièces : ce que la page propose pour les pastilles de l'accueil. */
+    /** Lumières, serrures, portes, fenêtres et stores des pièces : ce que la page propose pour les pastilles de l'accueil. */
     private fun summaryDevices(): JSONArray {
         val out = JSONArray()
         val seen = HashSet<String>()
         for (room in app.config.rooms) for (re in room.entities) {
             val e = app.ha.states[re.id]
             val kind = Present.chipKind(re.id, e) ?: continue
-            if (kind !in setOf("light", "lock", "door", "window") || !seen.add(re.id)) continue
+            if (kind !in setOf("light", "lock", "door", "window", "cover") || !seen.add(re.id)) continue
             out.put(JSONObject().put("id", re.id).put("name", Present.displayName(re, e, "")).put("room", room.name).put("kind", kind)
                 .put("auto", Choices.summaryHiddenByDefault(re.id, e?.name ?: "", kind)))
         }

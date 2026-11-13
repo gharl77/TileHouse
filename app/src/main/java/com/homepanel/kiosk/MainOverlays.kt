@@ -53,6 +53,21 @@ internal fun MainActivity.openTodos() {
     p.show()
 }
 
+/** Icône « Musique » : visible dès qu'une enceinte est choisie dans les réglages, teintée quand l'une d'elles joue. */
+internal fun MainActivity.updateMusicButton() {
+    val players = cfg.musicPlayers
+    musicButton.set(players.isNotEmpty(), players.any { app.ha.states[it]?.state == "playing" })
+}
+
+internal fun MainActivity.openMusic() {
+    if (haOffline()) return
+    val p = musicPanel ?: MusicPanel(this).also {
+        root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        musicPanel = it
+    }
+    p.show()
+}
+
 internal fun MainActivity.openTimers() {
     val p = timerPanel ?: TimerPanel(this).also {
         root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))

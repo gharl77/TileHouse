@@ -122,7 +122,7 @@ internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
 /** Met à jour les pastilles seulement si leur contenu a changé. */
 internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false, extra: List<Present.Chip> = emptyList()) {
     val chips = (if (room == null) emptyList() else Present.chips(room, app.ha.states)
-        .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light") }) + extra
+        .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light" || it.kind == "cover") }) + extra
     if (chips == lastChips && chipsRoom === room) return
     lastChips = chips; chipsRoom = room
     chipsView.removeAllViews()

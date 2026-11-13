@@ -179,6 +179,8 @@ class MainActivity : Activity(), HaClient.Listener {
         timeRow.addView(timerButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         todoButton = TodoButton(this).apply { setOnClickListener { openTodos() } }
         timeRow.addView(todoButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
+        musicButton = MusicButton(this).apply { setOnClickListener { openMusic() } }
+        timeRow.addView(musicButton, LinearLayout.LayoutParams(dp(42), dp(40)).apply { marginEnd = dp(8) })
         morningButton = HomeExtras.MorningButton(this).apply { setOnClickListener { openMorning() } }
         timeRow.addView(morningButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         bellView = BellView(this).apply { setOnClickListener { openCenter() } }
@@ -318,6 +320,7 @@ class MainActivity : Activity(), HaClient.Listener {
     @Suppress("DEPRECATION")
     override fun onBackPressed() {
         if (todoPanel?.showing == true) { todoPanel?.hide(); return }
+        if (musicPanel?.showing == true) { musicPanel?.hide(); return }
         if (morningPanel?.showing == true) { morningPanel?.hide(); return }
         if (center?.showing == true) { center?.hide(); return }
         if (roomIndex != HOME) goHome()
@@ -338,6 +341,7 @@ class MainActivity : Activity(), HaClient.Listener {
     internal fun rebuild() {
         houseCache = null
         updateTodoButton()
+        updateMusicButton()
         clockView.visibility = if (cfg.showClock) View.VISIBLE else View.GONE
         dateView.visibility = clockView.visibility
         batteryView.visibility = if (cfg.showBattery) View.VISIBLE else View.GONE
@@ -422,6 +426,8 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var peaks: List<HomeExtras.Peak> = emptyList()
     internal lateinit var todoButton: TodoButton
     internal var todoPanel: TodoPanel? = null
+    internal lateinit var musicButton: MusicButton
+    internal var musicPanel: MusicPanel? = null
     /** Carte(s) « En lecture » de la pièce affichée, et ce qu'elles montrent (pour ne redessiner que si ça change). */
     internal var nowPlayingBox: LinearLayout? = null
     internal var nowPlayingKey = ""
@@ -466,6 +472,7 @@ class MainActivity : Activity(), HaClient.Listener {
         // qu'une pause est récente quand on ouvre la pièce ensuite.
         for (id in ids) if (id.startsWith("media_player.") && app.ha.states[id]?.state == "playing") lastPlaying[id] = SystemClock.uptimeMillis()
         if (cfg.todoLists.any { it in ids }) { updateTodoButton(); todoPanel?.onEntities(ids) }
+        if (cfg.musicPlayers.any { it in ids }) { updateMusicButton(); musicPanel?.onEntities(ids) }
         // Une source de « Ce matin » a changé (ex. résumé publié à 5 h) : l'icône réapparaît avec son point.
         val ms = cfg.morningSources
         if ((0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) updateMorningButton()

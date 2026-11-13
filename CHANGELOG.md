@@ -2,6 +2,12 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.9
+
+- Music window for Music Assistant: a ♪ icon at the top opens your favourites, playlists, radio stations and albums, with a search field; choose the speaker (or several together), set the volume, and transfer the music that is playing to another speaker. Shuffle, repeat, a progress bar you can drag, and the list of the titles to come (this one needs a Music Assistant token). Choose which speakers are offered on the web page (*Header tools → Music*); without any, the icon stays hidden.
+- Home screen: a chip for the blinds and curtains that are open ("2 blinds open"); tap it to see and close them. Choose which ones count on the web page (*Home → Whole-house overview → Blinds & curtains*). Garage doors and gates are not counted.
+- Electricity chip: a meter that is read once a day (Hydro-Québec) shows yesterday's consumption ("65 kWh yesterday") instead of what the last reading added.
+
 ## 2026.11.8
 
 - Electricity window: a meter that is read once a day (Hydro-Québec) shows the last 14 days, one bar per day, with the average, instead of a single bar on a 24-hour chart.

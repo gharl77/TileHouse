@@ -174,7 +174,7 @@ internal fun MainActivity.updateHomeHeader() {
     subtitleView.visibility = if (p.isEmpty()) View.GONE else View.VISIBLE
     // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
     val st = app.ha.states
-    updateChips(homeRoom(), only = setOf("light", "lock", "door", "window"), activeOnly = true,
+    updateChips(homeRoom(), only = setOf("light", "lock", "door", "window", "cover"), activeOnly = true,
         extra = Energy.chips(cfg.energySensors, st, energyToday) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
 }
 
@@ -586,7 +586,19 @@ internal fun MainActivity.loadEnergyToday() {
     // Sans heure de fin, Home Assistant ne renvoie qu'une journée à partir du début.
     app.snapshots.restGet("/api/history/period/${Uri.encode(start)}?filter_entity_id=$id&end_time=${Uri.encode(iso.format(Date()))}&minimal_response&no_attributes") { text ->
         if (id != cfg.energySensors.firstOrNull()) return@restGet
-        energyToday = Energy.recent(Energy.series(text), midnight)
+        val recent = Energy.recent(Energy.series(text), midnight)
+        energyToday = recent
         if (roomIndex == MainActivity.HOME) updateHomeHeader()
+        // Compteur relevé une fois par jour : la consommation d'aujourd'hui reste à zéro, on affiche celle d'hier.
+        if (recent?.sinceMidnight == true) return@restGet
+        app.ha.request(JSONObject().put("type", "recorder/statistics_during_period").put("start_time", iso.format(Date(midnight - 86_400_000L)))
+            .put("end_time", iso.format(Date(midnight))).put("statistic_ids", JSONArray().put(id)).put("period", "day").put("types", JSONArray().put("change"))) { res ->
+            if (id != cfg.energySensors.firstOrNull()) return@request
+            // Home Assistant inclut le jour qui commence à l'heure de fin : on ne garde que la journée d'hier.
+            val day = Energy.daily(res.optJSONObject("result")?.optJSONArray(id)).lastOrNull { it.t < midnight } ?: return@request
+            if (day.v <= 0) return@request
+            energyToday = Energy.Recent(day.v, sinceMidnight = false, yesterday = true)
+            if (roomIndex == MainActivity.HOME) updateHomeHeader()
+        }
     }
 }

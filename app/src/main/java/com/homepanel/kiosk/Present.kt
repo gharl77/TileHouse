@@ -287,12 +287,14 @@ object Present {
 
     /** Type de pastille auquel contribue une entité (null si aucune). */
     fun chipKind(id: String, e: EntityState?): String? {
-        val dc = e?.attrs?.str("device_class") ?: return when (domain(id)) { "light" -> "light"; "lock" -> "lock"; else -> null }
+        val dc = e?.attrs?.str("device_class") ?: return when (domain(id)) { "light" -> "light"; "lock" -> "lock"; "cover" -> "cover"; else -> null }
         return when (domain(id)) {
             "sensor" -> when (dc) { "temperature" -> "temp"; "humidity" -> "hum"; else -> null }
             "climate" -> null
             "light" -> "light"
             "lock" -> "lock"
+            // Stores, rideaux, volets ; une porte de garage ou un portail n'est pas un store.
+            "cover" -> if (dc in setOf("garage", "door", "gate")) null else "cover"
             "binary_sensor" -> when (dc) {
                 "door", "garage_door", "opening" -> "door"
                 "window" -> "window"
@@ -322,6 +324,7 @@ object Present {
         var locks = 0; var unlocked = 0; var jammed = 0
         var doors = 0; var doorsOpen = 0
         var windows = 0; var windowsOpen = 0
+        var coversOpen = 0
         var motion = 0; var motionOn = 0
         var presence = 0; var presenceOn = 0
         var leaks = 0; var leaksOn = 0
@@ -349,6 +352,7 @@ object Present {
                 }
                 "climate" -> if (cN == 0) e.attrs.dbl("current_temperature")?.let { cSum = it; cN = 1 }
                 "light" -> if (on) lights++
+                "cover" -> if (dc !in setOf("garage", "door", "gate") && active(e)) coversOpen++
                 "lock" -> {
                     locks++
                     if (e.state == "jammed") jammed++ else if (e.state != "locked" && e.state != "locking") unlocked++
@@ -380,6 +384,8 @@ object Present {
             if (windowsOpen > 0) Chip(R.drawable.ic_window, plural(windowsOpen, tr("Fenêtre ouverte"), tr("fenêtres ouvertes")), 1, "window")
             else Chip(R.drawable.ic_window, if (windows == 1) tr("Fenêtre fermée") else tr("Fenêtres fermées"), kind = "window")
         )
+        // Comme les lumières : la pastille n'existe que s'il y a quelque chose d'ouvert.
+        if (coversOpen > 0) out.add(Chip(R.drawable.ic_blinds, plural(coversOpen, tr("1 store ouvert"), tr("stores ouverts")), kind = "cover"))
         if (motion > 0) out.add(
             if (motionOn > 0) Chip(R.drawable.ic_walk, tr("Mouvement"), 1, "motion") else Chip(R.drawable.ic_walk, tr("Aucun mouvement"), kind = "motion")
         )

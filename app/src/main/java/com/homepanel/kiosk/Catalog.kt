@@ -103,6 +103,9 @@ object CatalogLoader {
                 // Capteurs d'électricité (puissance, énergie) pour la fenêtre Énergie
                 if (dom == "sensor" && o.optJSONObject("attributes")?.str("device_class").let { it == "power" || it == "energy" })
                     extras.getOrPut("energy") { ArrayList() }.add(id to fname)
+                // Enceintes de Music Assistant, pour la fenêtre Musique
+                if (dom == "media_player" && Music.isPlayer(o.optJSONObject("attributes")))
+                    extras.getOrPut("music") { ArrayList() }.add(id to fname)
                 if (dom == "weather" || dom == "calendar" || dom == "person" || dom == "todo") {
                     val n = o.optJSONObject("attributes")?.str("friendly_name")?.ifEmpty { id } ?: id
                     extras.getOrPut(dom) { ArrayList() }.add(id to n)
