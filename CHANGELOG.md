@@ -2,7 +2,7 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
-## 2026.11.8 (in progress)
+## 2026.11.8
 
 - Electricity window: a meter that is read once a day (Hydro-Québec) shows the last 14 days, one bar per day, with the average, instead of a single bar on a 24-hour chart.
 - Lists: long-press an item to remove it (or to start a timer with its name).
