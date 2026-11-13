@@ -96,6 +96,8 @@ open class SkinDef(val key: String, private val frName: String) {
     /** Pastille de l'en-tête selon son niveau (0 neutre, 1 attention, 2 alerte) : fond et couleur du texte. */
     open fun chip(ctx: Context, level: Int): Pair<Drawable, Int> =
         roundRect(when (level) { 2 -> 0xE6FF3B30.toInt(); 1 -> 0xD9FF9F0A.toInt(); else -> GLASS_LIGHT }, ctx.dpf(40)) to Color.WHITE
+    /** Pastille personnalisée d'une couleur choisie : fond plein, texte clair ou sombre selon la couleur. */
+    open fun chipColored(ctx: Context, color: Int): Pair<Drawable, Int> = rr(a(color, 0xE6), ctx.dpf(40)) to HomeExtras.textOn(color)
     /** Pilule de choix (modes du thermostat, boutons de l'écran vide). */
     open fun pill(ctx: Context, selected: Boolean): Pair<Drawable, Int> =
         if (selected) roundRect(WHITE_TILE, ctx.dpf(40)) to onPrimary else roundRect(GLASS_LIGHT, ctx.dpf(40)) to Color.WHITE
@@ -178,6 +180,7 @@ private object EpureSkin : SkinDef("epure", "Épuré") {
         val c = when (level) { 2 -> 0xFFFF6B5E.toInt(); 1 -> 0xFFFFB340.toInt(); else -> 0xE6FFFFFF.toInt() }
         return rr(0, ctx.dpf(40), ctx, a(c, 0x66)) to c
     }
+    override fun chipColored(ctx: Context, color: Int): Pair<Drawable, Int> = rr(0, ctx.dpf(40), ctx, a(color, 0x99)) to color
     override fun pill(ctx: Context, selected: Boolean): Pair<Drawable, Int> =
         if (selected) rr(Color.WHITE, ctx.dpf(40)) to onPrimary else rr(0, ctx.dpf(40), ctx, 0x59FFFFFF) to Color.WHITE
     override fun tile(active: Boolean, accent: Int): TileLook =
@@ -216,6 +219,7 @@ private object PapierSkin : SkinDef("papier", "Papier") {
         1 -> rr(0xFFF6D9A6.toInt(), ctx.dpf(8), ctx, 0x40C8742E) to INK
         else -> rr(SHEET, ctx.dpf(8), ctx, EDGE) to INK
     }
+    override fun chipColored(ctx: Context, color: Int): Pair<Drawable, Int> = rr(color, ctx.dpf(8)) to HomeExtras.textOn(color)
     override fun pill(ctx: Context, selected: Boolean): Pair<Drawable, Int> =
         if (selected) rr(INK, ctx.dpf(10)) to onPrimary else rr(soft, ctx.dpf(10)) to INK
     override fun tile(active: Boolean, accent: Int): TileLook =
@@ -408,6 +412,7 @@ object Skin {
     }
     fun softRect(ctx: Context, radius: Float) = cur.softRect(ctx, radius)
     fun chip(ctx: Context, level: Int) = cur.chip(ctx, level)
+    fun chipColored(ctx: Context, color: Int) = cur.chipColored(ctx, color)
     fun pill(ctx: Context, selected: Boolean) = cur.pill(ctx, selected)
     fun tile(active: Boolean, accent: Int) = cur.tile(active, accent)
     val dialogOnSheet get() = cur.dialogOnSheet

@@ -175,6 +175,8 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   | Lists | Next hours |
   |---|---|
   | <img src="docs/screenshots/lists.png" alt="Shopping list"> | <img src="docs/screenshots/hourly-forecast.png" alt="Hourly forecast"> |
+
+  <img src="docs/screenshots/event-detail.png" width="640" alt="Calendar event with its reminder choices">
 - **Header summary** for the whole house, showing only what needs attention: lights on, unlocked locks, open doors, open windows
   (nothing at all when everything is off, locked and closed). Tap a chip to see which devices, with a **Turn off** / **Lock** button
   on each one that can be controlled.
@@ -199,8 +201,15 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   <img src="docs/screenshots/energy.png" width="640" alt="Electricity window">
 - **Weather alerts**: pick the sensors that count the alerts in effect (Environment Canada: warnings, watches, advisories); a chip
   appears when one is above 0 (red for a warning), tap it for details.
-- **Custom chips**: show a chip when an entity is in a given state, e.g. "🧺 Washer to empty" when the washer status is *To empty*
-  (entity, states, text and colour on the web page).
+- **Custom chips**: show a chip when an entity is in a given state, e.g. "🧺 Washer to empty" when the washer status is *To empty*.
+  On the web page (*Home → Custom chips*) each chip is shown as it will look, with its rule in plain words; open it to edit:
+  - the **states** are picked from the ones the entity can really take (the options of a drop-down helper, plus its current
+    state), with a field for any other state;
+  - an **icon** from a set of about fifty that the tablet can draw, with a search by name; each shows its Unicode code
+    (`U+1F9FA` for the laundry basket). Any other emoji can be pasted at the start of the text — the tablet (Android 8) draws
+    those up to [Emoji 5](https://emojipedia.org/emoji-5.0);
+  - a **colour** among nine: neutral, orange, red, yellow, green, teal, blue, purple and pink. Orange and red are alerts and
+    come before the other chips.
 - **Shortcuts**: large buttons for the scripts, scenes and buttons you choose. A shortcut shows **in the room it
   belongs to, under the cameras** — the room of its Home Assistant area, or the one you pick next to it on the web page (*Home → Shortcuts*) — and
   stays on the home screen when it has no room (or when you pick *Home*). A scene that already has its tile in the room isn't
@@ -556,12 +565,31 @@ the same three places (**Night skin** select in Home Assistant).
 
 The tablet runs a small web server (port **8080**). Open the address shown in the settings from any browser on the same network.
 
-<img src="docs/screenshots/web-rooms.png" width="860" alt="Web page — rooms">
+<img src="docs/screenshots/web-home.png" width="860" alt="Web page — the Home section">
 
 A **menu on the left** lists nine sections in three groups; on a phone it becomes a drop-down list. Each section is a single
-column of settings: the name on the left, the value on the right. Long lists (people, counted devices, calendars, sensors,
-players, shortcuts) are **folded**, with a summary of the current choice ("8 of 13") that opens the list. Long explanations sit
-behind *Learn more*. The **search field** above the menu finds a setting by its name and takes you to it.
+column of settings: the name on the left, the value on the right. Choosing several things never uses plain checkboxes:
+- **toggle chips** for short lists (calendars, shopping lists, holidays of the automatic theme, *Now playing* players): tap a
+  chip to turn it on or off;
+- **tokens with a search field** for long lists (people and presence sensors, electricity sensors, weather-alert sensors,
+  shortcuts): what you chose is on top, each with a ✕ to remove it, and the field below suggests what you can add. Drag a token
+  to change the order — the first electricity sensor makes the home-screen chip, and shortcuts show in that order;
+- **switches by room** for the whole-house overview: a filter per kind (lights, locks, doors, windows) with its count, then the
+  devices room by room, with *Turn all on / off* per room.
+
+Long explanations sit behind *Learn more*.
+
+| Toggle chips and tokens | Switches by room |
+|---|---|
+| <img src="docs/screenshots/web-home.png" alt="Web page — who's home as tokens, calendars as toggle chips"> | <img src="docs/screenshots/web-card-overview.png" alt="Web page — whole-house overview, switches by room"> |
+
+| Custom chip: states, icon and colour | This morning: sources and suggestions |
+|---|---|
+| <img src="docs/screenshots/web-card-chips.png" alt="Web page — editing a custom chip"> | <img src="docs/screenshots/web-card-morning.png" alt="Web page — This morning sources"> |
+
+| Electricity sensors | Shortcuts and their room |
+|---|---|
+| <img src="docs/screenshots/web-card-electricity.png" alt="Web page — electricity sensors as tokens"> | <img src="docs/screenshots/web-card-shortcuts.png" alt="Web page — shortcuts with their room"> | The **search field** above the menu finds a setting by its name and takes you to it.
 
 **Content**
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
@@ -577,15 +605,20 @@ behind *Learn more*. The **search field** above the menu finds a setting by its 
 - **Screen & sleep**: brightness, sleep delay, wake on motion, and the screen saver (including the Immich photo frame).
 - **Alerts & sounds**: notification sounds and quiet hours, notification duration, and camera alerts.
 
+The room editor shows one clean row per device: drag ⠿ to reorder, and ✎ (rename for the tablet only) and ✕ (remove) appear
+when you point at a row — they are always visible on a touch screen. Device types are filter chips, and a device that is
+already in another room says so. In *This morning*, each source is a compact row (title, site, number of stories, and whether
+the feed answered) that you drag to reorder and open to edit; suggestions are grouped into news feeds and Home Assistant texts.
+
 **System**
 - **Connection**: Home Assistant address and token, demo mode, and MQTT.
 - **Security & backups**: PIN, export and restore. The tablet also keeps an **automatic copy of the configuration every week**
   (the last six, without the token, the passwords or the PIN); download or restore one, or make one right away.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
 
-| Home | Header tools |
+| Rooms | Header tools |
 |---|---|
-| <img src="docs/screenshots/web-home.png" alt="Web page — home"> | <img src="docs/screenshots/web-tools.png" alt="Web page — header tools"> |
+| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-tools.png" alt="Web page — header tools"> |
 
 | Appearance | Screen & sleep |
 |---|---|

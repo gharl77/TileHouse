@@ -286,7 +286,7 @@ class WebServer(private val app: App) {
             "GET /api/backups" -> ok(backupsJson())
             "POST /api/backups/now" -> {
                 if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour exporter votre configuration.")))
-                Backups.run(app, force = true)
+                onMain { Backups.run(app, force = true) }
                 ok(backupsJson())
             }
             "POST /api/backups/get" -> {
@@ -343,24 +343,31 @@ class WebServer(private val app: App) {
                 state()
             })
             "POST /api/attrs" -> {
-                // Attributs texte d'une entité (sources « texte » de Ce matin) : nom et aperçu.
+                // Une entité vue de près : ses attributs texte (sources « texte » de Ce matin), son état et les états
+                // qu'elle peut prendre (liste déroulante, sélecteur), pour les pastilles personnalisées.
                 val id = req.str("entity")
                 val cfg = app.config
-                if (id.isEmpty() || app.ha.demo) return ok(JSONObject().put("attributes", JSONArray()))
-                val text = try {
+                val out = JSONObject().put("attributes", JSONArray()).put("options", JSONArray()).put("state", "").put("name", "")
+                if (id.isEmpty()) return ok(out)
+                // Copie faite sur le fil principal : les attributs d'une entité y sont modifiés en continu.
+                val known = onMain { app.ha.states[id]?.let { JSONObject().put("state", it.state).put("attributes", JSONObject(it.attrs.toString())) } }
+                val obj = known ?: if (app.ha.demo) null else try {
                     app.ha.http.newCall(okhttp3.Request.Builder().url(cfg.url.trimEnd('/') + "/api/states/" + id)
-                        .header("Authorization", "Bearer ${cfg.token}").build()).execute().use { if (it.isSuccessful) it.body?.string() else null }
+                        .header("Authorization", "Bearer ${cfg.token}").build()).execute().use { if (it.isSuccessful) JSONObject(it.body?.string() ?: "{}") else null }
                 } catch (_: Exception) { null }
+                if (obj == null) return ok(out)
                 val attrs = JSONArray()
                 try {
-                    val a = JSONObject(text ?: "{}").optJSONObject("attributes") ?: JSONObject()
+                    val a = obj.optJSONObject("attributes") ?: JSONObject()
+                    out.put("state", obj.optString("state")).put("name", a.optString("friendly_name"))
+                    a.optJSONArray("options")?.let { out.put("options", it) }
                     for (k in a.keys()) {
                         val v = a.opt(k)
                         if (k in setOf("friendly_name", "icon", "attribution", "unit_of_measurement", "device_class", "state_class")) continue
                         if (v is String && v.length >= 40) attrs.put(JSONObject().put("name", k).put("preview", v.take(80)))
                     }
                 } catch (_: Exception) {}
-                ok(JSONObject().put("attributes", attrs))
+                ok(out.put("attributes", attrs))
             }
             "POST /api/crash/test" -> ok(onMain { app.testCrash(); JSONObject().put("ok", true) })
             "POST /api/catalog/refresh" -> {

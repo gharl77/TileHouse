@@ -217,7 +217,7 @@ class App : Application() {
         val now = System.currentTimeMillis()
         if (now - backupCheckedAt < 3_600_000L) return
         backupCheckedAt = now
-        Thread { Backups.run(this) }.start()
+        Backups.run(this) // sur le fil principal, comme tout ce qui lit la configuration ; le fichier fait quelques kilo-octets
     }
 
     /** Active ou quitte la maison de démonstration (la vraie configuration est conservée). */

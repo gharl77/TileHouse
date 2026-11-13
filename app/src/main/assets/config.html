@@ -98,7 +98,8 @@ h3.sub{margin:20px 0 8px;font-size:14px;color:var(--mute);font-weight:600}
 .lead{color:var(--mute);margin:4px 0 16px;max-width:860px}
 .saved{color:var(--mute);font-size:13px;margin-left:auto;min-height:1em}
 #navSelect{display:none;width:auto;max-width:100%}
-.panel{display:grid;gap:14px;max-width:860px;align-content:start}
+.panel{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:860px;align-content:start}
+.card{min-width:0}
 .panel[hidden]{display:none!important}
 .panel.split{max-width:1500px;grid-template-columns:340px minmax(0,1fr);align-items:start;gap:20px}
 .panel.split .wide{grid-column:1/-1;max-width:860px}
@@ -127,6 +128,76 @@ details.fold[open]>summary::after{transform:rotate(90deg)}
 details.fold .ft{flex:1}
 details.fold .sum{color:var(--mute);font-size:13px;text-align:right}
 details.fold>:not(summary){margin-bottom:10px}
+/* Choix multiples : pastilles à bascule, jetons avec recherche, interrupteurs par pièce */
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{border-radius:99px;padding:7px 15px;font-size:14px;background:var(--card2);border:1px solid var(--line);transition:background .15s,color .15s}
+.pill.on{background:#ffb300;color:#1c1c1e;border-color:transparent;font-weight:600}
+.pill.on::before{content:"✓ "}
+.pill:disabled{opacity:.45;cursor:default}
+.pill small{font-weight:400;opacity:.7;margin-left:4px}
+.pcount{color:var(--mute);font-size:13px;margin-top:10px}
+.toks{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:34px;align-items:center}
+.tok{display:inline-flex;align-items:center;gap:8px;border-radius:99px;padding:5px 6px 5px 12px;font-size:14px;background:rgba(255,179,0,.16);color:#ffcc66;cursor:grab;max-width:100%}
+.tok .tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tok .n{background:rgba(255,179,0,.3);border-radius:99px;font-size:11px;padding:1px 7px;font-weight:700;flex:none}
+.tok .x{border:0;background:rgba(255,255,255,.1);color:inherit;border-radius:50%;width:22px;height:22px;padding:0;font-size:12px;line-height:1;flex:none}
+.tok .x:hover{background:rgba(255,255,255,.25)}
+.tok.dragging{opacity:.5}
+.tokrows{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-bottom:10px}
+.tokrows .tok{display:flex;border-radius:12px;padding:8px 8px 8px 12px;background:var(--card2);color:var(--text)}
+.tokrows .tok .tn{flex:1}
+.tokrows .tok select{width:auto;max-width:240px;padding:6px 10px}
+.tokrows .tok .x{color:var(--mute)}
+.sugs{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;margin-top:6px}
+.sug{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;border-color:transparent;padding:7px 10px;white-space:normal}
+.sug:hover,.sug:focus-visible{background:var(--card2)}
+.sug .plus{color:var(--ok);font-size:18px;line-height:1;width:18px;text-align:center;flex:none}
+.sug .sn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sug small{color:var(--mute);font-size:12px;flex:none;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rhead{display:flex;align-items:center;font-size:12px;color:var(--mute);padding:12px 0 4px}
+.rhead button{margin-left:auto;background:transparent;border:0;color:var(--mute);font-size:12px;text-decoration:underline;padding:0}
+.sline{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--line);cursor:pointer}
+.sline .nm{flex:1;min-width:0}
+.sline .au{font-size:12px;color:var(--mute)}
+.sline input{appearance:none;-webkit-appearance:none;flex:none;width:40px;height:24px;border-radius:99px;background:#3a4558;border:0;padding:0;position:relative;cursor:pointer;transition:background .15s}
+.sline input::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
+.sline input:checked{background:var(--ok)}
+.sline input:checked::after{transform:translateX(16px)}
+/* Éléments qu'on ouvre pour les modifier : pastilles personnalisées, sources de Ce matin */
+.items{list-style:none;margin:0 0 10px;padding:0;display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+.item{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.item>.head{display:flex;align-items:center;gap:12px;padding:10px 12px;cursor:pointer}
+.item>.head:hover{background:rgba(255,255,255,.03)}
+.item .grow{flex:1;min-width:0}
+.item .t1,.item .t2{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .t2{color:var(--mute);font-size:13px}
+.item .chev{color:var(--mute);font-size:20px;line-height:1;transition:transform .15s}
+.item.open .chev{transform:rotate(90deg)}
+.item>.body{display:none;padding:2px 12px 14px;border-top:1px solid var(--line)}
+.item.open>.body{display:block}
+.item .st{font-size:12px;color:var(--mute);white-space:nowrap}
+.item .st.good{color:#7ee8a6}.item .st.warn{color:#ffcc66}
+.ico{width:34px;height:34px;border-radius:10px;background:var(--card2);display:grid;place-items:center;flex:none;font-size:16px}
+.cchip{display:inline-flex;align-items:center;border-radius:99px;padding:5px 13px;font-size:14px;font-weight:600;white-space:nowrap;max-width:50%;overflow:hidden;text-overflow:ellipsis;flex:none}
+.swatches{display:flex;flex-wrap:wrap;gap:8px}
+.swatch{width:30px;height:30px;border-radius:50%;border:2px solid transparent;padding:0}
+.swatch.sel{border-color:#fff;box-shadow:0 0 0 2px #0e131b inset}
+.icons{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px;margin-top:8px;max-height:176px;overflow:auto;padding:2px}
+.icons button{padding:0;height:38px;font-size:20px;background:transparent;border-color:transparent;border-radius:8px}
+.icons button:hover{background:var(--card2)}
+.icons button.sel{background:var(--card2);border-color:var(--blue)}
+.iconref{font-size:12px;color:var(--mute);margin-top:8px}
+.iconref code{background:var(--card2);border-radius:6px;padding:1px 6px;color:var(--text)}
+.iconref a{color:var(--mute)}
+.badge2{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:99px;padding:1px 9px;white-space:nowrap}
+button.ghost{background:transparent;border-color:transparent;color:var(--mute)}
+button.ghost:hover{background:var(--card2);color:var(--text)}
+.sgroup{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 14px}
+/* Éditeur de pièce : lignes propres, actions au survol */
+.ents li .acts{display:flex;gap:2px;flex:none}
+.ents li .acts button{background:transparent;border-color:transparent;color:var(--mute);padding:4px 9px}
+.ents li .acts button:hover{background:var(--card2);color:var(--text)}
+@media(hover:hover){.ents li .acts{opacity:0;transition:opacity .15s}.ents li:hover .acts,.ents li:focus-within .acts{opacity:1}}
 details.more{margin:6px 0}
 details.more>summary{color:var(--mute);font-size:13px;cursor:pointer;width:max-content}
 details.more>p{margin:6px 0 0}
@@ -202,7 +273,7 @@ details.more>p{margin:6px 0 0}
       <div class="cols">
         <div>
           <h2>Dans la pièce <span class="muted" id="selCount"></span></h2>
-          <p class="muted">Glissez ⠿ pour l'ordre d'affichage. ✎ Le champ renomme l'appareil <b>dans l'app seulement</b> (vide = nom de Home Assistant).</p>
+          <p class="muted">Glissez ⠿ pour l'ordre d'affichage. ✎ renomme l'appareil <b>dans l'app seulement</b> (vide = nom de Home Assistant).</p>
           <ul class="ents" id="selList"></ul>
         </div>
         <div>
@@ -210,8 +281,9 @@ details.more>p{margin:6px 0 0}
           <div class="row">
             <input id="q" placeholder="Rechercher…" style="flex:2;width:auto;min-width:140px">
             <select id="fArea" style="flex:1;width:auto"></select>
-            <select id="fType" style="flex:1;width:auto"></select>
+            <select id="fType" hidden></select>
           </div>
+          <div id="fTypePills" class="pills" style="margin:10px 0"></div>
           <label class="check"><input type="checkbox" id="fHidden"> Inclure les entités masquées et de diagnostic</label>
           <div id="catMsg" class="muted"></div>
           <ul class="ents pick" id="catList"></ul>
@@ -224,9 +296,8 @@ details.more>p{margin:6px 0 0}
     <h2>🎵 En lecture</h2>
     <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher une carte en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue</label>
     <details class="more"><summary>En savoir plus</summary><p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté. Une émission ou un film affiche une icône de télé et le nom de l'application.</p></details>
-<details class="fold"><summary><span class="ft">Lecteurs qui affichent la carte</span><span class="sum"></span></summary>
+    <h3 class="sub">Lecteurs qui affichent la carte</h3>
     <div id="npList" class="muted"></div>
-    </details>
     <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
     <div class="set">
       <label class="f" for="npPause">Après une pause, la carte…</label>
@@ -244,9 +315,8 @@ details.more>p{margin:6px 0 0}
   <section class="card">
     <h2>Qui est à la maison</h2>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Noms affichés sous la salutation. Cochez les personnes de Home Assistant (app compagnon) ou vos capteurs de présence par personne : un capteur compte « à la maison » tant que son état n'est pas une absence (not_home, away…).</p></details>
-<details class="fold"><summary><span class="ft">Personnes et capteurs</span><span class="sum"></span></summary>
+    <h3 class="sub">Personnes et capteurs</h3>
     <div id="personList" class="muted">Connexion requise…</div>
-    </details>
   </section>
   <section class="card">
     <h2>💡 Vue d'ensemble de la maison</h2>
@@ -265,9 +335,8 @@ details.more>p{margin:6px 0 0}
   </section>
   <section class="card">
     <h2>📅 Agenda</h2>
-<details class="fold"><summary><span class="ft">Calendriers affichés</span><span class="sum"></span></summary>
+    <h3 class="sub">Calendriers affichés</h3>
     <div id="calList" class="muted">Connexion requise…</div>
-    </details>
     <p class="muted">Sur la tablette, touchez un événement pour voir son lieu, sa durée et sa description, et la carte météo pour les prévisions heure par heure.</p>
   </section>
   <h3 class="group">Pastilles d'information</h3>
@@ -291,21 +360,19 @@ details.more>p{margin:6px 0 0}
       <div style="flex:1"><label class="f" for="peakReminder">Rappel</label>
         <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select></div>
     </div>
-<details class="fold"><summary><span class="ft">Capteurs de puissance ou d'énergie</span><span class="sum"></span></summary>
+    <h3 class="sub">Capteurs de puissance ou d'énergie</h3>
     <div id="energyList" class="muted">Connexion requise…</div>
-    </details>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Le premier capteur coché fait une pastille sur l'accueil (« 2,4 kW »). Touchez-la, ou la pastille de pointe, pour voir tous les capteurs cochés, les pointes à venir et la courbe des dernières 24 heures.</p></details>
   </section>
   <section class="card">
     <h2>⚠️ Alertes météo</h2>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Capteurs qui comptent les alertes en vigueur (ex. Environnement Canada : alertes, veilles, avis). Une pastille apparaît quand l'un d'eux est au-dessus de 0 ; touchez-la pour le détail.</p></details>
-<details class="fold"><summary><span class="ft">Capteurs d'alertes</span><span class="sum"></span></summary>
+    <h3 class="sub">Capteurs d'alertes</h3>
     <div id="alertList" class="muted">Connexion requise…</div>
-    </details>
   </section>
   <section class="card">
     <h2>🏷️ Pastilles personnalisées</h2>
-    <p class="muted">Une pastille apparaît quand l'entité est dans un des états indiqués (séparés par des virgules). Ex. : laveuse « À vider ».</p>
+    <p class="muted">Une pastille apparaît sur l'accueil quand l'entité est dans un des états choisis. Ex. : laveuse « À vider ».</p>
     <div id="chipRules"></div>
     <button id="addChip">+ Ajouter une pastille</button>
   </section>
@@ -313,10 +380,8 @@ details.more>p{margin:6px 0 0}
   <section class="card">
     <h2>▶️ Raccourcis</h2>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p></details>
-<details class="fold"><summary><span class="ft">Raccourcis choisis</span><span class="sum"></span></summary>
-    <input id="scQ" placeholder="Rechercher…">
-    <ul class="ents pick" id="scList" style="max-height:260px"></ul>
-    </details>
+    <h3 class="sub">Raccourcis choisis</h3>
+    <div id="scList" class="muted">Connexion requise…</div>
   </section>
 </main>
 <datalist id="allEnts"></datalist>
@@ -324,9 +389,8 @@ details.more>p{margin:6px 0 0}
   <section class="card">
     <h2>🛒 Listes d'épicerie et de tâches</h2>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Les listes « À faire » de Home Assistant que vous cochez ici apparaissent derrière une icône en haut de la tablette, avec le nombre d'articles restants. On y coche, ajoute et retire des articles ; les changements faits ailleurs (téléphone, assistant vocal) s'y reflètent.</p></details>
-<details class="fold"><summary><span class="ft">Listes affichées</span><span class="sum"></span></summary>
+    <h3 class="sub">Listes affichées</h3>
     <div id="todoList" class="muted">Connexion requise…</div>
-    </details>
   </section>
   <section class="card">
     <h2>Minuteries favorites</h2>
@@ -337,15 +401,13 @@ details.more>p{margin:6px 0 0}
   <section class="card">
     <h2>Ce matin</h2>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Pendant la plage horaire, une icône ☀️ apparaît en haut de la tablette, à côté de la cloche (avec un point bleu tant que le contenu n'a pas été lu). Touchez-la pour lire les sources de votre choix : des flux de nouvelles (lien RSS ou Atom, lu directement par la tablette, avec images) ou un texte d'une entité Home Assistant (Markdown accepté).</p></details>
-    <div class="row">
-      <div style="flex:1"><label class="f" for="mStart">De</label><input type="time" id="mStart"></div>
-      <div style="flex:1"><label class="f" for="mEnd">À</label><input type="time" id="mEnd"></div>
-    </div>
+    <div class="set"><label class="f" for="mStart">Plage horaire</label><input type="time" id="mStart" style="width:130px" aria-label="De"><span class="muted">à</span><input type="time" id="mEnd" style="width:130px" aria-label="À"></div>
     <h3 class="sub">Sources</h3>
     <div id="mSources"></div>
-    <div class="row"><button id="addFeed">+ Ajouter un flux de nouvelles</button><button id="addSource">+ Ajouter un texte (entité)</button></div>
-    <h3 class="sub">Suggestions</h3>
-    <div id="mSuggest" class="row muted">Recherche…</div>
+
+    <h3 class="sub">Ajouter une source</h3>
+    <div id="mSuggest" class="muted">Recherche…</div>
+    <div class="row" style="margin-top:12px"><button id="addFeed" class="ghost">+ Autre flux (coller un lien RSS)</button><button id="addSource" class="ghost">+ Autre texte (choisir une entité)</button></div>
   </section>
 </main>
 <main class="panel" data-panel="display" hidden>
@@ -383,7 +445,7 @@ details.more>p{margin:6px 0 0}
       <select id="theme"></select>
       <div id="holidayBox" hidden>
         <label class="f">Fêtes suivies par le thème automatique</label>
-        <div id="holidayList" class="row"></div>
+        <div id="holidayList"></div>
         <details class="more"><summary>En savoir plus</summary><p class="muted">Le thème suit la date : une fête cochée le jour venu (Noël du 1er au 26 décembre, Halloween du 25 au 31 octobre, Pâques du vendredi au lundi…), sinon la saison. Le Nouvel An lunaire et Hanoukka changent de date chaque année : choisissez-les à la main.</p></details>
       </div>
     </div>
@@ -675,6 +737,7 @@ function tidyTitles() {
 }
 // Résumé d'une liste repliée : « 8 sur 13 » pour des cases, « 2 choisis » pour une liste à cocher, sinon le nombre d'éléments.
 function foldSummary(d) {
+  if (d.dataset.manual) return;
   const boxes = d.querySelectorAll("input[type=checkbox]"), sum = d.querySelector(".sum");
   if (boxes.length) sum.textContent = [...boxes].filter(x => x.checked).length + " " + t("sur") + " " + boxes.length;
   else {
@@ -885,18 +948,9 @@ function renderHomeExtras(ex, h) {
   $("peakReminder").value = String(h.peakReminder);
   $("peakReminder").onchange = () => saveSettings({peakReminder: +$("peakReminder").value});
   // Alertes météo
-  const al = $("alertList");
-  if (ex.alerts) {
-    al.replaceChildren(); al.className = "";
-    if (!ex.alerts.length) al.append(el("p", {class: "muted", textContent: t("Aucun capteur d'alertes trouvé.")}));
-    for (const a of ex.alerts) {
-      const cb = el("input", {type: "checkbox", checked: h.weatherAlerts.includes(a.id), onchange: () => {
-        saveSettings({weatherAlerts: [...al.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.id)});
-      }});
-      cb.dataset.id = a.id;
-      al.append(el("label", {class: "check"}, cb, " " + a.name, el("span", {class: "muted", textContent: "  " + a.id})));
-    }
-  }
+  if (ex.alerts) tokens($("alertList"), ex.alerts.map(a => ({id: a.id, name: a.name, note: a.id})), h.weatherAlerts,
+    next => { h.weatherAlerts = next; saveSettings({weatherAlerts: next}); renderHomeExtras(ex, h); },
+    {placeholder: t("Ajouter un capteur d'alertes"), empty: ex.alerts.length ? "" : t("Aucun capteur d'alertes trouvé.")});
   renderShortcuts(); renderChipRules(); renderSources();
   if (document.activeElement !== $("mStart")) $("mStart").value = hmm(h.morningStart);
   if (document.activeElement !== $("mEnd")) $("mEnd").value = hmm(h.morningEnd);
@@ -905,65 +959,191 @@ function renderHomeExtras(ex, h) {
 $("mStart").onchange = () => saveSettings({morningStart: mins($("mStart").value)});
 $("mEnd").onchange = () => saveSettings({morningEnd: mins($("mEnd").value)});
 
+// ---- Choix multiples
+// Ponctuation selon la langue de la page : « mot » et « libellé : » en français, "word" et "label:" en anglais.
+const EN = () => document.documentElement.lang === "en";
+const colon = () => EN() ? ": " : " : ";
+const quote = x => EN() ? "\u201C" + x + "\u201D" : "« " + x + " »";
+const normTxt = x => String(x).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+/** A — pastilles à bascule, pour une liste courte. [isOn](item), [toggle](item, activé). */
+function pills(box, items, isOn, toggle, o = {}) {
+  box.className = ""; box.replaceChildren();
+  const row = el("div", {class: "pills"});
+  for (const it of items) {
+    const on = isOn(it);
+    const b = el("button", {class: "pill" + (on ? " on" : ""), disabled: !!o.disabled, title: it.id || "", onclick: () => toggle(it, !on)}, it.name, it.note ? el("small", {textContent: it.note}) : "");
+    b.setAttribute("aria-pressed", on);
+    row.append(b);
+  }
+  box.append(row);
+  if (o.count) box.append(el("div", {class: "pcount", textContent: items.filter(isOn).length + " " + t("sur") + " " + items.length}));
+}
+/**
+ * B — jetons et recherche, pour une liste longue : les choix en haut (✕ pour retirer, glisser pour l'ordre),
+ * un champ qui propose ce qu'on peut ajouter. [change](nouvelle liste d'identifiants).
+ */
+function tokens(box, all, chosen, change, o = {}) {
+  box.className = ""; box.replaceChildren();
+  const byId = id => all.find(x => x.id === id) || {id, name: id};
+  const row = el("div", {class: o.rows ? "tokrows" : "toks"});
+  let from = -1;
+  chosen.forEach((id, i) => {
+    const it = byId(id);
+    const tk = el(o.rows ? "div" : "span", {class: "tok", draggable: chosen.length > 1, title: it.id},
+      i === 0 && o.first ? el("span", {class: "n", textContent: o.first}) : "",
+      el("span", {class: "tn", textContent: it.name}),
+      o.extra ? o.extra(it) : "",
+      el("button", {class: "x", textContent: "✕", title: t("Retirer"), onclick: () => change(chosen.filter(x => x !== id))}));
+    tk.ondragstart = () => { from = i; tk.classList.add("dragging"); };
+    tk.ondragend = () => tk.classList.remove("dragging");
+    tk.ondragover = ev => ev.preventDefault();
+    tk.ondrop = ev => { ev.preventDefault(); if (from < 0 || from === i) return; const next = chosen.slice(); next.splice(i, 0, next.splice(from, 1)[0]); change(next); };
+    row.append(tk);
+  });
+  if (!chosen.length) row.append(el("span", {class: "muted", textContent: o.empty || t("Aucun choix pour l'instant.")}));
+  box.append(row);
+  if (o.offline) { box.append(el("div", {class: "muted", textContent: t("Connexion requise…")})); return; }
+  const rest0 = all.filter(x => !chosen.includes(x.id));
+  const q = el("input", {type: "search", placeholder: (o.placeholder || t("Ajouter")) + " (" + rest0.length + " " + (rest0.length === 1 ? t("disponible") : t("disponibles")) + ")"});
+  const sug = el("div", {class: "sugs"});
+  const draw = () => {
+    const w = normTxt(q.value.trim());
+    const rest = rest0.filter(x => !w || normTxt(x.name + " " + x.id + " " + (x.note || "")).includes(w));
+    const shown = rest.slice(0, w ? 8 : (o.preview ?? 4));
+    sug.replaceChildren(...shown.map(x => el("button", {class: "sug", title: x.id, onclick: () => change([...chosen, x.id])},
+      el("span", {class: "plus", textContent: "+"}), el("span", {class: "sn", textContent: x.name}), el("small", {textContent: x.note || ""}))));
+    if (w && !rest.length) sug.append(el("div", {class: "muted", style: "padding:6px 10px", textContent: t("Aucun résultat.")}));
+    else if (rest.length > shown.length) sug.append(el("div", {class: "muted", style: "padding:4px 10px", textContent: (rest.length - shown.length) + " " + t("autres : tapez pour chercher")}));
+  };
+  q.oninput = draw; draw();
+  if (rest0.length) box.append(q, sug);
+}
+
 // Où s'affiche un raccourci coché : automatique (pièce de sa zone Home Assistant, sinon l'accueil), l'accueil, ou une pièce choisie.
 function shortcutPlace(e) {
   const choice = (H.shortcutRooms || {})[e.id] || "";
   const area = (H.shortcutAreas || {})[e.id] || e.area || "";
   const auto = rooms.find(r => area && r.area === area);
-  const s = el("select", {style: "width:auto;max-width:260px", title: t("Où afficher ce raccourci"), onclick: ev => ev.stopPropagation(), onchange: () => {
+  const s = el("select", {style: "width:auto;max-width:260px", title: t("Où afficher ce raccourci"), onchange: () => {
     const next = Object.assign({}, H.shortcutRooms || {});
     if (s.value) next[e.id] = s.value; else delete next[e.id];
     H.shortcutRooms = next; saveSettings({shortcutRooms: next});
   }});
-  s.append(el("option", {value: "", textContent: t("Automatique") + " : " + (auto ? auto.name : t("Accueil"))}),
+  s.append(el("option", {value: "", textContent: t("Automatique") + colon() + (auto ? auto.name : t("Accueil"))}),
     el("option", {value: "home", textContent: t("Accueil")}));
   for (const r of rooms) s.append(el("option", {value: r.id, textContent: r.name}));
   s.value = [...s.options].some(o => o.value === choice) ? choice : "";
   return s;
 }
 function renderShortcuts() {
-  const ul = $("scList"), q = $("scQ").value.trim().toLowerCase();
   const doms = ["script", "scene", "button", "input_button"];
   const ents = (cat ? cat.entities : []).filter(e => doms.includes(domain(e.id)));
-  const sel = H.shortcuts;
-  const list = [...sel.map(id => ents.find(e => e.id === id) || {id, name: id}), ...ents.filter(e => !sel.includes(e.id))]
-    .filter(e => sel.includes(e.id) || !q || e.name.toLowerCase().includes(q) || e.id.includes(q)).slice(0, 200);
-  ul.replaceChildren();
-  if (!cat) { ul.append(el("li", {class: "empty", textContent: t("Connexion requise…")})); return; }
-  for (const e of list) {
-    const on = sel.includes(e.id);
-    ul.append(el("li", {onclick: () => {
-      const next = on ? sel.filter(x => x !== e.id) : [...sel, e.id];
-      H.shortcuts = next; saveSettings({shortcuts: next}); renderShortcuts();
-    }}, el("span", {class: "dot", textContent: on ? "✓" : (ICON[domain(e.id)] || "•")}),
-      el("div", {class: "info"}, el("div", {textContent: e.name}), el("div", {class: "id", textContent: e.id})),
-      on ? shortcutPlace(e) : ""));
-  }
+  tokens($("scList"), ents.map(e => ({id: e.id, name: e.name, note: e.id, area: e.area})), H.shortcuts,
+    next => { H.shortcuts = next; saveSettings({shortcuts: next}); renderShortcuts(); },
+    {rows: true, offline: !cat, placeholder: t("Ajouter un raccourci"), extra: shortcutPlace, empty: t("Aucun raccourci pour l'instant.")});
 }
-$("scQ").oninput = renderShortcuts;
 
+// Couleurs d'une pastille personnalisée (les mêmes que sur la tablette) et icônes proposées.
+const CHIP_COLORS = [["", "Neutre", "#3a4558", "#fff"], ["orange", "Orange", "#ff9f0a", "#1c1c1e"], ["red", "Rouge", "#ff453a", "#fff"],
+  ["yellow", "Jaune", "#ffd60a", "#1c1c1e"], ["green", "Vert", "#34c759", "#1c1c1e"], ["teal", "Turquoise", "#30b0c7", "#fff"],
+  ["blue", "Bleu", "#0a84ff", "#fff"], ["purple", "Mauve", "#af52de", "#fff"], ["pink", "Rose", "#ff375f", "#fff"]];
+// Émojis sûrs pour une tablette Android 8 (Emoji 5, 2017) : [émoji, nom, mots de recherche]
+const CHIP_ICONS = [["🧺", "Panier à linge", "laveuse lavage linge"], ["👕", "Vêtement", "secheuse linge"], ["🍽️", "Vaisselle", "lave-vaisselle assiette"],
+  ["🚿", "Douche", "eau salle de bain"], ["🛁", "Bain", "eau"], ["🚽", "Toilette", "eau"], ["💧", "Goutte", "eau fuite humidite"], ["🔥", "Feu", "chauffage foyer four"],
+  ["❄️", "Flocon", "froid clim gel"], ["🌡️", "Thermomètre", "temperature"], ["💨", "Vent", "ventilation air"], ["☀️", "Soleil", "meteo"], ["🌧️", "Pluie", "meteo"],
+  ["⚡", "Éclair", "electricite pointe"], ["🔋", "Pile", "batterie charge"], ["🔌", "Prise", "branche recharge"], ["💡", "Ampoule", "lumiere"], ["🚗", "Auto", "voiture garage"],
+  ["🚲", "Vélo", ""], ["🚪", "Porte", "entree"], ["🔒", "Cadenas", "serrure verrou"], ["🔓", "Cadenas ouvert", "serrure deverrouille"], ["🔑", "Clé", ""],
+  ["🔔", "Cloche", "sonnette alerte"], ["📦", "Colis", "livraison boite"], ["📬", "Courrier", "boite aux lettres"], ["🗑️", "Poubelle", "ordures"], ["♻️", "Recyclage", ""],
+  ["🌱", "Plante", "arrosage jardin"], ["🐶", "Chien", "animal"], ["🐱", "Chat", "animal"], ["🍼", "Biberon", "bebe"], ["💊", "Médicament", "pilule"],
+  ["☕", "Café", "cafetiere"], ["🍳", "Cuisson", "poele four"], ["🍕", "Repas", "souper pizza"], ["🛒", "Panier", "epicerie"], ["📺", "Télé", ""], ["🎵", "Musique", ""],
+  ["🎮", "Jeu", "console"], ["💻", "Ordinateur", "bureau travail"], ["📞", "Téléphone", "appel"], ["🛏️", "Lit", "dodo sommeil"], ["🌙", "Lune", "nuit"],
+  ["⏰", "Réveil", "alarme heure"], ["⏳", "Sablier", "attente en cours"], ["✅", "Fait", "termine ok"], ["⚠️", "Attention", "alerte"], ["❗", "Important", "alerte"],
+  ["🏠", "Maison", ""], ["👋", "Présence", "invite visite"], ["🎉", "Fête", "anniversaire"], ["🎄", "Sapin", "noel"], ["🏒", "Hockey", "match sport"]];
+const codeOf = e => [...e].filter(c => c !== "\uFE0F").map(c => "U+" + c.codePointAt(0).toString(16).toUpperCase()).join(" ");
+// Émoji en tête du texte d'une pastille (« 🧺 Laveuse à vider » → « 🧺 »), ou "".
+const leadIcon = x => { const m = /^\s*((?:\p{Extended_Pictographic}|\p{Regional_Indicator})[\uFE0F\u200D\p{Extended_Pictographic}]*)\s*/u.exec(x || ""); return m ? m[1] : ""; };
+const dropIcon = x => (x || "").replace(/^\s*(?:\p{Extended_Pictographic}|\p{Regional_Indicator})[\uFE0F\u200D\p{Extended_Pictographic}]*\s*/u, "");
+const entName = id => ((EX && EX.all || []).find(e => e.id === id) || {}).name || id;
+const infoCache = {};
+async function entityInfo(id) {
+  if (!id) return {options: [], state: "", attributes: []};
+  if (!infoCache[id]) { try { infoCache[id] = await api("POST", "/api/attrs", {entity: id}); } catch (e) { return {options: [], state: "", attributes: []}; } }
+  return infoCache[id];
+}
+let openChip = -1;
+function chipPreview(r) {
+  const c = CHIP_COLORS.find(x => x[0] === (r.color || "")) || CHIP_COLORS[0];
+  return el("span", {class: "cchip", style: "background:" + c[2] + ";color:" + c[3], textContent: r.text || entName(r.entity) || t("Nouvelle pastille")});
+}
 function renderChipRules() {
   const box = $("chipRules");
-  box.replaceChildren();
+  box.className = "items"; box.replaceChildren();
   const rules = H.customChips;
   const save = () => saveSettings({customChips: rules});
+  if (!rules.length) box.append(el("p", {class: "muted", textContent: t("Aucune pastille personnalisée pour l'instant.")}));
   rules.forEach((r, i) => {
-    const ent = el("input", {value: r.entity || "", placeholder: "input_select.statut_de_la_laveuse", onchange: ev => { r.entity = ev.target.value.trim(); save(); }});
-    ent.setAttribute("list", "allEnts");
-    const sts = el("input", {value: (r.states || []).join(", "), placeholder: "À vider", onchange: ev => { r.states = ev.target.value.split(",").map(x => x.trim()).filter(Boolean); save(); }});
-    const txt = el("input", {value: r.text || "", placeholder: "🧺 Laveuse à vider", onchange: ev => { r.text = ev.target.value; save(); }});
-    const col = el("select", {onchange: ev => { r.color = ev.target.value; save(); }},
-      el("option", {value: "", textContent: t("Neutre")}), el("option", {value: "orange", textContent: t("Orange")}), el("option", {value: "red", textContent: t("Rouge")}));
-    col.value = r.color || "";
-    box.append(el("div", {class: "rule"},
-      el("div", {}, el("label", {class: "f", textContent: t("Entité")}), ent),
-      el("div", {}, el("label", {class: "f", textContent: t("États")}), sts),
-      el("div", {}, el("label", {class: "f", textContent: t("Texte")}), txt),
-      el("div", {}, el("label", {class: "f", textContent: t("Couleur")}), col),
-      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { rules.splice(i, 1); save(); renderChipRules(); }})));
+    const sts = r.states || (r.states = []);
+    const rule = () => !r.entity ? t("Choisissez une entité") : !sts.length ? t("Choisissez au moins un état") : t("quand") + " " + entName(r.entity) + " " + t("est") + " " + sts.map(quote).join(" " + t("ou") + " ");
+    const sub = el("div", {class: "t2", textContent: rule()});
+    const head = el("div", {class: "head", onclick: () => { openChip = openChip === i ? -1 : i; renderChipRules(); }}, chipPreview(r), el("div", {class: "grow"}, sub), el("span", {class: "chev", textContent: "›"}));
+    const item = el("div", {class: "item" + (openChip === i ? " open" : "")}, head);
+    if (openChip === i) {
+      const refresh = () => { head.replaceChild(chipPreview(r), head.firstChild); sub.textContent = rule(); };
+      const ent = el("input", {value: r.entity || "", placeholder: "input_select.statut_de_la_laveuse", onchange: ev => { r.entity = ev.target.value.trim(); save(); refresh(); drawStates(); }});
+      ent.setAttribute("list", "allEnts");
+      // États : ceux que l'entité peut prendre, en pastilles ; un champ pour un état qui n'est pas dans la liste.
+      const stBox = el("div", {class: "pills"});
+      const other = el("input", {placeholder: t("Autre état (ex. on, home, 3)"), style: "margin-top:8px", onchange: ev => {
+        const v = ev.target.value.trim(); ev.target.value = "";
+        if (v && !sts.includes(v)) { sts.push(v); save(); refresh(); drawStates(); }
+      }});
+      const drawStates = async () => {
+        const info = await entityInfo(r.entity);
+        const all = [...new Set([...(info.options || []), ...(info.state && !["unknown", "unavailable"].includes(info.state) ? [info.state] : []), ...sts])];
+        stBox.replaceChildren(...all.map(x => {
+          const on = sts.includes(x);
+          const b = el("button", {class: "pill" + (on ? " on" : ""), onclick: () => {
+            if (on) sts.splice(sts.indexOf(x), 1); else sts.push(x);
+            save(); refresh(); drawStates();
+          }}, x, x === info.state ? el("small", {textContent: t("actuel")}) : "");
+          b.setAttribute("aria-pressed", on);
+          return b;
+        }));
+        if (!all.length) stBox.append(el("span", {class: "muted", textContent: r.entity ? t("Aucun état connu : tapez-le ci-dessous.") : t("Choisissez d'abord une entité.")}));
+      };
+      const txt = el("input", {value: r.text || "", placeholder: "🧺 Laveuse à vider", oninput: ev => { r.text = ev.target.value; refresh(); drawIcons(); }, onchange: save});
+      // Icône : un émoji placé au début du texte. On en propose une sélection sûre ; n'importe quel autre peut être collé dans le texte.
+      const icons = el("div", {class: "icons"}), ref = el("div", {class: "iconref"});
+      const iq = el("input", {type: "search", placeholder: t("Chercher une icône (laveuse, porte, colis…)"), oninput: () => drawIcons()});
+      const drawIcons = () => {
+        const cur = leadIcon(r.text), w = normTxt(iq.value.trim());
+        icons.replaceChildren(el("button", {textContent: "∅", title: t("Sans icône"), class: cur ? "" : "sel", onclick: () => { r.text = dropIcon(r.text); txt.value = r.text; save(); refresh(); drawIcons(); }}),
+          ...CHIP_ICONS.filter(([e, n, k]) => !w || normTxt(t(n) + " " + n + " " + k).includes(w)).map(([e, n]) =>
+            el("button", {textContent: e, title: t(n) + " · " + codeOf(e), class: e === cur ? "sel" : "", onclick: () => { r.text = e + " " + dropIcon(r.text); txt.value = r.text; save(); refresh(); drawIcons(); }})));
+        const known = CHIP_ICONS.find(x => x[0] === cur);
+        ref.replaceChildren(cur ? el("span", {}, t("Icône actuelle") + colon() + cur + " " + (known ? t(known[1]) + " · " : ""), el("code", {textContent: codeOf(cur)}), " — ") : "",
+          t("Un autre émoji peut être collé au début du texte ; la tablette (Android 8) affiche ceux d'Emoji 5 et moins."), " ",
+          el("a", {href: "https://emojipedia.org/emoji-5.0", target: "_blank", rel: "noopener", textContent: t("Liste de référence")}));
+      };
+      const sw = el("div", {class: "swatches"}, ...CHIP_COLORS.map(([k, n, bg]) => {
+        const b = el("button", {class: "swatch" + ((r.color || "") === k ? " sel" : ""), style: "background:" + bg, title: t(n), onclick: () => { r.color = k; save(); renderChipRules(); }});
+        b.setAttribute("aria-label", t(n)); b.setAttribute("aria-pressed", (r.color || "") === k);
+        return b;
+      }));
+      item.append(el("div", {class: "body"},
+        el("label", {class: "f", textContent: t("Entité")}), ent,
+        el("label", {class: "f", textContent: t("Afficher la pastille quand l'état est")}), stBox, other,
+        el("label", {class: "f", textContent: t("Texte de la pastille")}), txt,
+        el("label", {class: "f", textContent: t("Icône")}), iq, icons, ref,
+        el("label", {class: "f", textContent: t("Couleur")}), sw,
+        el("p", {class: "muted", textContent: t("Orange et rouge sont des alertes : elles passent devant les autres pastilles.")}),
+        el("div", {class: "row", style: "margin-top:10px"}, el("button", {class: "danger", textContent: t("Retirer cette pastille"), onclick: () => { rules.splice(i, 1); openChip = -1; save(); renderChipRules(); }}))));
+      drawStates(); drawIcons();
+    }
+    box.append(item);
   });
 }
-$("addChip").onclick = () => { H.customChips.push({entity: "", states: [], text: "", color: "orange"}); renderChipRules(); };
+$("addChip").onclick = () => { H.customChips.push({entity: "", states: [], text: "", color: "orange"}); openChip = H.customChips.length - 1; renderChipRules(); };
 
 const attrCache = {};
 async function attrsOf(id) {
@@ -971,67 +1151,77 @@ async function attrsOf(id) {
   if (!attrCache[id]) { try { attrCache[id] = (await api("POST", "/api/attrs", {entity: id})).attributes; } catch (e) { attrCache[id] = []; } }
   return attrCache[id];
 }
+const feedStatus = {}; // lien → {ok, text} du dernier essai
+async function testFeed(url, done, quiet) {
+  if (!url) return;
+  feedStatus[url] = {text: t("Lecture du flux…")};
+  if (!quiet) done(); // appelé pendant un dessin : on ne redessine pas tout de suite
+  try {
+    const r = await api("POST", "/api/feed/test", {url});
+    feedStatus[url] = r.ok ? {ok: true, text: "✓ " + t("Flux lu") + " · " + r.count + " " + t("nouvelles"), first: r.first}
+                           : {ok: false, text: "⚠ " + (r.error || t("Aucune nouvelle dans ce flux"))};
+  } catch (e) { feedStatus[url] = {ok: false, text: "⚠ " + e.message}; }
+  done();
+}
+const siteOf = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return u || ""; } };
+let openSrc = -1;
 function renderSources() {
   const box = $("mSources");
-  box.replaceChildren();
+  box.className = "items"; box.replaceChildren();
   const src = H.morningSources;
   const save = () => saveSettings({morningSources: src});
   if (!src.length) box.append(el("p", {class: "muted", textContent: t("Aucune source : l'icône Ce matin n'est pas affichée.")}));
   src.forEach((s, i) => {
-    const title = el("div", {}, el("label", {class: "f", textContent: t("Titre")}),
-      el("input", {value: s.title || "", placeholder: s.type === "rss" ? "Radio-Canada" : t("Météo"), onchange: ev => { s.title = ev.target.value; save(); }}));
-    const tools = [
-      el("button", {class: "mini x", textContent: "▲", disabled: i === 0, onclick: () => { move(src, i, -1); save(); renderSources(); }}),
-      el("button", {class: "mini x", textContent: "▼", disabled: i === src.length - 1, onclick: () => { move(src, i, 1); save(); renderSources(); }}),
-      el("button", {class: "mini danger x", textContent: t("Retirer"), onclick: () => { src.splice(i, 1); save(); renderSources(); }})];
-    if (s.type === "rss") {
-      const info = el("span", {class: "muted"});
-      const url = el("input", {type: "url", value: s.url || "", placeholder: "https://exemple.com/rss.xml"});
-      const test = async () => {
-        if (!url.value.trim()) { info.textContent = ""; return; }
-        info.textContent = t("Lecture du flux…");
-        try {
-          const r = await api("POST", "/api/feed/test", {url: url.value.trim()});
-          info.textContent = r.ok ? "✓ " + r.count + " " + t("nouvelles") + (r.images ? " · " + r.images + " " + t("avec image") : "") + " — « " + r.first + " »"
-                                  : "⚠️ " + (r.error || t("Aucune nouvelle dans ce flux"));
-        } catch (e) { info.textContent = "⚠️ " + e.message; }
-      };
-      url.onchange = () => { s.url = url.value.trim(); save(); test(); };
-      const count = el("select", {onchange: ev => { s.count = +ev.target.value; save(); }},
-        ...[4, 6, 8, 10, 12].map(n => el("option", {value: n, textContent: n})));
-      count.value = s.count || 8;
-      box.append(el("div", {class: "rule"},
-        el("div", {}, el("label", {class: "f", textContent: t("Type")}), el("b", {textContent: "📰 " + t("Flux de nouvelles")})),
-        title,
-        el("div", {style: "flex:2"}, el("label", {class: "f", textContent: t("Lien du flux (RSS / Atom, XML)")}), url),
-        el("div", {}, el("label", {class: "f", textContent: t("Nouvelles")}), count),
-        el("button", {class: "mini x", textContent: t("Tester"), onclick: test}),
-        ...tools,
-        el("div", {style: "flex-basis:100%"}, info)));
-      return;
+    const rss = s.type === "rss";
+    const st = rss ? feedStatus[s.url] : null;
+    const sub = rss ? [siteOf(s.url) || (S.demo ? t("exemple") : t("Lien à indiquer")), (s.count || 8) + " " + t("nouvelles")].join(" · ")
+                    : s.entity ? entName(s.entity) + (s.attribute ? " · " + s.attribute : "") : t("Entité à choisir");
+    const item = el("div", {class: "item" + (openSrc === i ? " open" : "")});
+    item.dataset.idx = i;
+    const head = el("div", {class: "head", onclick: () => { openSrc = openSrc === i ? -1 : i; renderSources(); }},
+      grip(box, item, src, i, () => { openSrc = -1; save(); renderSources(); }),
+      el("span", {class: "ico", textContent: rss ? "📰" : "📝"}),
+      el("div", {class: "grow"}, el("div", {class: "t1", textContent: s.title || (rss ? t("Flux de nouvelles") : t("Texte (entité)"))}), el("div", {class: "t2", textContent: sub})),
+      st ? el("span", {class: "st " + (st.ok === true ? "good" : st.ok === false ? "warn" : ""), textContent: st.text, title: st.first || ""}) : "",
+      el("span", {class: "chev", textContent: "›"}));
+    item.append(head);
+    if (openSrc === i) {
+      const body = el("div", {class: "body"});
+      body.append(el("label", {class: "f", textContent: t("Titre")}),
+        el("input", {value: s.title || "", placeholder: rss ? "Radio-Canada" : t("Météo"), onchange: ev => { s.title = ev.target.value; save(); renderSources(); }}));
+      if (rss) {
+        const url = el("input", {type: "url", value: s.url || "", placeholder: "https://exemple.com/rss.xml", onchange: () => { s.url = url.value.trim(); save(); testFeed(s.url, renderSources); }});
+        body.append(el("label", {class: "f", textContent: t("Lien du flux (RSS / Atom, XML)")}), url,
+          st && st.first ? el("p", {class: "muted", textContent: t("Première nouvelle") + colon() + quote(st.first)}) : "",
+          el("label", {class: "f", textContent: t("Nombre de nouvelles")}),
+          el("div", {class: "pills"}, ...[4, 6, 8, 10, 12].map(n => el("button", {class: "pill" + ((s.count || 8) === n ? " on" : ""), textContent: n, onclick: () => { s.count = n; save(); renderSources(); }}))));
+      } else {
+        const ent = el("input", {value: s.entity || "", placeholder: "sensor.resume_matinal"});
+        ent.setAttribute("list", "allEnts");
+        const at = el("select", {});
+        const fill = async () => {
+          const list = await attrsOf(ent.value.trim());
+          at.replaceChildren(el("option", {value: "", textContent: t("État")}), ...list.map(a => el("option", {value: a.name, textContent: a.name})));
+          if (s.attribute && !list.some(a => a.name === s.attribute)) at.append(el("option", {value: s.attribute, textContent: s.attribute}));
+          at.value = s.attribute || "";
+        };
+        ent.onchange = () => { s.entity = ent.value.trim(); s.attribute = ""; save(); fill(); };
+        at.onchange = () => { s.attribute = at.value; save(); };
+        fill();
+        body.append(el("label", {class: "f", textContent: t("Entité")}), ent, el("label", {class: "f", textContent: t("Attribut")}), at);
+      }
+      body.append(el("div", {class: "row", style: "margin-top:14px"},
+        rss ? el("button", {textContent: t("Tester le flux"), onclick: () => testFeed(s.url, renderSources)}) : "",
+        el("button", {class: "danger", textContent: t("Retirer cette source"), onclick: () => { src.splice(i, 1); openSrc = -1; save(); renderSources(); renderSuggestions(); }})));
+      item.append(body);
     }
-    const ent = el("input", {value: s.entity || "", placeholder: "sensor.resume_matinal"});
-    ent.setAttribute("list", "allEnts");
-    const at = el("select", {});
-    const fill = async () => {
-      const list = await attrsOf(ent.value.trim());
-      at.replaceChildren(el("option", {value: "", textContent: t("État")}), ...list.map(a => el("option", {value: a.name, textContent: a.name})));
-      if (s.attribute && !list.some(a => a.name === s.attribute)) at.append(el("option", {value: s.attribute, textContent: s.attribute}));
-      at.value = s.attribute || "";
-    };
-    ent.onchange = () => { s.entity = ent.value.trim(); s.attribute = ""; save(); fill(); };
-    at.onchange = () => { s.attribute = at.value; save(); };
-    fill();
-    box.append(el("div", {class: "rule"},
-      el("div", {}, el("label", {class: "f", textContent: t("Type")}), el("b", {textContent: "📝 " + t("Texte (entité)")})),
-      title,
-      el("div", {}, el("label", {class: "f", textContent: t("Entité")}), ent),
-      el("div", {}, el("label", {class: "f", textContent: t("Attribut")}), at),
-      ...tools));
+    box.append(item);
+    // Premier affichage : on vérifie chaque flux une fois, pour montrer s'il répond.
+    if (rss && s.url && !feedStatus[s.url]) testFeed(s.url, renderSources, true);
   });
 }
-$("addFeed").onclick = () => { H.morningSources.push({type: "rss", title: "", url: "", count: 8}); renderSources(); };
-$("addSource").onclick = () => { H.morningSources.push({entity: "", attribute: "", title: ""}); renderSources(); };
+$("addFeed").onclick = () => { H.morningSources.push({type: "rss", title: "", url: "", count: 8}); openSrc = H.morningSources.length - 1; renderSources(); };
+$("addSource").onclick = () => { H.morningSources.push({entity: "", attribute: "", title: ""}); openSrc = H.morningSources.length - 1; renderSources(); };
 
 // Flux connus (vérifiés) proposés en un clic ; on peut toujours ajouter n'importe quel autre lien.
 const FEEDS = [
@@ -1043,20 +1233,30 @@ const FEEDS = [
   ["Journal de Québec", "https://www.journaldequebec.com/rss.xml"],
   ["TVA Nouvelles", "https://www.tvanouvelles.ca/rss.xml"],
 ];
-let suggested = false;
-async function loadSuggestions() {
-  if (suggested || !EX || !EX.all) return;
-  suggested = true;
+let suggested = false, textSuggestions = [];
+// Suggestions rangées en deux groupes ; celles déjà ajoutées ne sont plus proposées.
+function renderSuggestions() {
   const box = $("mSuggest");
-  box.replaceChildren();
-  const add = (label, source) => box.append(el("button", {textContent: "+ " + label, onclick: () => {
-    if (source.url && H.morningSources.some(x => x.url === source.url)) return;
-    H.morningSources.push(source); saveSettings({morningSources: H.morningSources}); renderSources();
-  }}));
-  for (const [name, url] of FEEDS) add("📰 " + name, {type: "rss", title: name.replace(" · ", " — "), url, count: 8});
+  box.className = ""; box.replaceChildren();
+  const has = x => H.morningSources.some(y => x.url ? y.url === x.url : y.entity === x.entity && (y.attribute || "") === (x.attribute || ""));
+  const group = (title, list) => {
+    const rest = list.filter(([, x]) => !has(x));
+    if (!rest.length) return;
+    box.append(el("span", {class: "badge2", textContent: title}), el("div", {class: "sgroup"}, ...rest.map(([label, source]) =>
+      el("button", {class: "pill", textContent: "+ " + label, onclick: () => { H.morningSources.push(Object.assign({}, source)); saveSettings({morningSources: H.morningSources}); renderSources(); renderSuggestions(); }}))));
+  };
+  group(t("Flux de nouvelles à ajouter"), FEEDS.map(([name, url]) => [name, {type: "rss", title: name.replace(" · ", " — "), url, count: 8}]));
+  group(t("Textes de Home Assistant à ajouter"), textSuggestions);
+  if (!box.childElementCount) box.append(el("span", {class: "muted", textContent: t("Toutes les suggestions sont déjà ajoutées.")}));
+}
+async function loadSuggestions() {
+  if (suggested || !EX || !EX.all) { if (suggested) renderSuggestions(); return; }
+  suggested = true;
+  renderSuggestions();
   // Textes de résumés générés dans Home Assistant (ex. sensor.resume_matinal) : chaque attribut texte
   const cands = EX.all.filter(e => e.id.startsWith("sensor.") && /resume|résumé|briefing|summary/i.test(e.id + " " + e.name)).slice(0, 10);
-  for (const c of cands) for (const a of await attrsOf(c.id)) add("📝 " + c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name});
+  for (const c of cands) for (const a of await attrsOf(c.id)) textSuggestions.push([c.name + " · " + a.name, {entity: c.id, attribute: a.name, title: a.name}]);
+  renderSuggestions();
 }
 
 $("npPause").onchange = () => saveSettings({nowPlayingPause: +$("npPause").value});
@@ -1194,57 +1394,17 @@ $("importFile").onchange = async () => {
  * person.* (app compagnon), capteurs de présence (ESPresense, Bermuda…), appareils suivis.
  */
 function renderPresence(ex, selected) {
-  const b = $("personList");
   const persons = ex.person, others = ex.presence;
-  if (!persons && !others) { b.textContent = selected.length ? selected.join(", ") : t("Connexion requise…"); return; }
-  b.replaceChildren();
-  b.className = "";
-  const all = [...(persons || []), ...(others || [])];
-  const nameOf = id => (all.find(x => x.id === id) || {name: id}).name;
-  const save = () => {
-    const sel = [...new Set([...b.querySelectorAll("input[type=checkbox]")].filter(x => x.checked).map(x => x.dataset.id))];
-    saveSettings({persons: sel});
-    renderPresence(ex, sel);
-  };
-  // Ce qui est coché, en un coup d'œil
-  b.append(el("div", {class: "presel"}, ...(selected.length ? selected.map(id => el("span", {textContent: nameOf(id)}))
-    : [el("em", {class: "muted", textContent: t("Personne n'est sélectionné.")})])));
-  const item = it => {
-    const cb = el("input", {type: "checkbox", checked: selected.includes(it.id), onchange: save});
-    cb.dataset.id = it.id;
-    return el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.id}));
-  };
-  const cols = el("div", {class: "row", style: "align-items:flex-start;gap:24px"});
-  const col = (title, list) => {
-    if (!list.length) return;
-    cols.append(el("div", {style: "flex:1;min-width:240px"}, el("div", {class: "muted", style: "margin:10px 0 2px;font-weight:600"}, title), ...list.map(item)));
-  };
-  // Proposés : personnes HA et capteurs de présence par personne (sensor.*)
-  const sensors = (others || []).filter(it => it.id.startsWith("sensor."));
-  col(t("Personnes (app compagnon)"), persons || []);
-  col(t("Capteurs de présence par personne"), sensors);
-  b.append(cols);
-  // Le reste (détecteurs de pièce, appareils suivis) : replié, avec recherche
-  const rest = (others || []).filter(it => !it.id.startsWith("sensor."));
-  if (rest.length) {
-    const box = el("details", {style: "margin-top:10px"});
-    box.append(el("summary", {class: "muted", style: "font-weight:600;cursor:pointer"}, t("Autres sources") + " (" + rest.length + ") — " + t("détecteurs de pièce, appareils suivis")));
-    const q = el("input", {placeholder: t("Rechercher…"), style: "margin:8px 0"});
-    const list = el("div");
-    const draw = () => {
-      const f = q.value.trim().toLowerCase();
-      list.replaceChildren(...rest.filter(it => !f || (it.name + " " + it.id).toLowerCase().includes(f)).map(item));
-    };
-    q.oninput = draw; draw();
-    box.append(q, list);
-    if (rest.some(it => selected.includes(it.id))) box.open = true;
-    b.append(box);
-  }
+  const all = [...(persons || []).map(x => ({id: x.id, name: x.name, note: t("Personne (app compagnon)")})),
+    ...(others || []).map(x => ({id: x.id, name: x.name, note: x.id}))];
+  tokens($("personList"), all, selected, next => { saveSettings({persons: next}); renderPresence(ex, next); },
+    {offline: !persons && !others, placeholder: t("Ajouter une personne ou un capteur"), empty: t("Personne n'est sélectionné."), preview: 7});
 }
 
 // Options d'une liste déroulante : ce que Home Assistant propose, plus le choix actuel s'il n'y figure pas
 // (entité renommée, Home Assistant en démarrage), pour que le réglage ne paraisse jamais vide.
 const withCurrent = (list, id) => { const l = list || []; return id && !l.some(x => x.id === id) ? [...l, {id, name: id}] : l; };
+let sumKind = "light"; // type affiché dans la Vue d'ensemble
 function renderHome() {
   const h = S.home;
   if (!h) return;
@@ -1257,16 +1417,12 @@ function renderHome() {
   const checks = (box, list, selected, key) => {
     const b = $(box);
     if (!list) { b.textContent = selected.length ? selected.join(", ") : t("Connexion requise…"); return; }
-    b.replaceChildren();
-    b.className = "";
-    for (const it of list) {
-      const cb = el("input", {type: "checkbox", checked: selected.includes(it.id), onchange: () => {
-        const sel = [...b.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.id);
-        saveSettings({[key]: sel});
-      }});
-      cb.dataset.id = it.id;
-      b.append(el("label", {class: "check"}, cb, " " + it.name));
-    }
+    let sel = selected.slice();
+    const draw = () => pills(b, list, it => sel.includes(it.id), (it, on) => {
+      sel = on ? [...sel, it.id] : sel.filter(x => x !== it.id);
+      draw(); saveSettings({[key]: sel});
+    }, {count: list.length > 3});
+    draw();
   };
   // Liste des entités reçue : un type absent veut dire « aucune entité de ce type », pas « non connecté ».
   const have = k => cat ? (ex[k] || []) : ex[k];
@@ -1277,20 +1433,10 @@ function renderHome() {
   // Capteurs d'électricité : l'ordre des coches est gardé (le premier coché fait la pastille).
   {
     const b = $("energyList"), list = have("energy"), sel = S.settings.energySensors || [];
-    if (!list) b.textContent = sel.length ? sel.join(", ") : t("Connexion requise…");
-    else if (!list.length) b.textContent = t("Aucun capteur de puissance ou d'énergie dans Home Assistant.");
-    else {
-      b.replaceChildren(); b.className = "";
-      const box = el("div", {style: "max-height:220px;overflow:auto"});
-      for (const it of [...sel.map(id => list.find(x => x.id === id) || {id, name: id}), ...list.filter(x => !sel.includes(x.id))]) {
-        const cb = el("input", {type: "checkbox", checked: sel.includes(it.id), onchange: () => {
-          const next = cb.checked ? [...sel, it.id] : sel.filter(x => x !== it.id);
-          S.settings.energySensors = next; saveSettings({energySensors: next});
-        }});
-        box.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.id})));
-      }
-      b.append(box);
-    }
+    if (list && !list.length && !sel.length) { b.className = "muted"; b.textContent = t("Aucun capteur de puissance ou d'énergie dans Home Assistant."); }
+    else tokens(b, (list || []).map(x => ({id: x.id, name: x.name, note: x.id})), sel,
+      next => { S.settings.energySensors = next; saveSettings({energySensors: next}); renderHome(); },
+      {offline: !list, first: t("pastille"), placeholder: t("Ajouter un capteur"), empty: t("Aucun capteur choisi.")});
   }
   $("showNowPlaying").checked = S.settings.showNowPlaying !== false;
   // Vue d'ensemble : lumières, serrures, portes et fenêtres des pièces ; tout compte, sauf ce qu'on décoche.
@@ -1303,29 +1449,31 @@ function renderHome() {
       hidden = on ? hidden.filter(x => !ids.includes(x)) : [...new Set([...hidden, ...ids])];
       shown = on ? [...new Set([...shown, ...ids.filter(id => all.some(x => x.id === id && x.auto))])] : shown.filter(x => !ids.includes(x));
     };
-    b.replaceChildren();
+    b.replaceChildren(); b.removeAttribute("style");
+    const fold = b.closest("details");
+    if (fold) { fold.dataset.manual = "1"; fold.querySelector(".sum").textContent = all.length ? all.filter(x => !off(x)).length + " " + t("sur") + " " + all.length : ""; }
     if (!all.length) { b.className = "muted"; b.textContent = t("Aucune lumière, serrure, porte ou fenêtre dans vos pièces pour l'instant."); }
     else {
-      b.className = "row"; b.style.alignItems = "flex-start"; b.style.gap = "24px";
-      const save = () => { S.settings.summaryHidden = hidden; S.settings.summaryShown = shown; saveSettings({summaryHidden: hidden, summaryShown: shown}); };
-      for (const [kind, title] of [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")]]) {
-        const list = all.filter(x => x.kind === kind);
-        if (!list.length) continue;
-        const col = el("div", {style: "flex:1;min-width:230px"});
-        const on = list.filter(x => !off(x)).length;
-        const head = el("div", {style: "display:flex;align-items:center;gap:8px;margin:6px 0 2px"},
-          el("b", {textContent: title + " (" + on + "/" + list.length + ")"}),
-          el("button", {class: "mini", textContent: on ? t("Tout décocher") : t("Tout cocher"), onclick: () => {
-            setOn(list.map(x => x.id), !on);
-            save();
-          }}));
-        const box = el("div", {style: "max-height:260px;overflow:auto"});
-        for (const it of list) {
+      b.className = "";
+      const save = () => { S.settings.summaryHidden = hidden; S.settings.summaryShown = shown; saveSettings({summaryHidden: hidden, summaryShown: shown}); renderHome(); };
+      const kinds = [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")]].filter(([k]) => all.some(x => x.kind === k));
+      if (!kinds.some(([k]) => k === sumKind)) sumKind = kinds[0][0];
+      // Un filtre par type, avec son compte ; puis les appareils de ce type, pièce par pièce.
+      b.append(el("div", {class: "pills"}, ...kinds.map(([k, title]) => {
+        const list = all.filter(x => x.kind === k);
+        const bt = el("button", {class: "pill" + (k === sumKind ? " on" : ""), onclick: () => { sumKind = k; renderHome(); }}, title, el("small", {textContent: list.filter(x => !off(x)).length + "/" + list.length}));
+        bt.setAttribute("aria-pressed", k === sumKind);
+        return bt;
+      })));
+      const list = all.filter(x => x.kind === sumKind), roomsOf = [...new Set(list.map(x => x.room))];
+      for (const room of roomsOf) {
+        const items = list.filter(x => x.room === room), allOn = items.every(x => !off(x));
+        b.append(el("div", {class: "rhead"}, room, items.length > 1 ? el("button", {textContent: allOn ? t("Tout désactiver") : t("Tout activer"), onclick: () => { setOn(items.map(x => x.id), !allOn); save(); }}) : ""));
+        for (const it of items) {
           const cb = el("input", {type: "checkbox", checked: !off(it), onchange: () => { setOn([it.id], cb.checked); save(); }});
-          box.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.room + (it.auto ? " · " + t("décoché d'office") : "")})));
+          cb.setAttribute("role", "switch");
+          b.append(el("label", {class: "sline", title: it.id}, el("span", {class: "nm", textContent: it.name}), it.auto && off(it) ? el("span", {class: "au", textContent: t("désactivé d'office")}) : "", cb));
         }
-        col.append(head, box);
-        b.append(col);
       }
     }
   }
@@ -1339,20 +1487,13 @@ function renderHome() {
     const players = [];
     for (const r of rooms) for (const e of r.entities) if (e.id.startsWith("media_player.") && !players.some(x => x.id === e.id))
       players.push({id: e.id, name: e.name || (catById[e.id] || {}).name || e.id, room: r.name});
-    b.replaceChildren();
-    if (!players.length) b.textContent = t("Aucun haut-parleur ni télé dans vos pièces. Ajoutez-en dans l'onglet Pièces.");
-    else {
-      b.className = "";
-      for (const it of players) {
-        const cb = el("input", {type: "checkbox", checked: !off(it.id), disabled: S.settings.showNowPlaying === false, onchange: () => {
-          hidden = cb.checked ? hidden.filter(x => x !== it.id) : [...new Set([...hidden, it.id])];
-          shown = cb.checked && auto.includes(it.id) ? [...new Set([...shown, it.id])] : shown.filter(x => x !== it.id);
-          S.settings.nowPlayingHidden = hidden; S.settings.nowPlayingShown = shown;
-          saveSettings({nowPlayingHidden: hidden, nowPlayingShown: shown});
-        }});
-        b.append(el("label", {class: "check"}, cb, " " + it.name, el("span", {class: "muted", textContent: "  " + it.room + (auto.includes(it.id) ? " · " + t("décoché d'office") : "")})));
-      }
-    }
+    if (!players.length) { b.className = "muted"; b.textContent = t("Aucun haut-parleur ni télé dans vos pièces. Ajoutez-en dans l'onglet Pièces."); }
+    else pills(b, players.map(x => ({id: x.id, name: x.name, note: x.room})), it => !off(it.id), (it, on) => {
+      hidden = on ? hidden.filter(x => x !== it.id) : [...new Set([...hidden, it.id])];
+      shown = on && auto.includes(it.id) ? [...new Set([...shown, it.id])] : shown.filter(x => x !== it.id);
+      S.settings.nowPlayingHidden = hidden; S.settings.nowPlayingShown = shown;
+      saveSettings({nowPlayingHidden: hidden, nowPlayingShown: shown}); renderHome();
+    }, {disabled: S.settings.showNowPlaying === false, count: true});
   }
   renderPresets();
   for (const [id, key] of [["recycleCal", "recycleCalendar"], ["wasteCal", "wasteCalendar"]]) {
@@ -1403,12 +1544,14 @@ function renderSettings() {
   $("veilVal").textContent = st.photoVeilLevel < 35 ? t("léger") : st.photoVeilLevel > 65 ? t("fort") : t("normal");
   $("holidayBox").hidden = st.theme !== "auto";
   const hl = $("holidayList");
-  hl.replaceChildren(...(st.holidays || []).map(([k, n]) => {
-    const cb = el("input", {type: "checkbox", checked: (st.autoHolidays || []).includes(k), onchange: () =>
-      saveSettings({autoHolidays: [...hl.querySelectorAll("input")].filter(x => x.checked).map(x => x.dataset.k)})});
-    cb.dataset.k = k;
-    return el("label", {class: "check", style: "min-width:210px;margin:4px 0"}, cb, " " + n);
-  }));
+  {
+    let sel = (st.autoHolidays || []).slice();
+    const draw = () => pills(hl, (st.holidays || []).map(([k, n]) => ({id: k, name: n})), it => sel.includes(it.id), (it, on) => {
+      sel = on ? [...sel, it.id] : sel.filter(x => x !== it.id);
+      draw(); saveSettings({autoHolidays: sel});
+    });
+    draw();
+  }
   loadPhotoPreview(st);
   const sk = $("skin");
   if (!sk.options.length) for (const [k, n] of S.skins || []) sk.append(el("option", {value: k, textContent: n}));
@@ -1769,22 +1912,31 @@ function renderEditor(roomSwitched) {
   if (!r.entities.length) sel.append(el("li", {class: "empty"}, t("Aucun appareil. Ajoutez-en depuis la liste de droite.")));
   r.entities.forEach((e, i) => {
     const c = catById[e.id];
-    const nameInput = el("input", {value: e.name || "", title: (c ? c.name + "\n" : "") + t("Nom affiché dans l'app seulement"), placeholder: "✎ " + (c ? c.name : e.id), oninput: ev => {
-      const v = ev.target.value.trim();
-      if (v) e.name = v; else delete e.name;
-      changed({keepEditor: true});
-    }});
     const li = el("li");
     li.title = [e.name, c && c.name, e.id].filter(Boolean).filter((v, k, a) => a.indexOf(v) === k).join("\n");
     li.dataset.idx = i;
     sel.append(li);
+    // Nom affiché ; ✎ ouvre un champ pour le renommer dans l'app (vide = nom de Home Assistant).
+    const shown = e.name || (c ? c.name : e.id);
+    const nameBox = el("div", {textContent: shown});
+    const rename = () => {
+      const inp = el("input", {value: e.name || "", placeholder: c ? c.name : e.id, title: t("Nom affiché dans l'app seulement")});
+      const done = () => {
+        const v = inp.value.trim();
+        if (v === (e.name || "")) { nameBox.textContent = shown; return; } // rien de changé : pas d'enregistrement
+        if (v) e.name = v; else delete e.name;
+        changed();
+      };
+      inp.onkeydown = ev => { if (ev.key === "Enter") inp.blur(); else if (ev.key === "Escape") { inp.value = e.name || ""; inp.blur(); } };
+      inp.onblur = done;
+      nameBox.replaceChildren(inp); inp.focus(); inp.select();
+    };
     li.append(grip(sel, li, r.entities, i, () => changed()),
       el("span", {class: "dot", textContent: ICON[domain(e.id)] || "•"}),
-      el("div", {class: "info"}, nameInput, el("div", {class: "id", textContent: e.id + (c ? "" : cat ? "  ⚠ introuvable dans HA" : "")})),
-      el("button", {class: "mini", textContent: "▲", disabled: i === 0, onclick: () => { move(r.entities, i, -1); changed(); }}),
-      el("button", {class: "mini", textContent: "▼", disabled: i === r.entities.length - 1, onclick: () => { move(r.entities, i, 1); changed(); }}),
-      el("button", {class: "mini danger", textContent: t("Retirer"), onclick: () => { r.entities.splice(i, 1); changed(); }})
-    );
+      el("div", {class: "info"}, nameBox, el("div", {class: "id", textContent: (e.name && c ? c.name + " · " : "") + e.id + (c ? "" : cat ? "  ⚠ " + t("introuvable dans HA") : "")})),
+      el("div", {class: "acts"},
+        el("button", {textContent: "✎", title: t("Renommer dans l'app"), onclick: rename}),
+        el("button", {textContent: "✕", title: t("Retirer de la pièce"), onclick: () => { r.entities.splice(i, 1); changed(); }})));
   });
   renderCatalog();
 }
@@ -1799,6 +1951,9 @@ function renderCatalog() {
   const area = $("fArea").value;
   const types = TYPES[+$("fType").value][1];
   const hidden = $("fHidden").checked;
+  // Dans quelle autre pièce un appareil se trouve déjà
+  const elsewhere = {};
+  for (const o of rooms) if (o !== r) for (const e of o.entities) if (!elsewhere[e.id]) elsewhere[e.id] = o.name;
   const areaName = {};
   for (const a of cat.areas) areaName[a.id] = a.name;
   const list = cat.entities.filter(e =>
@@ -1812,6 +1967,7 @@ function renderCatalog() {
       el("span", {class: "dot", textContent: ICON[domain(e.id)] || "•"}),
       el("div", {class: "info"}, el("div", {textContent: e.name}),
         el("div", {class: "id", textContent: e.id + (e.area && areaName[e.area] ? " · " + areaName[e.area] : "")})),
+      elsewhere[e.id] ? el("span", {class: "badge2", textContent: t("déjà dans") + " " + elsewhere[e.id]}) : "",
       el("span", {class: "add", textContent: "+"})
     ));
   }
@@ -1843,6 +1999,16 @@ async function loadCatalog(fresh) {
 }
 
 for (const [i, [n]] of TYPES.entries()) $("fType").append(el("option", {value: i, textContent: n}));
+// Les types en pastilles (la liste déroulante cachée garde le choix).
+function drawTypePills() {
+  $("fTypePills").replaceChildren(...TYPES.map(([n], i) => {
+    const on = +$("fType").value === i;
+    const b = el("button", {class: "pill" + (on ? " on" : ""), style: "font-size:13px;padding:5px 12px", textContent: i === 0 ? t("Tous") : t(n), onclick: () => { $("fType").value = i; drawTypePills(); renderCatalog(); }});
+    b.setAttribute("aria-pressed", on);
+    return b;
+  }));
+}
+drawTypePills();
 $("fArea").append(el("option", {value: "*", textContent: t("Toutes les zones")}));
 for (const id of ["q", "fArea", "fType", "fHidden"]) $(id).addEventListener(id === "q" ? "input" : "change", renderCatalog);
 

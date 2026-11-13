@@ -10,6 +10,9 @@ TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 - Automatic weekly copy of the configuration, kept on the tablet without the secrets; download or restore one from the web page (Connection & security → Backup).
 - "1 unlocked" / "2 unlocked" instead of "unlocked(s)".
 - Web settings page rebuilt: a menu on the left with nine sections (Rooms, Home, Header tools, Appearance, Screen & sleep, Alerts & sounds, Connection, Security & backups, About) instead of six tabs, one column of settings rows, long lists folded with a summary of the current choice, long explanations behind "Learn more", a search field, and a drop-down menu on phones. Every setting is still there; some moved to where they belong (Now playing under Rooms, lists and favourite timers under Header tools).
+- Web settings page: multiple choices no longer use checkboxes — toggle chips for short lists, tokens with a search field (and drag to reorder) for long ones, and switches grouped by room for the whole-house overview.
+- Custom chips: nine colours instead of three, an icon picker (about fifty icons the tablet can draw, with their Unicode code and a reference link), states picked from the entity's real options, and a live preview of each chip.
+- Web settings page: This morning sources are compact rows you drag and open, with the feed status and grouped suggestions; the room editor has clean rows with rename and remove on hover, type filters as chips, and an "already in <room>" note.
 
 ## 2026.11.7
 

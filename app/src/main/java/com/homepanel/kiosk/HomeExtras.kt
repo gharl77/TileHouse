@@ -80,6 +80,16 @@ object HomeExtras {
     // ------------------------------------------------------------ pastilles personnalisées
 
     /** Règles {entity, states:[…], text, color} : la pastille s'affiche quand l'entité est dans un de ces états. */
+    /** Couleurs proposées pour une pastille personnalisée, en plus de neutre, orange et rouge. */
+    val CHIP_COLORS = mapOf("yellow" to 0xFFFFD60A.toInt(), "green" to 0xFF34C759.toInt(), "teal" to 0xFF30B0C7.toInt(),
+        "blue" to 0xFF0A84FF.toInt(), "purple" to 0xFFAF52DE.toInt(), "pink" to 0xFFFF375F.toInt())
+
+    /** Texte lisible sur un fond de couleur : sombre sur une couleur claire, blanc sinon. */
+    fun textOn(color: Int): Int {
+        val lum = (0.299 * ((color shr 16) and 0xFF) + 0.587 * ((color shr 8) and 0xFF) + 0.114 * (color and 0xFF)) / 255.0
+        return if (lum > 0.62) 0xFF1C1C1E.toInt() else 0xFFFFFFFF.toInt()
+    }
+
     fun customChips(rules: JSONArray, states: Map<String, EntityState>): List<Present.Chip> {
         val out = ArrayList<Present.Chip>()
         for (i in 0 until rules.length()) {
@@ -87,8 +97,10 @@ object HomeExtras {
             val e = states[r.optString("entity")] ?: continue
             val wanted = r.optJSONArray("states")?.let { a -> (0 until a.length()).map { a.optString(it).trim().lowercase() } } ?: emptyList()
             if (e.state.trim().lowercase() !in wanted) continue
-            val level = when (r.optString("color")) { "red" -> 2; "orange" -> 1; else -> 0 }
-            out.add(Present.Chip(0, r.optString("text").ifEmpty { e.name }, level, "custom"))
+            // Rouge et orange restent des niveaux d'alerte (ils passent devant) ; les autres couleurs sont décoratives.
+            val name = r.optString("color")
+            val level = when (name) { "red" -> 2; "orange" -> 1; else -> 0 }
+            out.add(Present.Chip(0, r.optString("text").ifEmpty { e.name }, level, "custom", color = CHIP_COLORS[name]))
         }
         return out
     }

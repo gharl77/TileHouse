@@ -290,7 +290,7 @@ class VerticalSlider(ctx: Context) : View(ctx) {
 
 /** Pastille de l'en-tête (icône + texte). */
 fun Context.chipView(c: Present.Chip) = TextView(this).apply {
-    val (bg, fg) = Skin.chip(this@chipView, c.level)
+    val (bg, fg) = c.color?.let { Skin.chipColored(this@chipView, it) } ?: Skin.chip(this@chipView, c.level)
     text = c.text
     textSize = 15f * Skin.textScale
     setTextColor(fg)

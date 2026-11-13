@@ -234,7 +234,7 @@ class ConfigStore(ctx: Context) {
         set(v) = p.edit().putString("shortcutRooms", v.toString()).apply()
     /** Zone Home Assistant de chaque raccourci (entité → zone), relue à chaque connexion. */
     var shortcutAreas: JSONObject
-        get() = if (demo) JSONObject() else jsonObj("shortcutAreas")
+        get() = if (demo) JSONObject().put("scene.movie_night", "living_room") else jsonObj("shortcutAreas")
         set(v) = p.edit().putString("shortcutAreas", v.toString()).apply()
     private val objCache = HashMap<String, Pair<String, JSONObject>>()
     private fun jsonObj(k: String): JSONObject {
