@@ -141,7 +141,11 @@ class NewFeaturesTest {
         assertEquals("Miles Davis", items[0].sub); assertEquals("", items[0].image)
         assertEquals("https://x/y.jpg", items[1].image)
         assertEquals(1, Music.searchItems(org.json.JSONObject("""{"tracks":[],"radio":[{"media_type":"radio","uri":"a://b","name":"R"}]}""")).size)
-        fun p(id: String, state: String) = id to EntityState(id, state, org.json.JSONObject().put("mass_player_type", "player"))
+        fun p(id: String, state: String) = id to EntityState(id, state, org.json.JSONObject().put("mass_player_type", "player").put("app_id", "music_assistant"))
+        // Une enceinte de Music Assistant qui joue de l'AirPlay : en lecture, mais pas notre musique.
+        val airplay = EntityState("media_player.s", "playing", org.json.JSONObject().put("mass_player_type", "player").put("app_id", "airplay").put("source", "AirPlay"))
+        assertFalse(Music.active(airplay)); assertTrue(Music.busyElsewhere(airplay)); assertFalse(Music.fromAssistant(airplay))
+        assertTrue(Music.active(EntityState("media_player.s", "playing", org.json.JSONObject().put("source", "Music Assistant Queue"))))
         val states = mapOf(p("media_player.a", "idle"), p("media_player.b", "playing"), p("media_player.c", "unavailable"))
         val players = listOf("media_player.a", "media_player.b", "media_player.c")
         // La cible ne joue pas : on montre l'enceinte qui joue ; rien ne joue : la cible.

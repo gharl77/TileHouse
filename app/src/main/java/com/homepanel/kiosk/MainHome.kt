@@ -108,39 +108,87 @@ internal fun MainActivity.bindRoomTile(t: TileView, room: Room) {
     t.bind(room.name, "", false, false, Skin.accent, HomeText.roomIcon(room.name))
 }
 
+/** Ce lecteur a-t-il sa carte dans sa pièce ? Si oui, il n'a pas de tuile : c'est l'un ou l'autre (réglage « En lecture »). */
+internal fun MainActivity.hasPlayerCard(id: String): Boolean =
+    cfg.showNowPlaying && id.startsWith("media_player.") &&
+        !Choices.hidden(id, cfg.nowPlayingHidden, cfg.nowPlayingShown, Choices.playerHiddenByDefault(id, app.ha.states[id]?.name ?: id))
+
 /**
- * Carte « En lecture », en haut d'une pièce : un lecteur de cette pièce qui joue (ou qu'on vient de mettre en pause,
- * pour pouvoir reprendre). Titre, lecteur, précédent / pause / suivant et volume. Deux lecteurs au plus ; rien si
- * tout est arrêté. L'accueil ne la montre pas.
+ * Cartes des lecteurs, en haut d'une pièce : une par lecteur choisi dans les réglages, toujours affichée. Elle montre
+ * ce qui joue (affiche, titre, contrôles) ou, quand le lecteur est éteint ou inactif, une carte sobre pour l'allumer.
+ * L'accueil ne les montre pas.
  */
 internal fun MainActivity.updateNowPlaying() {
     val box = nowPlayingBox ?: return
     val now = SystemClock.uptimeMillis()
     val states = app.ha.states
     val room = cfg.rooms.getOrNull(roomIndex) ?: return
-    val hidden = cfg.nowPlayingHidden; val shown = cfg.nowPlayingShown
-    // Après une pause : la carte reste un moment (10 min par défaut), tant que dure la pause (-1), ou pas du tout (0).
-    val grace = cfg.nowPlayingPause
-    val players = if (!cfg.showNowPlaying) emptyList() else room.entities.mapNotNull { states[it.id] }.filter { it.domain == "media_player" && !Choices.hidden(it.id, hidden, shown, Choices.playerHiddenByDefault(it.id, it.name)) }.filter { e ->
-        if (e.state == "playing") { lastPlaying[e.id] = now; true }
-        // En pause depuis moins de 10 minutes : la carte reste, pour reprendre la lecture.
-        else e.state == "paused" && (grace < 0 || grace > 0 && (lastPlaying[e.id]?.let { now - it < grace * 60_000L } == true ||
-            HomeText.pausedRecently(e.attrs.str("media_position_updated_at"), System.currentTimeMillis(), grace * 60_000L)))
-    }.take(2)
-    val key = players.joinToString("|") { it.id + ":" + it.state + ":" + it.attrs.str("media_title") + ":" + it.attrs.str("media_artist") + ":" + it.attrs.str("app_name") + ":" + it.attrs.str("entity_picture") + ":" + it.attrs.str("media_content_id") + ":" + it.attrs.has("media_duration") }
+    val players = room.entities.filter { hasPlayerCard(it.id) }.mapNotNull { states[it.id] }
+    for (e in players) if (e.state == "playing") lastPlaying[e.id] = now
+    val key = players.joinToString("|") { it.id + ":" + it.state + ":" + it.attrs.str("media_title") + ":" + it.attrs.str("media_artist") + ":" + it.attrs.str("app_name") + ":" + it.attrs.str("entity_picture") + ":" + it.attrs.str("media_content_id") + ":" + it.attrs.has("media_duration") + ":" + it.attrs.optInt("supported_features", 0) }
     if (key == nowPlayingKey) return
     nowPlayingKey = key
     box.removeAllViews()
-    if (players.isEmpty()) return
-    // Chaque carte prend la moitié de la largeur ; deux lecteurs tiennent côte à côte.
-    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-    players.forEachIndexed { i, e -> row.addView(nowPlayingCard(e), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(12) }) }
-    if (players.size == 1) row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(12) })
-    box.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
+    // Chaque carte prend la moitié de la largeur : deux par rangée.
+    for (pair in players.chunked(2)) {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        // Deux cartes côte à côte prennent la même hauteur ; une carte seule garde la sienne (sinon la rangée s'écrase).
+        pair.forEachIndexed { i, e -> row.addView(nowPlayingCard(e), LinearLayout.LayoutParams(0, if (pair.size == 2) MATCH_PARENT else WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(12) }) }
+        if (pair.size == 1) row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(12) })
+        box.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
+    }
 }
+
+/**
+ * Carte sobre d'un lecteur qui ne joue pas : éteint (on peut l'allumer ou lancer une application), inactif
+ * (allumé sans rien jouer) ou hors ligne. Même gabarit que la carte de lecture, dans un ton ardoise discret.
+ */
+internal fun MainActivity.restingPlayerCard(e: EntityState): View {
+    val offline = e.state == "unavailable" || e.state == "unknown"
+    val off = offline || e.state == "off" || e.state == "standby"
+    val tv = e.attrs.str("device_class") == "tv" || Posters.what(e).video || e.attrs.optJSONArray("source_list")?.let { it.length() > 4 } == true
+    val card = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        background = android.graphics.drawable.GradientDrawable().apply { setColor(SLATE_FILL); cornerRadius = dpf(22); setStroke(dp(1), SLATE_EDGE) }
+        setPadding(dp(14), dp(14), dp(16), dp(14))
+    }
+    card.addView(ImageView(this).apply {
+        scaleType = ImageView.ScaleType.CENTER
+        setImageResource(if (tv) R.drawable.ic_tv else R.drawable.ic_speaker)
+        imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0x4D))
+        background = roundRect(SLATE_WELL, dpf(12))
+    }, LinearLayout.LayoutParams(dp(200), dp(150)))
+    val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; minimumHeight = dp(150) }
+    col.addView(label(13f, Skin.fg(0x80), text = if (offline) tr("Hors ligne") else if (off) tr("Éteint") else tr("Inactif")))
+    col.addView(label(20f, Skin.fg(0xD9), true, e.name).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+    val appName = e.attrs.str("app_name").ifEmpty { e.attrs.str("source") }
+    if (!off && appName.isNotEmpty() && appName != e.name) col.addView(label(14f, Skin.fg(0x99), text = appName).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+    col.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+    if (!offline) {
+        val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        fun btn(icon: Int, primary: Boolean = false, action: () -> Unit) = controls.addView(roundIcon(icon, if (primary) 52 else 40, if (primary) Skin.primary else Skin.soft, if (primary) Skin.onPrimary else Skin.ink) {
+            if (!haOffline()) action()
+        }.apply { layoutParams = LinearLayout.LayoutParams(dp(if (primary) 52 else 40), dp(if (primary) 52 else 40)).apply { if (controls.childCount > 0) marginStart = dp(8) } })
+        val features = e.attrs.optInt("supported_features", 0)
+        // Éteint : un grand bouton pour allumer. Inactif : le même bouton, discret, pour éteindre.
+        if (off && features and 128 != 0) btn(R.drawable.ic_power, primary = true) { app.ha.callService("media_player", "turn_on", e.id) }
+        if (Posters.canSelectSource(e)) btn(R.drawable.ic_grid) { showSources(app.ha.states[e.id] ?: e) }
+        if (!off && Posters.canTurnOff(e)) btn(R.drawable.ic_power) { app.ha.callService("media_player", "turn_off", e.id) }
+        if (controls.childCount > 0) col.addView(controls, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(8) })
+    }
+    card.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginStart = dp(16) })
+    return card
+}
+
+/** Ton ardoise des cartes de lecteurs au repos : fond, contour et cadre de l'icône. Discret sur les skins sombres comme clairs. */
+private const val SLATE_FILL = 0x2E5B708A
+private const val SLATE_EDGE = 0x475B708A
+private const val SLATE_WELL = 0x335B708A
 
 /** Carte d'un lecteur : affiche, titre, émission ou artiste, progression et contrôles. */
 internal fun MainActivity.nowPlayingCard(e: EntityState): View {
+    // Rien ne joue : la carte sobre du lecteur au repos.
+    if (e.state !in setOf("playing", "paused", "buffering")) return restingPlayerCard(e)
     val a = e.attrs
     val w = Posters.what(e)
     val card = LinearLayout(this).apply {

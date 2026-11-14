@@ -169,7 +169,8 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   sound, is kept on the tablet across restarts, and can be cancelled from the same window. A small bell marks the events
   that have a reminder.
 - **Music** (♪ next to the lists, needs the Music Assistant integration): pick the Music Assistant speakers you want on the web
-  page (*Header tools → Music*); the icon appears and turns to the accent colour while one of them plays. The window has the
+  page (*Header tools → Music*); the icon appears and turns to the accent colour while one of them plays music from Music Assistant (not when the speaker
+  is playing something else, such as AirPlay from a phone or the TV's sound; the window then marks it "Other source"). The window has the
   speakers on the left (**where to play**: tick one, or several to play together, each with its volume), the library on the
   right (favourites, playlists, radio, albums, and a search field) and what is playing at the bottom with shuffle, repeat
   (off, whole queue, one title), previous, pause and next, plus the title that comes next and the position in the queue
@@ -275,8 +276,10 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 <img src="docs/screenshots/room-living.png" width="860" alt="A room">
 
 - Tap a room on the home screen to open it; the **←** arrow brings you back. **Swipe left/right** to move between rooms.
-- **Order of a room**: the cameras always come first, then the shortcuts of the room, then the *Now playing* card, then the tiles.
-- **Now playing card**: in a room, only while one of its speakers or its TV is playing: the **poster**, the title, the show or
+- **Order of a room**: the cameras always come first, then the shortcuts of the room, then the player cards, then the tiles.
+- **Player cards**: each speaker or TV you tick on the web page (*Rooms → Now playing*) has a card in its room instead of a
+  tile — one or the other, never both. The card is always there: sober, in a quiet slate tone, when the player is off or
+  idle (with a button to turn it on, and its applications), and while it is playing it shows the **poster**, the title, the show or
   artist (with season and episode when the player gives them), the app, a progress bar you can drag when the player gives a
   duration, pause, previous, next, volume, an **applications** button for a player that lists them (an Apple TV: tap one to launch
   it) and, for a player that can be turned off, a power button. The card takes half the width of the room, so two players sit side
@@ -296,11 +299,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   A **log** on the web page (*Rooms → Now playing → Log*) lists the last titles as each player reported them and where the
   poster came from, to understand why one is missing; it stays on the tablet.
   A search by title can pick the wrong poster, or none; the card then keeps an icon. The search sends the title of what is
-  playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. It disappears when everything is stopped. The home screen doesn't show it. **You choose which players show it** on the web page (*Rooms → Now playing*): every speaker and TV of your
-  rooms is listed with its room; untick the ones you don't want. Voice assistants are unticked by default (they "play" at every
-  answer). A show or a film gets a TV icon and the name of the app ("Antigang · ICI TOU.TV"). **After a pause** the card stays
-  10 minutes by default; you can make it disappear right away, stay 30 minutes, or stay as long as the player is paused. The
-  card can also be turned off entirely (same place, or *Display → Dashboard* on the tablet).
+  playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. The home screen doesn't show the cards. **You choose which players have a card** on the web page (*Rooms → Now playing*): every speaker and TV of your rooms is listed and ticked at first, except voice assistants, which "play" at every answer; untick one and it goes back to being a plain tile.
 - Devices are shown as tiles, **grouped by category** (Cameras, Scenes, Lights, Climate, Blinds & shades, Media, Plugs & switches,
   Security, Sensors…), or in your own order if you turn grouping off.
 - A speaker or TV that is on but playing nothing (an Apple TV on its home screen) shows **Inactive**, which is why it has no
@@ -502,8 +501,8 @@ Everything here is in the tablet's **Sleep & sounds** tab and on the web page (*
 
 **Screen saver:** after the idle delay the screen shows the **time, date and current weather** (moving a little every
 minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
-With the time and the weather, it also shows the **score** of the teams you follow (the two logos, up to two games) and **what
-is playing** (a small image, the title, the player, the app and the channel), for the player that started last.
+Under the time and the date, a row of roomy panels shows the weather, the **score** of the teams you follow (the two logos, up to two games) and **what
+is playing** (a small image, the title, the player, the app and the channel), and when several players are playing they take turns every ten seconds.
 The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
 weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Screen & sleep → Screen saver → Photo
 frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read

@@ -56,7 +56,8 @@ internal fun MainActivity.openTodos() {
 /** Icône « Musique » : visible dès qu'une enceinte est choisie dans les réglages, teintée quand l'une d'elles joue. */
 internal fun MainActivity.updateMusicButton() {
     val players = cfg.musicPlayers
-    musicButton.set(players.isNotEmpty(), players.any { app.ha.states[it]?.state == "playing" })
+    // Teintée seulement pour de la musique lancée par Music Assistant, pas pour une enceinte qui joue autre chose (AirPlay, télé).
+    musicButton.set(players.isNotEmpty(), players.any { app.ha.states[it]?.let { e -> e.state == "playing" && Music.fromAssistant(e) } == true })
 }
 
 internal fun MainActivity.openMusic() {

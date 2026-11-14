@@ -611,8 +611,8 @@ class MainActivity : Activity(), HaClient.Listener {
     internal fun updateDimScreen() {
         val style = cfg.effectiveDimStyle
         if (style != shownDimStyle) { shownDimStyle = style; applyDimBrightness() }
-        // Avec l'heure et la météo : le pointage des matchs suivis et ce qui joue (le lecteur lancé en dernier).
-        val playing = if (!cfg.showNowPlaying) null else playersInRooms().map { it.first }.filter { it.state == "playing" }.maxByOrNull { playStart[it.id] ?: 0L }
+        // Avec l'heure et la météo : le pointage des matchs suivis et ce qui joue (à plusieurs, tour à tour).
+        val playing = if (!cfg.showNowPlaying) emptyList() else playersInRooms().map { it.first }.filter { it.state == "playing" }.sortedByDescending { playStart[it.id] ?: 0L }
         dimView.update(style, app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() }, activeGames().filter { it.state != "PRE" || it.startsAt - System.currentTimeMillis() < 3 * 3_600_000L }, playing)
     }
 

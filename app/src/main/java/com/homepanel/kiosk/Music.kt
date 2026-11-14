@@ -135,7 +135,17 @@ object Music {
         return "http://$host:8095"
     }
 
-    fun active(e: EntityState?) = e != null && e.state in setOf("playing", "paused", "buffering")
+    /**
+     * La lecture vient-elle de Music Assistant ? Une enceinte de Music Assistant peut aussi jouer autre chose
+     * (AirPlay depuis un téléphone, le son de la télé) : elle est alors « en lecture » sans que ce soit notre musique.
+     */
+    fun fromAssistant(e: EntityState?) = e != null && (e.attrs.str("app_id") == "music_assistant" || e.attrs.str("source") == "Music Assistant Queue")
+
+    /** L'enceinte joue (ou est en pause sur) de la musique lancée par Music Assistant. */
+    fun active(e: EntityState?) = e != null && e.state in setOf("playing", "paused", "buffering") && fromAssistant(e)
+
+    /** L'enceinte est occupée par une autre source que Music Assistant. */
+    fun busyElsewhere(e: EntityState?) = e != null && e.state in setOf("playing", "buffering") && !fromAssistant(e)
     fun available(e: EntityState?) = e != null && e.state != "unavailable" && e.state != "unknown"
 
     /** Enceinte que montre le bas de la fenêtre : une cible qui joue, sinon une autre enceinte qui joue, sinon la première cible. */
@@ -516,8 +526,9 @@ class MusicPanel(private val act: MainActivity) : FrameLayout(act) {
             }, LinearLayout.LayoutParams(act.dp(24), act.dp(24)))
             val state = when {
                 !ok -> tr("Hors ligne")
+                Music.busyElsewhere(e) -> tr("Autre source") + e?.attrs?.str("source").orEmpty().let { if (it.isEmpty()) "" else " : $it" }
                 e?.state == "playing" -> tr("En lecture")
-                e?.state == "paused" -> tr("En pause")
+                e?.state == "paused" && Music.active(e) -> tr("En pause")
                 else -> ""
             }
             row.addView(LinearLayout(act).apply {

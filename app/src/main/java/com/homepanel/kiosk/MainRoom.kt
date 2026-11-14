@@ -63,14 +63,15 @@ internal fun MainActivity.showRoom() {
     // Raccourcis associés à cette pièce (ceux sans pièce restent sur l'accueil).
     addShortcuts(Shortcuts.forRoom(cfg, room), dp(if (cams.isEmpty()) 4 else 12))
 
-    // Carte « En lecture » : seulement quand un lecteur choisi de cette pièce joue.
+    // Cartes des lecteurs choisis dans les réglages : toujours là, sobres quand le lecteur est éteint.
     nowPlayingBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also { content.addView(it) }
     nowPlayingKey = "?"
     updateNowPlaying()
 
     // Les capteurs résumés dans l'en-tête (température, portes, mouvement…) n'ont pas de tuile.
     val others = room.entities.filter {
-        Present.domain(it.id) != "camera" && !Present.isHeaderSensor(it.id, app.ha.states[it.id])
+        // Un lecteur qui a sa carte n'a pas de tuile : c'est l'un ou l'autre.
+        Present.domain(it.id) != "camera" && !Present.isHeaderSensor(it.id, app.ha.states[it.id]) && !hasPlayerCard(it.id)
     }
     val groups: List<Pair<String?, List<RoomEntity>>> =
         if (cfg.groupByCategory) others.groupBy { Present.category(it.id) }.toSortedMap().map { Present.CATEGORIES[it.key] to it.value }

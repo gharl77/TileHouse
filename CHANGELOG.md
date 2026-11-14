@@ -2,6 +2,13 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.11
+
+- Screen saver redesigned: under the time and the date, a row of roomy panels for the weather, the score and what is playing, instead of stacked lines.
+- Player cards are now always shown in their room: sober with a power button when the player is off or idle, with the poster and the controls while it plays. A player that has a card no longer has a tile as well; an unticked player stays a tile. The "after a pause" setting is gone, since the card no longer disappears.
+- Screen saver: when several players are playing, the panel shows them in turn, ten seconds each.
+- Music icon: it only lights up for music started from Music Assistant, not when a speaker is playing something else (AirPlay, the TV's sound); the Music window marks such a speaker "Other source".
+
 ## 2026.11.10
 
 - Now playing card: the poster of what is playing, the show or artist with season and episode, the app, and a progress bar you can drag. The poster is the image Home Assistant gives, the video thumbnail for YouTube, or a search by title (TVmaze, iTunes; TMDB and the YouTube Data API with your own optional keys). The search can be turned off on the web page (*Rooms → Now playing*).
