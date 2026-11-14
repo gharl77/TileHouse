@@ -2,6 +2,20 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.10
+
+- Now playing card: the poster of what is playing, the show or artist with season and episode, the app, and a progress bar you can drag. The poster is the image Home Assistant gives, the video thumbnail for YouTube, or a search by title (TVmaze, iTunes; TMDB and the YouTube Data API with your own optional keys). The search can be turned off on the web page (*Rooms → Now playing*).
+- YouTube on a player that only gives the title (Apple TV): the thumbnail is found from the title and the channel, without a key.
+- A game on TV: when the title names two teams of the same league (NHL, NFL, NBA, MLB, MLS), their two logos are shown side by side.
+- Live TV (Bell Fibe TV on an Apple TV): the card shows the channel, the poster search also tries the series name alone, and the channel's logo is shown when no poster is found.
+- Web page: a button to test the TMDB key.
+- Web page: a log of what each player reported and where the poster came from (*Rooms → Now playing → Log*).
+- Now playing card: a power button for the players that can be turned off, and an applications button for the players that list them (Apple TV): tap one to launch it.
+- Scores: pick your teams' TeamTracker sensors on the web page (*Home → Sports*); a trophy icon in the top bar opens the two logos with the score, and the screen saver shows the score under the weather.
+- Screen saver: what is playing (image, title, player, app, channel) under the time and the weather.
+- Live TV: the channel number is shown once you have typed it on the web page (*Rooms → Now playing → TV channels*).
+- A TV icon in the top bar appears while something is playing; tap it to see the poster in large with the title — all of them side by side when several players are playing.
+
 ## 2026.11.9
 
 - Music window for Music Assistant: a ♪ icon at the top opens your favourites, playlists, radio stations and albums, with a search field; choose the speaker (or several together), set the volume, and transfer the music that is playing to another speaker. Shuffle, repeat, a progress bar you can drag, and the list of the titles to come (this one needs a Music Assistant token). Choose which speakers are offered on the web page (*Header tools → Music*); without any, the icon stays hidden.

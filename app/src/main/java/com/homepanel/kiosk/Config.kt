@@ -287,6 +287,28 @@ class ConfigStore(ctx: Context) {
     var nowPlayingHidden: List<String>
         get() = if (demo) emptyList() else csv("nowPlayingHidden")
         set(v) = p.edit().putString("nowPlayingHidden", v.joinToString(",")).apply()
+    /** Capteurs TeamTracker des équipes suivies (pointage dans le bandeau et sur l'écran de veille). */
+    var sportSensors: List<String>
+        get() = if (demo) emptyList() else csv("sportSensors")
+        set(v) = p.edit().putString("sportSensors", v.joinToString(",")).apply()
+    /** Chaînes de télé (Télé Fibe) : {code: {name, number}}, le numéro et le nom que l'abonné veut voir. */
+    var fibeChannels: String
+        get() = if (demo) "{}" else p.getString("fibeChannels", "{}") ?: "{}"
+        set(v) = p.edit().putString("fibeChannels", v).apply()
+    /** Vignette de ce qui joue dans le bandeau du haut. */
+    var nowPlayingHeader: Boolean
+        get() = p.getBoolean("nowPlayingHeader", true)
+        set(v) = p.edit().putBoolean("nowPlayingHeader", v).apply()
+    /** Chercher l'affiche sur Internet quand le lecteur n'en donne pas ; clés facultatives de TMDB et de YouTube. */
+    var posterSearch: Boolean
+        get() = p.getBoolean("posterSearch", true)
+        set(v) = p.edit().putBoolean("posterSearch", v).apply()
+    var tmdbKey: String
+        get() = if (demo) "" else secret("tmdbKey")
+        set(v) = setSecret("tmdbKey", v.trim())
+    var youtubeKey: String
+        get() = if (demo) "" else secret("youtubeKey")
+        set(v) = setSecret("youtubeKey", v.trim())
     /** Carte « En lecture » en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue. */
     var showNowPlaying: Boolean
         get() = p.getBoolean("showNowPlaying", true)
@@ -522,14 +544,14 @@ class ConfigStore(ctx: Context) {
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
-                .put("immichUrl", immichUrl).put("musicUrl", musicUrl).put("brightness", brightness)
+                .put("immichUrl", immichUrl).put("musicUrl", musicUrl).put("nowPlayingHeader", nowPlayingHeader).put("posterSearch", posterSearch).put("fibeChannels", try { JSONObject(fibeChannels) } catch (_: Exception) { JSONObject() }).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
                 .put("peakCalendar", peakCalendar).put("peakReminder", peakReminder).put("weatherAlerts", JSONArray(weatherAlerts))
                 .put("shortcuts", JSONArray(shortcuts)).put("shortcutRooms", shortcutRooms).put("customChips", customChips).put("morningSources", morningSources).put("timerPresets", timerPresets).put("todoLists", JSONArray(todoLists)).put("showNowPlaying", showNowPlaying).put("nowPlayingHidden", JSONArray(nowPlayingHidden)).put("nowPlayingShown", JSONArray(nowPlayingShown)).put("nowPlayingPause", nowPlayingPause)
-                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors)).put("musicPlayers", JSONArray(musicPlayers))
+                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors)).put("musicPlayers", JSONArray(musicPlayers)).put("sportSensors", JSONArray(sportSensors))
                 .put("morningStart", morningStart).put("morningEnd", morningEnd)
                 .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
@@ -537,7 +559,7 @@ class ConfigStore(ctx: Context) {
                 .put("enabled", mqttEnabled).put("host", mqttHost).put("port", mqttPort)
                 .put("user", mqttUser).put("deviceName", deviceName).put("deviceId", mqttDeviceId))
             .put("web", JSONObject().put("enabled", webEnabled))
-        if (withSecrets) o.put("secrets", JSONObject().put("token", token).put("mqttPass", mqttPass).put("pin", pin).put("immichKey", immichKey).put("musicToken", musicToken))
+        if (withSecrets) o.put("secrets", JSONObject().put("token", token).put("mqttPass", mqttPass).put("pin", pin).put("immichKey", immichKey).put("musicToken", musicToken).put("tmdbKey", tmdbKey).put("youtubeKey", youtubeKey))
         return o
     }
 
@@ -571,6 +593,9 @@ class ConfigStore(ctx: Context) {
             if (d.has("photoSeconds")) photoSeconds = d.optInt("photoSeconds", 30)
             if (d.has("immichUrl")) immichUrl = d.str("immichUrl")
             if (d.has("musicUrl")) musicUrl = d.str("musicUrl")
+            if (d.has("nowPlayingHeader")) nowPlayingHeader = d.optBoolean("nowPlayingHeader", true)
+            if (d.has("posterSearch")) posterSearch = d.optBoolean("posterSearch", true)
+            d.optJSONObject("fibeChannels")?.let { fibeChannels = it.toString() }
             if (d.has("brightness")) brightness = d.optInt("brightness", -1)
             if (d.has("language")) language = d.str("language")
             if (d.has("personAlert")) personAlert = d.optBoolean("personAlert")
@@ -603,6 +628,7 @@ class ConfigStore(ctx: Context) {
             h.optJSONArray("nowPlayingHidden")?.let { a -> nowPlayingHidden = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("energySensors")?.let { a -> energySensors = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("musicPlayers")?.let { a -> musicPlayers = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("sportSensors")?.let { a -> sportSensors = (0 until a.length()).map { a.getString(it) } }
             if (h.has("morningStart")) morningStart = h.optInt("morningStart", 300)
             if (h.has("morningEnd")) morningEnd = h.optInt("morningEnd", 600)
             h.optJSONArray("floorOrder")?.let { a -> setFloorOrder((0 until a.length()).map { a.getString(it) }) }
@@ -624,6 +650,8 @@ class ConfigStore(ctx: Context) {
             if (s.has("pin")) pin = s.str("pin")
             if (s.str("immichKey").isNotEmpty()) immichKey = s.str("immichKey")
             if (s.str("musicToken").isNotEmpty()) musicToken = s.str("musicToken")
+            if (s.str("tmdbKey").isNotEmpty()) tmdbKey = s.str("tmdbKey")
+            if (s.str("youtubeKey").isNotEmpty()) youtubeKey = s.str("youtubeKey")
         }
     }
 
@@ -642,6 +670,7 @@ class ConfigStore(ctx: Context) {
         s.addAll(todoLists)
         s.addAll(energySensors)
         s.addAll(musicPlayers)
+        s.addAll(sportSensors)
         for (a in listOf(customChips, morningSources)) for (i in 0 until a.length()) a.optJSONObject(i)?.optString("entity")?.takeIf { it.isNotEmpty() }?.let { s.add(it) }
         return s
     }

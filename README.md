@@ -72,6 +72,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - **Robot vacuums**: state, battery, start / pause / stop / return to base.
 - **Music** with Music Assistant: favourites, playlists, radio and albums, on the speakers you choose, with volume, shuffle,
   repeat, queue and transfer to another speaker.
+- **Scores** of your teams (TeamTracker), with the two logos, in the top bar and on the screen saver.
 - **Kitchen timers**, **collection reminders** (recycling, garbage) and a **photo frame** screen saver (Immich).
 - **Quiet hours**: silent notifications and a black screen at night.
 - **Header chips** summarising temperature, humidity, motion, doors, windows, blinds and curtains, leaks and locks, tap for the details and quick actions.
@@ -81,7 +82,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - **Updates over Wi‑Fi** from GitHub releases, from Home Assistant, or by uploading an APK.
 - **English and French**, automatic by default.
 - **Demo mode** to try everything without Home Assistant.
-- Secrets (HA token, MQTT password, PIN, Immich and Music Assistant keys) **encrypted with the Android Keystore**.
+- Secrets (HA token, MQTT password, PIN, Immich, Music Assistant, TMDB and YouTube keys) **encrypted with the Android Keystore**.
 
 ---
 
@@ -180,6 +181,13 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   When Music Assistant refuses a title, or a speaker accepts the music but does not start within ten seconds, the window says
   so in red instead of waiting. The covers are downloaded from the addresses Music Assistant gives, which are often your music
   service's servers on the internet.
+
+  <img src="docs/screenshots/music.png" width="860" alt="Music window">
+
+- **Scores** (🏆 in the top bar, needs Home Assistant's TeamTracker integration): pick the sensors of your teams on the web page
+  (*Home → Sports*). The icon appears when one of them is playing (it turns to the accent colour), starts within twelve
+  hours or finished less than eight hours ago. Tap it for the two team logos with the score between them, the period and
+  clock (or the start time, or "Final") and the last play. The **screen saver** shows the same score under the weather.
 - **Shopping and to-do lists** (☑ next to the timer): the Home Assistant to-do lists you choose on the web page
   (*Header tools → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
   the keyboard, remove the ticked ones; several lists become tabs. Changes made elsewhere (phone, voice assistant) show up, and
@@ -268,8 +276,27 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 
 - Tap a room on the home screen to open it; the **←** arrow brings you back. **Swipe left/right** to move between rooms.
 - **Order of a room**: the cameras always come first, then the shortcuts of the room, then the *Now playing* card, then the tiles.
-- **Now playing card**: in a room, only while one of its speakers or its TV is playing: title, player, pause, previous, next
-  and volume. It disappears when everything is stopped. The home screen doesn't show it. **You choose which players show it** on the web page (*Rooms → Now playing*): every speaker and TV of your
+- **Now playing card**: in a room, only while one of its speakers or its TV is playing: the **poster**, the title, the show or
+  artist (with season and episode when the player gives them), the app, a progress bar you can drag when the player gives a
+  duration, pause, previous, next, volume, an **applications** button for a player that lists them (an Apple TV: tap one to launch
+  it) and, for a player that can be turned off, a power button. The card takes half the width of the room, so two players sit side
+  by side. A **TV icon in the top bar** appears while a player is playing; tap it to see the poster in large with the title.
+  When several players are playing, the icon shows how many and the window shows all their posters side by side, each with
+  its title and its player (up to four, the most recent first; turn the icon off on the web page, *Rooms → Now playing*). The image frame always has the same size, in the card and in the window; the image fills it, cropped at the edges when its shape differs (a portrait poster, a square cover); only a logo is shown whole. From TMDB the wide image of the show is preferred to the portrait poster. **Where the poster comes from**:
+  the image Home Assistant gives when there is one; for YouTube, the thumbnail of the video (when the player only gives the
+  title and the channel, as an Apple TV does, the tablet looks them up on YouTube's search page and takes the first video;
+  this is not an official interface and may stop working, and an optional YouTube Data API key makes it use the official
+  search instead); for a **game**, when the title names two teams of the same league (NHL, NFL, NBA, MLB, MLS; English
+  nicknames and the usual French ones), their **two logos** side by side, from ESPN's public team lists; otherwise a search
+  by title on TVmaze (shows) and iTunes (films, music, podcasts). An optional TMDB key gives better film and series posters
+  (test it with the button next to the field). **Live TV** (Bell Fibe TV on an Apple TV gives the programme title and the
+  channel code): the card shows the channel — and its number once you have typed it on the web page (*Rooms → Now playing → TV channels*:
+  Fibe gives a code, not the number; the codes already seen are listed there) —, the search also tries the part of the title before a dash ("Series - Episode"),
+  and when nothing is found the **channel's logo** is shown, from a public collection of Canadian channel logos.
+  A **log** on the web page (*Rooms → Now playing → Log*) lists the last titles as each player reported them and where the
+  poster came from, to understand why one is missing; it stays on the tablet.
+  A search by title can pick the wrong poster, or none; the card then keeps an icon. The search sends the title of what is
+  playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. It disappears when everything is stopped. The home screen doesn't show it. **You choose which players show it** on the web page (*Rooms → Now playing*): every speaker and TV of your
   rooms is listed with its room; untick the ones you don't want. Voice assistants are unticked by default (they "play" at every
   answer). A show or a film gets a TV icon and the name of the app ("Antigang · ICI TOU.TV"). **After a pause** the card stays
   10 minutes by default; you can make it disappear right away, stay 30 minutes, or stay as long as the player is paused. The
@@ -475,6 +502,8 @@ Everything here is in the tablet's **Sleep & sounds** tab and on the web page (*
 
 **Screen saver:** after the idle delay the screen shows the **time, date and current weather** (moving a little every
 minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
+With the time and the weather, it also shows the **score** of the teams you follow (the two logos, up to two games) and **what
+is playing** (a small image, the title, the player, the app and the channel), for the player that started last.
 The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
 weather in a corner. TileHouse talks to Immich directly with its own API key: on the web page (*Screen & sleep → Screen saver → Photo
 frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read
@@ -610,7 +639,8 @@ Long explanations sit behind *Learn more*.
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
   by name, area or type, add them with one click, reorder them, rename them for the tablet, and show hidden/diagnostic entities if needed.
   **Import HA areas** creates rooms from your areas automatically. **Floors** sets the order of the floors the home screen
-  groups the rooms by. **Now playing** (the card at the top of a room, its players and what happens after a pause) is here too.
+  groups the rooms by. **Now playing** (the card at the top of a room, the thumbnail in the top bar, the poster search and its optional keys, its
+  players and what happens after a pause) is here too.
 - **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
   **Information chips** (collections, electricity, weather alerts, custom chips) and **Shortcuts**.
 - **Header tools**: the icons at the top of the tablet — shopping and to-do lists, music (the Music Assistant speakers offered,
@@ -784,8 +814,9 @@ TileHouse reopens by itself once the update is installed.
 
 - TileHouse talks to your Home Assistant, your MQTT broker and GitHub (to check for updates), plus the services you turn on
   yourself: your Immich server (photo frame), the feeds you add to This morning, and for music your Music Assistant server and
-  the servers that host the covers (usually your music service). No analytics, no accounts.
-- The Home Assistant token, the MQTT password, the PIN, the Immich key and the Music Assistant token are **encrypted at rest** with a key kept in the Android Keystore.
+  the servers that host the covers (usually your music service), and for posters TVmaze, iTunes, YouTube (search page and image server), ESPN (team lists and logos), GitHub (channel logos) and,
+  with your keys, TMDB and the YouTube Data API. No analytics, no accounts.
+- The Home Assistant token, the MQTT password, the PIN, the Immich key, the Music Assistant token and the TMDB and YouTube keys are **encrypted at rest** with a key kept in the Android Keystore.
   They are never displayed again once saved, and never included in a backup unless you ask for it.
 - **Wake on motion** is off by default. When you turn it on, the front camera's frames are compared in memory at very low resolution
   and thrown away: nothing is recorded, saved or sent.

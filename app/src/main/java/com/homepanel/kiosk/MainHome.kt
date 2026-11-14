@@ -127,43 +127,198 @@ internal fun MainActivity.updateNowPlaying() {
         else e.state == "paused" && (grace < 0 || grace > 0 && (lastPlaying[e.id]?.let { now - it < grace * 60_000L } == true ||
             HomeText.pausedRecently(e.attrs.str("media_position_updated_at"), System.currentTimeMillis(), grace * 60_000L)))
     }.take(2)
-    val key = players.joinToString("|") { it.id + ":" + it.state + ":" + it.attrs.str("media_title") + ":" + it.attrs.str("media_artist") + ":" + it.attrs.str("app_name") }
+    val key = players.joinToString("|") { it.id + ":" + it.state + ":" + it.attrs.str("media_title") + ":" + it.attrs.str("media_artist") + ":" + it.attrs.str("app_name") + ":" + it.attrs.str("entity_picture") + ":" + it.attrs.str("media_content_id") + ":" + it.attrs.has("media_duration") }
     if (key == nowPlayingKey) return
     nowPlayingKey = key
     box.removeAllViews()
-    for (e in players) {
-        val a = e.attrs
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = Skin.card(this@updateNowPlaying, dpf(22))
-            setPadding(dp(18), dp(12), dp(14), dp(12))
-        }
-        // Une émission ou un film : icône de télé ; de la musique, une radio : note.
-        val video = a.str("media_content_type").lowercase() in setOf("video", "tvshow", "movie", "episode", "channel") || a.str("device_class") == "tv"
-        card.addView(label(24f, text = if (video) "📺" else "🎵"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
-        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val title = a.str("media_title").ifEmpty { if (e.state == "playing") tr("En lecture") else tr("En pause") }
-        col.addView(label(17f, Skin.ink, true, title).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-        col.addView(label(14f, Skin.fg(0xB3), text = listOf(a.str("media_artist").ifEmpty { a.str("media_series_title") }, a.str("app_name"), e.name).filter { it.isNotEmpty() }.distinct().joinToString("  ·  ")).apply {
-            maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
-        })
-        card.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-        fun btn(icon: Int, big: Boolean = false, action: () -> Unit) = card.addView(roundIcon(icon, if (big) 52 else 44, if (big) Skin.primary else Skin.soft, if (big) Skin.onPrimary else Skin.ink) {
-            if (!haOffline()) action()
-        }.apply { layoutParams = LinearLayout.LayoutParams(dp(if (big) 52 else 44), dp(if (big) 52 else 44)).apply { marginStart = dp(8) } })
-        // Volume : par pas de 5 % quand le lecteur donne son niveau, sinon par ses propres pas.
-        fun volume(up: Boolean) {
-            val v = a.dbl("volume_level")
-            if (v != null) app.ha.callService("media_player", "volume_set", e.id, JSONObject().put("volume_level", (v + if (up) 0.05 else -0.05).coerceIn(0.0, 1.0)))
-            else app.ha.callService("media_player", if (up) "volume_up" else "volume_down", e.id)
-        }
-        btn(R.drawable.ic_minus) { volume(false) }
-        btn(R.drawable.ic_plus) { volume(true) }
-        btn(R.drawable.ic_prev) { app.ha.callService("media_player", "media_previous_track", e.id) }
-        btn(if (e.state == "playing") R.drawable.ic_pause else R.drawable.ic_play, big = true) { app.ha.callService("media_player", "media_play_pause", e.id) }
-        btn(R.drawable.ic_next) { app.ha.callService("media_player", "media_next_track", e.id) }
-        box.addView(card, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
+    if (players.isEmpty()) return
+    // Chaque carte prend la moitié de la largeur ; deux lecteurs tiennent côte à côte.
+    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+    players.forEachIndexed { i, e -> row.addView(nowPlayingCard(e), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(12) }) }
+    if (players.size == 1) row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(12) })
+    box.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
+}
+
+/** Carte d'un lecteur : affiche, titre, émission ou artiste, progression et contrôles. */
+internal fun MainActivity.nowPlayingCard(e: EntityState): View {
+    val a = e.attrs
+    val w = Posters.what(e)
+    val card = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL
+        background = Skin.card(this@nowPlayingCard, dpf(22))
+        setPadding(dp(14), dp(14), dp(16), dp(14))
     }
+    // Le cadre de l'image a toujours les mêmes dimensions ; l'image le remplit, rognée sur les bords
+    // si sa forme diffère (affiche en hauteur, pochette carrée) ; seul un logo y entre en entier.
+    val ph = dp(150)
+    val poster = ImageView(this).apply {
+        scaleType = ImageView.ScaleType.CENTER
+        setImageResource(if (w.video) R.drawable.ic_tv else R.drawable.ic_music)
+        imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0x66))
+        background = roundRect(Skin.fg(0x14), dpf(12))
+        clipToOutline = true
+    }
+    card.addView(poster, LinearLayout.LayoutParams(dp(200), ph))
+    Posters.find(e) { url ->
+        Covers.load(url, dp(260)) { bmp ->
+            if (bmp == null || bmp.height == 0) return@load
+            poster.imageTintList = null
+            // Une image remplit le cadre, rognée sur les bords s'il le faut ; un logo se montre en entier.
+            poster.scaleType = if (Channels.isLogo(url)) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
+            if (Channels.isLogo(url) && !url.startsWith("teams:")) poster.setPadding(dp(18), dp(18), dp(18), dp(18))
+            poster.setImageBitmap(bmp)
+        }
+    }
+    val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+    col.addView(label(13f, Skin.fg(0x99), text = (if (e.state == "playing") tr("En lecture") else tr("En pause")) + "  ·  " + e.name).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+    val title = w.title.ifEmpty { w.series }.ifEmpty { if (e.state == "playing") tr("En lecture") else tr("En pause") }
+    col.addView(label(20f, Skin.ink, true, title).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+    val episode = listOfNotNull(a.str("media_season").takeIf { it.isNotEmpty() }?.let { tr("Saison") + " " + it }, a.str("media_episode").takeIf { it.isNotEmpty() }?.let { tr("épisode") + " " + it }).joinToString(", ")
+    val sub = listOf(w.series.takeIf { it != title }.orEmpty(), w.artist, a.str("media_album_name").takeIf { !w.video }.orEmpty(), episode).filter { it.isNotEmpty() }.distinct().joinToString("  ·  ")
+    if (sub.isNotEmpty()) col.addView(label(15f, Skin.fg(0xCC), text = sub).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+    val where = listOf(w.app.takeIf { it != e.name }.orEmpty(), w.channelLabel).filter { it.isNotEmpty() }.joinToString("  ·  ")
+    if (where.isNotEmpty()) col.addView(label(13f, Skin.fg(0x99), text = where).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+
+    // Progression : seulement quand le lecteur donne une durée. Glisser déplace la lecture.
+    if (Music.position(e, System.currentTimeMillis()) != null) {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val elapsed = label(13f, Skin.fg(0x99)); val total = label(13f, Skin.fg(0x99)).apply { gravity = Gravity.END }
+        var dragging = false
+        val seek = android.widget.SeekBar(this).apply {
+            max = 1000
+            progressTintList = android.content.res.ColorStateList.valueOf(Skin.accent)
+            thumbTintList = android.content.res.ColorStateList.valueOf(Skin.accent)
+        }
+        seek.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: android.widget.SeekBar, p: Int, fromUser: Boolean) {
+                if (fromUser) Music.position(app.ha.states[e.id], System.currentTimeMillis())?.let { elapsed.text = Music.clock(it.second * p / 1000) }
+            }
+            override fun onStartTrackingTouch(s: android.widget.SeekBar) { dragging = true }
+            override fun onStopTrackingTouch(s: android.widget.SeekBar) {
+                dragging = false
+                val dur = Music.position(app.ha.states[e.id], System.currentTimeMillis())?.second ?: return
+                if (!haOffline()) app.ha.callService("media_player", "media_seek", e.id, JSONObject().put("seek_position", dur * s.progress / 1000.0))
+            }
+        })
+        row.addView(elapsed, LinearLayout.LayoutParams(dp(52), WRAP_CONTENT))
+        row.addView(seek, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        row.addView(total, LinearLayout.LayoutParams(dp(52), WRAP_CONTENT))
+        col.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(6) })
+        // La position avance d'elle-même tant que la carte est à l'écran.
+        seek.post(object : Runnable {
+            override fun run() {
+                val p = Music.position(app.ha.states[e.id], System.currentTimeMillis())
+                if (p != null && !dragging) { seek.progress = (p.first * 1000L / maxOf(1, p.second)).toInt(); elapsed.text = Music.clock(p.first); total.text = Music.clock(p.second) }
+                if (seek.isAttachedToWindow) seek.postDelayed(this, 1000)
+            }
+        })
+    }
+
+    val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+    fun btn(icon: Int, big: Boolean = false, first: Boolean = false, action: () -> Unit) = controls.addView(roundIcon(icon, if (big) 52 else 40, if (big) Skin.primary else Skin.soft, if (big) Skin.onPrimary else Skin.ink) {
+        if (!haOffline()) action()
+    }.apply { layoutParams = LinearLayout.LayoutParams(dp(if (big) 52 else 40), dp(if (big) 52 else 40)).apply { if (!first) marginStart = dp(6) } })
+    // Volume : par pas de 5 % quand le lecteur donne son niveau, sinon par ses propres pas.
+    fun volume(up: Boolean) {
+        val v = app.ha.states[e.id]?.attrs?.dbl("volume_level")
+        if (v != null) app.ha.callService("media_player", "volume_set", e.id, JSONObject().put("volume_level", (v + if (up) 0.05 else -0.05).coerceIn(0.0, 1.0)))
+        else app.ha.callService("media_player", if (up) "volume_up" else "volume_down", e.id)
+    }
+    btn(R.drawable.ic_prev, first = true) { app.ha.callService("media_player", "media_previous_track", e.id) }
+    btn(if (e.state == "playing") R.drawable.ic_pause else R.drawable.ic_play, big = true) { app.ha.callService("media_player", "media_play_pause", e.id) }
+    btn(R.drawable.ic_next) { app.ha.callService("media_player", "media_next_track", e.id) }
+    controls.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+    btn(R.drawable.ic_minus) { volume(false) }
+    btn(R.drawable.ic_plus) { volume(true) }
+    // Applications (Apple TV…) : la liste que le lecteur annonce ; en toucher une la lance.
+    if (Posters.canSelectSource(e)) btn(R.drawable.ic_grid) { showSources(app.ha.states[e.id] ?: e) }
+    // Éteindre : seulement pour un lecteur qui sait s'éteindre (Home Assistant l'annonce dans ses fonctions).
+    if (Posters.canTurnOff(e)) btn(R.drawable.ic_power) { app.ha.callService("media_player", "turn_off", e.id) }
+    col.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+    col.addView(controls, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(8) })
+    // La colonne prend la hauteur de son contenu (au moins celle de l'affiche) : les boutons ne sont jamais coupés.
+    col.minimumHeight = ph
+    card.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginStart = dp(16) })
+    return card
+}
+
+/** Lecteurs des pièces qui ont droit à la carte « En lecture » (réglage de la page web), avec l'indice de leur pièce. */
+internal fun MainActivity.playersInRooms(): List<Pair<EntityState, Int>> {
+    val hidden = cfg.nowPlayingHidden; val shown = cfg.nowPlayingShown
+    val out = ArrayList<Pair<EntityState, Int>>()
+    val seen = HashSet<String>()
+    cfg.rooms.forEachIndexed { i, room ->
+        for (re in room.entities) {
+            if (!re.id.startsWith("media_player.") || !seen.add(re.id)) continue
+            val e = app.ha.states[re.id] ?: continue
+            if (!Choices.hidden(e.id, hidden, shown, Choices.playerHiddenByDefault(e.id, e.name))) out.add(e to i)
+        }
+    }
+    return out
+}
+
+/** Icône « télé » du bandeau : visible quand un lecteur des pièces joue. La toucher montre l'affiche et le titre de tous ceux qui jouent. */
+internal fun MainActivity.updateHeaderPlaying() {
+    fun playing() = if (!cfg.nowPlayingHeader || !cfg.showNowPlaying) emptyList()
+        else playersInRooms().map { it.first }.filter { it.state == "playing" }.sortedByDescending { playStart[it.id] ?: 0L }
+    headerPlaying.set(playing().size) { playing().takeIf { it.isNotEmpty() }?.let { showPlayingPosters(it) } }
+}
+
+/** Les affiches de tout ce qui joue, côte à côte, chacune avec son titre (et son lecteur s'il y en a plusieurs). Toucher referme. */
+internal fun MainActivity.showPlayingPosters(players: List<EntityState>) {
+    val dm = resources.displayMetrics
+    val n = players.size.coerceAtMost(4)
+    val d = android.app.Dialog(this)
+    d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    val box = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_HORIZONTAL or Gravity.TOP
+        setPadding(dp(22), dp(22), dp(22), dp(18))
+        background = Skin.panelBg(this@showPlayingPosters, dpf(22))
+        setOnClickListener { d.dismiss() }
+    }
+    // Tous les cadres ont la même forme (4:3) : grand pour un seul lecteur, la largeur partagée à plusieurs.
+    // L'image remplit son cadre, rognée sur les bords s'il le faut ; seul un logo y entre en entier.
+    val gap = dp(18)
+    var fw = if (n == 1) (dm.heightPixels * 0.62f * 4 / 3).toInt() else ((dm.widthPixels * 0.86f).toInt() - gap * (n - 1)) / n
+    fw = minOf(fw, (dm.widthPixels * 0.7f).toInt())
+    val fh = minOf(fw * 3 / 4, (dm.heightPixels * 0.62f).toInt())
+    players.take(n).forEachIndexed { i, e ->
+        val w = Posters.what(e)
+        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+        val img = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.CENTER
+            setImageResource(if (w.video) R.drawable.ic_tv else R.drawable.ic_music)
+            imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0x66))
+            background = roundRect(Skin.fg(0x14), dpf(14))
+            clipToOutline = true
+        }
+        col.addView(img, LinearLayout.LayoutParams(fw, fh))
+        val title = w.title.ifEmpty { w.series }.ifEmpty { e.name }
+        col.addView(label(if (n == 1) 22f else 17f, Skin.ink, true, title).apply { gravity = Gravity.CENTER; maxLines = 3; ellipsize = android.text.TextUtils.TruncateAt.END },
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(14) })
+        // Provenance : le lecteur, l'application, et pour la télé la chaîne avec son numéro.
+        col.addView(label(if (n == 1) 16f else 14f, Skin.fg(0xB3), text = listOf(e.name, w.app.takeIf { it != e.name }.orEmpty(), w.channelLabel).filter { it.isNotEmpty() }.joinToString("  ·  ")).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END },
+            LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(2) })
+        Posters.find(e) { url ->
+            Covers.load(url, dp(700)) { bmp ->
+                if (bmp == null || bmp.height == 0) return@load
+                img.imageTintList = null
+                img.scaleType = if (Channels.isLogo(url)) ImageView.ScaleType.FIT_CENTER else ImageView.ScaleType.CENTER_CROP
+                if (Channels.isLogo(url) && !url.startsWith("teams:")) { val pad = fh / 6; img.setPadding(pad, pad, pad, pad) }
+                img.setImageBitmap(bmp)
+            }
+        }
+        box.addView(col, LinearLayout.LayoutParams(fw, WRAP_CONTENT).apply { if (i > 0) marginStart = gap })
+    }
+    d.setContentView(box)
+    d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+    d.window?.setDimAmount(0.75f)
+    d.setCanceledOnTouchOutside(true)
+    d.window?.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+    d.show()
+    @Suppress("DEPRECATION")
+    d.window?.decorView?.systemUiVisibility = window.decorView.systemUiVisibility
+    d.window?.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
 }
 
 internal fun MainActivity.updateHomeHeader() {

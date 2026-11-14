@@ -162,6 +162,94 @@ class NewFeaturesTest {
         assertTrue(Music.isPlayer(states["media_player.a"]!!.attrs)); assertFalse(Music.isPlayer(org.json.JSONObject()))
     }
 
+    @Test fun postersFromWhatIsPlaying() {
+        assertEquals("dQw4w9WgXcQ", Posters.youtubeId("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=3"))
+        assertEquals("dQw4w9WgXcQ", Posters.youtubeId("https://youtu.be/dQw4w9WgXcQ")); assertEquals("dQw4w9WgXcQ", Posters.youtubeId("dQw4w9WgXcQ"))
+        assertNull(Posters.youtubeId("library://track/2510")); assertNull(Posters.youtubeId(""))
+        assertEquals("https://i.ytimg.com/vi/abc/hq720.jpg", Posters.youtubeThumb("abc"))
+        assertEquals("https://static.tvmaze.com/a.jpg", Posters.fromTvmaze("""{"name":"X","image":{"medium":"http://static.tvmaze.com/a.jpg"}}"""))
+        assertEquals("", Posters.fromTvmaze("""{"name":"X","image":null}""")); assertEquals("", Posters.fromTvmaze(null))
+        assertEquals("https://x/600x600bb.jpg", Posters.fromItunes("""{"results":[{"artworkUrl100":"https://x/100x100bb.jpg"}]}""")); assertEquals("", Posters.fromItunes("""{"results":[]}"""))
+        assertEquals("https://image.tmdb.org/t/p/w342/p.jpg", Posters.fromTmdb("""{"results":[{"poster_path":null},{"poster_path":"/p.jpg"}]}"""))
+        assertEquals("https://image.tmdb.org/t/p/w780/b.jpg", Posters.fromTmdb("""{"results":[{"poster_path":"/p.jpg","backdrop_path":"/b.jpg"}]}"""))
+        assertEquals("https://i/h.jpg", Posters.fromYoutube("""{"items":[{"snippet":{"thumbnails":{"default":{"url":"https://i/d.jpg"},"high":{"url":"https://i/h.jpg"}}}}]}"""))
+        assertEquals("https://i.ytimg.com/vi/tgkNG5nPYXk/hq720.jpg", Posters.fromYoutubePage("""x{"videoRenderer":{"videoId":"tgkNG5nPYXk","thumbnail":{}}}"""))
+        assertEquals("https://i.ytimg.com/vi/tgkNG5nPYXk/hq720.jpg", Posters.fromYoutubePage("a videoId\\x22:\\x22tgkNG5nPYXk b")); assertEquals("", Posters.fromYoutubePage("rien"))
+        assertEquals("https://i.ytimg.com/vi/tgkNG5nPYXk/hq720.jpg", Posters.fromYoutube("""{"items":[{"id":{"videoId":"tgkNG5nPYXk"},"snippet":{"thumbnails":{"high":{"url":"https://i/h.jpg"}}}}]}"""))
+        fun st(vararg kv: Pair<String, Any>) = EntityState("media_player.tv", "playing", org.json.JSONObject().apply { for ((k, v) in kv) put(k, v) })
+        // Une série : on cherche la série, pas le titre de l'épisode. De la musique : l'artiste avec la chanson.
+        assertEquals("District 31", Posters.what(st("media_title" to "Épisode 12", "media_series_title" to "District 31", "media_content_type" to "tvshow")).term)
+        assertEquals("LIVE The Dolphin's Cry", Posters.what(st("media_title" to "The Dolphin's Cry", "media_artist" to "LIVE", "media_content_type" to "music")).term)
+        assertTrue(Posters.canTurnOff(st("supported_features" to 450487))); assertFalse(Posters.canTurnOff(st("supported_features" to 152461 - 256))); assertFalse(Posters.canTurnOff(st()))
+        // Apple TV : pas de type de contenu, mais une application qui n'est pas de la musique = vidéo.
+        assertTrue(Posters.what(st("media_title" to "x", "app_name" to "ICI TOU.TV", "app_id" to "ca.radio-canada.toutv")).video)
+        assertFalse(Posters.what(st("media_title" to "x", "app_name" to "Music", "app_id" to "com.apple.TVMusic")).video)
+        assertEquals("Titre Chaîne", Posters.what(st("media_title" to "Titre", "media_artist" to "Chaîne", "app_name" to "YouTube", "app_id" to "com.google.ios.youtube")).term)
+        assertTrue(Posters.what(st("media_title" to "x", "app_name" to "YouTube")).youtube); assertFalse(Posters.what(st("media_title" to "x", "app_name" to "Tou.tv")).youtube)
+    }
+
+    @Test fun liveTvGivesTheChannelAndTriesTheSeriesAlone() {
+        val fibe = EntityState("media_player.tv", "playing", org.json.JSONObject().put("media_title", "Tatoué Rodéo - Ayer's Cliff").put("media_content_id", "RDSHD")
+            .put("media_content_type", "video").put("app_name", "Télé Fibe").put("app_id", "CA.BELL.FIBEREMOTE"))
+        val w = Posters.what(fibe)
+        assertEquals(listOf("Tatoué Rodéo - Ayer's Cliff", "Tatoué Rodéo"), w.terms)
+        assertEquals("RDS", w.channel); assertTrue(Channels.logo("RDSHD").endsWith("/canada/rds-ca.png")); assertTrue(Channels.isLogo(Channels.logo("RDSHD")))
+        assertEquals("RDS 2", Channels.name("RDS2HD")); assertEquals("TVA Sports", Channels.name("TVASP"))
+        // Code inconnu : on garde le code comme nom et on tente le fichier du même nom.
+        assertEquals("ZZTV", Channels.name("ZZTVHD")); assertTrue(Channels.logo("ZZTVHD").endsWith("/zztv-ca.png"))
+        assertEquals("Noovo", Channels.name("NVQB")); assertEquals("TVA", Channels.name("TVAQH"))
+        // Nom et numéro saisis dans les réglages : ils passent avant la table, et le numéro s'affiche.
+        val before = Channels.custom
+        Channels.custom = { org.json.JSONObject("""{"RDS":{"name":"","number":"1125"},"TVAQH":{"name":"TVA Québec","number":"1104"}}""") }
+        assertEquals("RDS  ·  chaîne 1125", Channels.label("RDSHD").replace("channel", "chaîne")); assertEquals("TVA Québec", Channels.name("TVAQH")); assertEquals("", Channels.number("NVQB"))
+        Channels.custom = before
+        assertEquals("RDS", Channels.label("RDSHD"))
+        // Pas des chaînes : une adresse, un identifiant YouTube, une piste de bibliothèque.
+        assertEquals("", Channels.name("library://track/2510")); assertEquals("", Channels.name("dQw4w9WgXcQ")); assertEquals("", Channels.logo(""))
+        assertEquals(listOf("Le sport en toute liberté"), Posters.what(EntityState("media_player.tv", "playing", org.json.JSONObject().put("media_title", "Le sport en toute liberté").put("media_content_type", "video"))).terms)
+    }
+
+    @Test fun scoresFromATeamTrackerSensor() {
+        fun sensor(state: String, vararg kv: Pair<String, Any>) = EntityState("sensor.mtl", state, org.json.JSONObject().apply {
+            put("team_abbr", "MTL"); put("team_name", "Canadiens"); put("team_logo", "https://l/mtl.png"); put("team_score", "2"); put("team_homeaway", "home")
+            put("opponent_abbr", "COL"); put("opponent_name", "Avalanche"); put("opponent_logo", "https://l/col.png"); put("opponent_score", "1")
+            put("date", "2026-11-15T00:00Z"); put("league", "NHL"); put("clock", "12:34 - 2nd")
+            for ((k, v) in kv) put(k, v)
+        })
+        val start = 1794700800000L // 2026-11-15T00:00Z
+        val live = Scores.game(sensor("IN"))!!
+        // Visiteur à gauche, équipe locale à droite.
+        assertEquals("COL", live.away.abbr); assertEquals("MTL", live.home.abbr); assertEquals("1 – 2", Scores.score(live)); assertEquals(start, live.startsAt)
+        assertTrue(Scores.line(live).startsWith("COL 1 – 2 MTL")); assertTrue(Scores.line(live).contains("12:34 - 2nd"))
+        assertEquals("@", Scores.score(Scores.game(sensor("PRE"))!!)); assertNull(Scores.game(sensor("NOT_FOUND"))); assertNull(Scores.game(null))
+        // À venir : montré 12 h avant ; terminé : encore 8 h ; en cours : toujours.
+        val pre = Scores.game(sensor("PRE"))!!; val post = Scores.game(sensor("POST"))!!
+        assertTrue(Scores.visible(pre, start - 2 * 3_600_000L)); assertFalse(Scores.visible(pre, start - 20 * 3_600_000L))
+        assertTrue(Scores.visible(post, start + 4 * 3_600_000L)); assertFalse(Scores.visible(post, start + 20 * 3_600_000L)); assertTrue(Scores.visible(live, 0))
+        // L'équipe suivie joue à l'étranger : elle passe à gauche.
+        assertEquals("MTL", Scores.game(sensor("IN", "team_homeaway" to "away"))!!.away.abbr)
+        assertEquals(1, Scores.active(listOf("a", "b"), mapOf("a" to sensor("IN"), "b" to sensor("IN")), 0).size)
+    }
+
+    @Test fun twoTeamsOfTheSameLeagueGiveTheirLogos() {
+        fun league(name: String, vararg t: Pair<String, String>) = Sports.parse(org.json.JSONObject().put("sports", org.json.JSONArray().put(org.json.JSONObject().put("leagues",
+            org.json.JSONArray().put(org.json.JSONObject().put("teams", org.json.JSONArray().apply {
+                for ((nick, full) in t) put(org.json.JSONObject().put("team", org.json.JSONObject().put("name", nick).put("displayName", full)
+                    .put("logos", org.json.JSONArray().put(org.json.JSONObject().put("href", "https://l/$nick.png")))))
+            }))))).toString(), name)
+        val all = league("nhl", "Canadiens" to "Montreal Canadiens", "Rangers" to "New York Rangers", "Avalanche" to "Colorado Avalanche", "Senators" to "Ottawa Senators", "Stars" to "Dallas Stars") +
+            league("mlb", "Rangers" to "Texas Rangers", "Blue Jays" to "Toronto Blue Jays")
+        fun logos(title: String) = Sports.match(title, all)?.let { it.first.logo.substringAfterLast('/') to it.second.logo.substringAfterLast('/') }
+        assertEquals("Avalanche.png" to "Canadiens.png", logos("Avalanche @ Canadiens"))
+        assertEquals("Canadiens.png" to "Rangers.png", logos("Hockey LNH : Canadiens c. Rangers"))
+        assertEquals("Senators.png" to "Canadiens.png", logos("Sénateurs d'Ottawa contre le Canadien de Montréal"))
+        // Rangers existe dans deux ligues : l'autre équipe du titre dit laquelle.
+        assertEquals("https://l/Rangers.png", Sports.match("Blue Jays - Rangers", all)!!.second.logo); assertEquals("mlb", Sports.match("Blue Jays - Rangers", all)!!.second.league)
+        // Une seule équipe, ou un mot courant : pas de logos.
+        assertNull(logos("Les Canadiens en rafale")); assertNull(logos("Dancing with the Stars")); assertNull(logos("Le sport en toute liberté"))
+        assertTrue(Sports.pairUrl(all[0], all[1]).startsWith("teams:https://l/Canadiens.png|"))
+    }
+
     @Test fun todaysConsumptionFromACounter() {
         val midnight = 100L
         // Relevé une fois par jour : l'ajout du dernier relevé.

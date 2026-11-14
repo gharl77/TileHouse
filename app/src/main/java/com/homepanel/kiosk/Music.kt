@@ -165,16 +165,87 @@ class MusicButton(ctx: Context) : ImageView(ctx) {
 }
 
 /** Images des pochettes : adresses complètes (fournisseurs de musique) ou chemins de Home Assistant. Petit cache en mémoire. */
-private object Covers {
+internal object Covers {
     private val http = OkHttpClient.Builder().connectTimeout(8, TimeUnit.SECONDS).readTimeout(12, TimeUnit.SECONDS).build()
     private val main = Handler(Looper.getMainLooper())
     private val cache = object : LruCache<String, Bitmap>(6 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap) = value.byteCount
     }
 
+    /** Comme [text], avec le code HTTP (0 si le site est injoignable) : sert à tester une clé. */
+    fun textCode(url: String, cb: (String?, Int) -> Unit) {
+        val req = try { Request.Builder().url(url).header("Accept", "application/json").build() } catch (_: IllegalArgumentException) { cb(null, 0); return }
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { main.post { cb(null, 0) } }
+            override fun onResponse(call: Call, response: Response) {
+                val code = response.code
+                val t = try { response.use { it.body?.string() } } catch (_: Exception) { null }
+                main.post { cb(t, code) }
+            }
+        })
+    }
+
+    /** Texte d'une adresse (réponse JSON d'un service de recherche), null en cas d'échec. */
+    fun text(url: String, cb: (String?) -> Unit) {
+        // Certains sites ne servent leurs pages qu'à un navigateur.
+        val req = try {
+            Request.Builder().url(url).header("Accept", "application/json, text/html;q=0.9")
+                .header("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+                .header("Accept-Language", "fr-CA,fr;q=0.9,en;q=0.8").build()
+        } catch (_: IllegalArgumentException) { cb(null); return }
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { main.post { cb(null) } }
+            override fun onResponse(call: Call, response: Response) {
+                val t = try { response.use { if (it.isSuccessful) it.body?.string() else null } } catch (_: Exception) { null }
+                main.post { cb(t) }
+            }
+        })
+    }
+
+    private val logos = HashMap<String, Bitmap>()
+
+    /** Logo avec sa transparence (équipe, ligue), gardé en mémoire. */
+    fun logo(url: String, cb: (Bitmap?) -> Unit) {
+        if (url.isEmpty()) { cb(null); return }
+        logos[url]?.let { cb(it); return }
+        loadRaw(url) { bmp -> if (bmp != null) { if (logos.size > 40) logos.clear(); logos[url] = bmp }; cb(bmp) }
+    }
+
+    /** Image avec sa transparence (logo), sans passer par le cache. */
+    private fun loadRaw(url: String, cb: (Bitmap?) -> Unit) {
+        val req = try { Request.Builder().url(url).build() } catch (_: IllegalArgumentException) { cb(null); return }
+        http.newCall(req).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) { main.post { cb(null) } }
+            override fun onResponse(call: Call, response: Response) {
+                val bmp = try { response.use { r -> (if (r.isSuccessful) r.body?.bytes() else null)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) } } } catch (_: Exception) { null } catch (_: OutOfMemoryError) { null }
+                main.post { cb(bmp) }
+            }
+        })
+    }
+
     fun load(url: String, size: Int, cb: (Bitmap?) -> Unit) {
         if (url.isEmpty()) { cb(null); return }
         cache.get(url)?.let { cb(it); return }
+        // Deux logos d'équipes côte à côte (voir Sports.pairUrl).
+        if (url.startsWith("teams:")) {
+            val (a, b) = url.removePrefix("teams:").split("|").let { it.getOrElse(0) { "" } to it.getOrElse(1) { "" } }
+            loadRaw(a) { la -> loadRaw(b) { lb ->
+                if (la == null || lb == null) { cb(la ?: lb); return@loadRaw }
+                val w = 600; val h = 400; val side = 230
+                val out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+                val c = android.graphics.Canvas(out)
+                c.drawColor(0xFF15171C.toInt())
+                val paint = android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG or android.graphics.Paint.ANTI_ALIAS_FLAG)
+                fun put(bmp: Bitmap, cx: Int) {
+                    val k = side.toFloat() / maxOf(bmp.width, bmp.height)
+                    val bw = bmp.width * k; val bh = bmp.height * k
+                    c.drawBitmap(bmp, null, android.graphics.RectF(cx - bw / 2, h / 2 - bh / 2, cx + bw / 2, h / 2 + bh / 2), paint)
+                }
+                put(la, 160); put(lb, 440)
+                cache.put(url, out); cb(out)
+            } }
+            return
+        }
         val full = if (url.startsWith("/")) App.instance.config.url.trimEnd('/') + url else url
         val req = try { Request.Builder().url(full).build() } catch (_: IllegalArgumentException) { cb(null); return }
         http.newCall(req).enqueue(object : Callback {
@@ -192,7 +263,12 @@ private object Covers {
                         }
                     }
                 } catch (_: Exception) { null } catch (_: OutOfMemoryError) { null }
-                main.post { if (bmp != null) cache.put(url, bmp); cb(bmp) }
+                main.post {
+                    if (bmp != null) { cache.put(url, bmp); cb(bmp) }
+                    // Les vieilles vidéos YouTube n'ont pas la grande miniature 16:9 : on prend la petite.
+                    else if (url.endsWith("/hq720.jpg")) load(url.removeSuffix("hq720.jpg") + "mqdefault.jpg", size, cb)
+                    else cb(null)
+                }
             }
         })
     }

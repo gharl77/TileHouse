@@ -176,6 +176,10 @@ class MainActivity : Activity(), HaClient.Listener {
             isClickable = true
             setOnClickListener { openTimers() }
         }
+        scoresButton = ScoresButton(this).apply { setOnClickListener { showScores() } }
+        timeRow.addView(scoresButton, LinearLayout.LayoutParams(dp(42), dp(40)).apply { marginEnd = dp(8) })
+        headerPlaying = NowPlayingChip(this)
+        timeRow.addView(headerPlaying, LinearLayout.LayoutParams(dp(42), dp(40)).apply { marginEnd = dp(8) })
         timeRow.addView(timerButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         todoButton = TodoButton(this).apply { setOnClickListener { openTodos() } }
         timeRow.addView(todoButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
@@ -342,6 +346,8 @@ class MainActivity : Activity(), HaClient.Listener {
         houseCache = null
         updateTodoButton()
         updateMusicButton()
+        updateHeaderPlaying()
+        updateScoresButton()
         clockView.visibility = if (cfg.showClock) View.VISIBLE else View.GONE
         dateView.visibility = clockView.visibility
         batteryView.visibility = if (cfg.showBattery) View.VISIBLE else View.GONE
@@ -432,6 +438,10 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var nowPlayingBox: LinearLayout? = null
     internal var nowPlayingKey = ""
     internal val lastPlaying = HashMap<String, Long>()
+    /** Moment où chaque lecteur s'est mis à jouer (vignette du bandeau : le dernier lancé). */
+    internal val playStart = HashMap<String, Long>()
+    internal lateinit var headerPlaying: NowPlayingChip
+    internal lateinit var scoresButton: ScoresButton
     internal lateinit var morningButton: HomeExtras.MorningButton
     internal val morningReady get() = ::morningButton.isInitialized
 
@@ -471,6 +481,15 @@ class MainActivity : Activity(), HaClient.Listener {
         // On note quand un lecteur joue, même si sa pièce n'est pas à l'écran : la carte « En lecture » sait ainsi
         // qu'une pause est récente quand on ouvre la pièce ensuite.
         for (id in ids) if (id.startsWith("media_player.") && app.ha.states[id]?.state == "playing") lastPlaying[id] = SystemClock.uptimeMillis()
+        // Vignette du bandeau : visible sur l'accueil comme dans les pièces, donc mise à jour avant tout le reste.
+        val media = ids.any { it.startsWith("media_player.") }
+        if (media) {
+            for (id in ids) if (id.startsWith("media_player.")) {
+                if (app.ha.states[id]?.state == "playing") { if (id !in playStart) playStart[id] = SystemClock.uptimeMillis() } else playStart.remove(id)
+            }
+            updateHeaderPlaying()
+        }
+        if (cfg.sportSensors.any { it in ids }) updateScoresButton()
         if (cfg.todoLists.any { it in ids }) { updateTodoButton(); todoPanel?.onEntities(ids) }
         if (cfg.musicPlayers.any { it in ids }) { updateMusicButton(); musicPanel?.onEntities(ids) }
         // Une source de « Ce matin » a changé (ex. résumé publié à 5 h) : l'icône réapparaît avec son point.
@@ -493,7 +512,7 @@ class MainActivity : Activity(), HaClient.Listener {
         for (id in ids) tiles[id]?.let { (t, re) -> bindTile(t, re, room); touched = true }
         for (id in ids) cameraTiles[id]?.let { v -> room.find(id)?.let { v.name = Present.displayName(it, app.ha.states[id], room.name) } }
         if (touched || ids.any { room.find(it) != null }) updateChips(room)
-        if (ids.any { it.startsWith("media_player.") }) updateNowPlaying()
+        if (media) updateNowPlaying()
     }
 
     override fun onHaStatus(status: HaClient.Status) {
@@ -592,7 +611,9 @@ class MainActivity : Activity(), HaClient.Listener {
     internal fun updateDimScreen() {
         val style = cfg.effectiveDimStyle
         if (style != shownDimStyle) { shownDimStyle = style; applyDimBrightness() }
-        dimView.update(style, app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() })
+        // Avec l'heure et la météo : le pointage des matchs suivis et ce qui joue (le lecteur lancé en dernier).
+        val playing = if (!cfg.showNowPlaying) null else playersInRooms().map { it.first }.filter { it.state == "playing" }.maxByOrNull { playStart[it.id] ?: 0L }
+        dimView.update(style, app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() }, activeGames().filter { it.state != "PRE" || it.startsAt - System.currentTimeMillis() < 3 * 3_600_000L }, playing)
     }
 
     /** Luminosité normale : réglage de l'app (HA / page web), sinon celle du système. */

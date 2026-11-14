@@ -38,6 +38,9 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
     }
     private val date = ctx.label(26f, 0xB3FFFFFF.toInt())
     private val weather = ctx.label(30f, 0xD9FFFFFF.toInt()).apply { setPadding(0, ctx.dp(18), 0, 0) }
+    /** Sous la météo : le pointage des matchs suivis et ce qui joue. */
+    private val extra = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+    private var extraKey = ""
     private var lastMinute = ""
     private var style = ""
     private val handler = Handler(Looper.getMainLooper())
@@ -55,6 +58,7 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
             v.setShadowLayer(12f, 0f, 0f, 0xCC000000.toInt())
             box.addView(v, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
         }
+        box.addView(extra, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
         addView(box, LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
     }
 
@@ -64,8 +68,9 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
     }
 
     /** Met à jour le contenu selon [style] ("black", "clock" ou "photos"). */
-    fun update(style: String, weatherState: EntityState?) {
+    fun update(style: String, weatherState: EntityState?, games: List<Scores.Game> = emptyList(), playing: EntityState? = null) {
         if (style != this.style) setStyle(style)
+        if (style != "black") updateExtra(games, playing)
         box.visibility = if (style == "black") View.GONE else View.VISIBLE
         if (style == "black") return
         val now = Date()
@@ -87,6 +92,36 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
         }
     }
 
+    /** Pointage (deux matchs au plus) et ce qui joue : reconstruits seulement quand quelque chose a changé. */
+    private fun updateExtra(games: List<Scores.Game>, playing: EntityState?) {
+        val w = playing?.let { Posters.what(it) }
+        val title = w?.let { it.title.ifEmpty { it.series } }.orEmpty()
+        val key = games.take(2).joinToString("|") { it.key } + "#" + (playing?.id ?: "") + "|" + title + "|" + (playing?.attrs?.str("entity_picture") ?: "") + "|" + (w?.contentId ?: "")
+        if (key == extraKey) return
+        extraKey = key
+        extra.removeAllViews()
+        val white = 0xE6FFFFFF.toInt(); val soft = 0xB3FFFFFF.toInt()
+        for (g in games.take(2)) extra.addView(context.scoreView(g, big = false, ink = white, mute = soft),
+            LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = context.dp(18) })
+        if (playing != null && w != null && title.isNotEmpty()) {
+            val row = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            val img = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP; clipToOutline = true; background = roundRect(0x22FFFFFF, context.dpf(8)); visibility = View.GONE }
+            row.addView(img, LinearLayout.LayoutParams(context.dp(96), context.dp(72)).apply { marginEnd = context.dp(14) })
+            Posters.find(playing) { url ->
+                Covers.load(url, context.dp(200)) { bmp ->
+                    if (extraKey != key || bmp == null) return@load
+                    if (Channels.isLogo(url)) { img.scaleType = ImageView.ScaleType.FIT_CENTER; if (!url.startsWith("teams:")) img.setPadding(context.dp(8), context.dp(8), context.dp(8), context.dp(8)) }
+                    img.setImageBitmap(bmp); img.visibility = View.VISIBLE
+                }
+            }
+            val col = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+            col.addView(context.label(22f, white, text = title).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = context.dp(520) })
+            col.addView(context.label(16f, soft, text = listOf(playing.name, w.app.takeIf { it != playing.name }.orEmpty(), w.channelLabel).filter { it.isNotEmpty() }.joinToString("  ·  ")).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = context.dp(520) })
+            row.addView(col)
+            extra.addView(row, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = context.dp(20) })
+        }
+    }
+
     private fun setStyle(s: String) {
         style = s
         val photos = s == "photos"
@@ -98,6 +133,7 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
         box.gravity = if (big) Gravity.CENTER_HORIZONTAL else Gravity.START
         for (i in 0 until box.childCount) (box.getChildAt(i).layoutParams as LinearLayout.LayoutParams).gravity =
             if (big) Gravity.CENTER_HORIZONTAL else Gravity.START
+        extra.gravity = if (big) Gravity.CENTER_HORIZONTAL else Gravity.START
         box.layoutParams = LayoutParams(WRAP_CONTENT, WRAP_CONTENT, if (big) Gravity.CENTER else Gravity.BOTTOM or Gravity.START).apply {
             if (!big) setMargins(context.dp(40), 0, 0, context.dp(32))
         }

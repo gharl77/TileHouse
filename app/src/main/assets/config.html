@@ -296,6 +296,23 @@ details.more>p{margin:6px 0 0}
     <h2>🎵 En lecture</h2>
     <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher une carte en haut d'une pièce quand un de ses haut-parleurs ou sa télé joue</label>
     <details class="more"><summary>En savoir plus</summary><p class="muted">La carte s'affiche dans la pièce du lecteur, sous les caméras et les raccourcis. Elle montre le titre et le lecteur, avec pause, précédent, suivant et volume, et disparaît quand tout est arrêté. Une émission ou un film affiche une icône de télé et le nom de l'application.</p></details>
+    <label class="check"><input type="checkbox" id="npHeader"> Afficher aussi une icône de télé dans le bandeau du haut quand un lecteur joue (la toucher montre l'affiche)</label>
+    <h3 class="sub">Affiches</h3>
+    <label class="check"><input type="checkbox" id="posterSearch"> Chercher l'affiche sur Internet quand le lecteur n'en donne pas</label>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La carte montre l'image que donne Home Assistant quand il y en a une, et la vignette de la vidéo pour YouTube. Sinon, la tablette cherche le titre sur TVmaze (émissions) et iTunes (films, musique, balados) : le titre de ce qui joue est alors envoyé à ces sites. Une clé TMDB (gratuite, themoviedb.org → Paramètres → API) donne de meilleures affiches de films et de séries. Une clé de l'API YouTube Data (console Google Cloud) sert seulement quand le lecteur n'indique pas quelle vidéo joue. Les deux clés sont facultatives.</p></details>
+    <div class="row">
+      <div style="flex:3"><label class="f" for="tmdbKey">Clé TMDB (facultative)</label><input id="tmdbKey" type="password" autocomplete="new-password"></div>
+      <div style="flex:3"><label class="f" for="youtubeKey">Clé YouTube (facultative)</label><input id="youtubeKey" type="password" autocomplete="new-password"></div>
+    </div>
+    <button id="savePosterKeys">Enregistrer</button> <button id="testTmdb">Tester la clé TMDB</button> <span id="posterInfo" class="muted"></span>
+    <h3 class="sub">Chaînes de télé</h3>
+    <p class="muted">Télé Fibe indique la chaîne par un code, sans son numéro. Les codes déjà vus apparaissent ici : donnez-leur le nom et le numéro de chaîne à afficher sur la carte.</p>
+    <div id="fibeList" class="muted"></div>
+    <details class="more" id="playLogBox"><summary>Relevé : ce que les lecteurs annoncent</summary>
+      <p class="muted">Les derniers titres joués, tels que chaque lecteur les annonce, et d'où est venue l'affiche. Utile pour comprendre pourquoi une affiche manque. Le relevé reste sur la tablette.</p>
+      <div id="playLog" class="muted"></div>
+      <button id="playLogRefresh">Actualiser</button> <button id="playLogClear">Effacer</button>
+    </details>
     <h3 class="sub">Lecteurs qui affichent la carte</h3>
     <div id="npList" class="muted"></div>
     <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
@@ -351,6 +368,12 @@ details.more>p{margin:6px 0 0}
       <div style="flex:2"><label class="f" for="wasteCal">Calendrier des ordures</label><select id="wasteCal"></select></div>
       <div style="flex:1"><label class="f" for="wasteKw">Mot clé</label><input id="wasteKw" placeholder="ordure"></div>
     </div>
+  </section>
+  <section class="card">
+    <h2>🏒 Sports</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Choisissez les capteurs de vos équipes (intégration TeamTracker de Home Assistant, un capteur par équipe). Quand l'une joue, commence dans les prochaines heures ou vient de finir, une icône apparaît en haut de la tablette : la toucher montre les deux logos et le pointage. Le pointage s'affiche aussi sur l'écran de veille, avec l'heure et la météo.</p></details>
+    <h3 class="sub">Équipes suivies</h3>
+    <div id="sportList" class="muted">Connexion requise…</div>
   </section>
   <section class="card">
     <h2>⚡ Électricité</h2>
@@ -1274,6 +1297,41 @@ async function loadSuggestions() {
 
 $("npPause").onchange = () => saveSettings({nowPlayingPause: +$("npPause").value});
 $("showNowPlaying").onchange = () => saveSettings({showNowPlaying: $("showNowPlaying").checked});
+async function loadPlayLog(clear) {
+  const b = $("playLog");
+  let list = [];
+  try { list = (await api(clear ? "POST" : "GET", clear ? "/api/playlog/clear" : "/api/playlog")).entries || []; } catch (e) { b.textContent = t("Relevé indisponible."); return; }
+  b.replaceChildren();
+  if (!list.length) { b.textContent = t("Rien n'a encore joué depuis l'installation de cette version."); return; }
+  for (const x of list) {
+    const when = new Date(x.at).toLocaleString([], {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"});
+    const parts = [x.series && t("série") + " : " + x.series, x.artist && t("artiste") + " : " + x.artist, x.channel && t("chaîne") + " : " + x.channel, x.type && "type : " + x.type, x.contentId && "id : " + x.contentId].filter(Boolean).join(" · ");
+    b.append(el("div", {class: "sline", style: "display:block;padding:8px 0"},
+      el("div", {}, el("b", {textContent: x.title || "—"}), " ", el("span", {class: "muted", textContent: "— " + [x.player, x.app].filter(Boolean).join(" · ")})),
+      el("div", {class: "muted", textContent: [when, t("affiche") + " : " + x.source, parts].filter(Boolean).join(" · ")})));
+  }
+}
+$("testTmdb").onclick = async () => {
+  $("posterInfo").textContent = t("Test…");
+  try {
+    const r = await api("POST", "/api/poster/test-tmdb");
+    $("posterInfo").textContent = r.code === -1 ? t("Aucune clé TMDB enregistrée.") : r.code === 200 && r.poster ? t("Clé TMDB acceptée : une affiche est revenue.")
+      : r.code === 401 ? t("TMDB refuse cette clé (il faut la « clé d'API », pas le jeton d'accès).") : r.code === 0 ? t("TMDB est injoignable depuis la tablette.") : t("Réponse inattendue de TMDB :") + " " + r.code;
+  } catch (e) { $("posterInfo").textContent = t("Test impossible."); }
+};
+$("playLogBox").addEventListener("toggle", () => { if ($("playLogBox").open) loadPlayLog(false); });
+$("playLogRefresh").onclick = () => loadPlayLog(false);
+$("playLogClear").onclick = () => loadPlayLog(true);
+$("npHeader").onchange = () => saveSettings({nowPlayingHeader: $("npHeader").checked});
+$("posterSearch").onchange = () => saveSettings({posterSearch: $("posterSearch").checked});
+$("savePosterKeys").onclick = async () => {
+  const body = {};
+  if ($("tmdbKey").value.trim()) body.tmdbKey = $("tmdbKey").value.trim();
+  if ($("youtubeKey").value.trim()) body.youtubeKey = $("youtubeKey").value.trim();
+  if (Object.keys(body).length) await saveSettings(body);
+  $("tmdbKey").value = ""; $("youtubeKey").value = "";
+  $("posterInfo").textContent = t("Enregistré.");
+};
 
 $("refreshCat").onclick = () => { flash(t("Lecture de la liste des entités…")); loadCatalog(true); };
 $("crashTest").onclick = async () => {
@@ -1443,6 +1501,14 @@ function renderHome() {
   checks("todoList", have("todo"), S.settings.todoLists || [], "todoLists");
   if (cat && !have("calendar").length) $("calList").textContent = t("Aucun calendrier dans Home Assistant.");
   if (cat && !have("todo").length) $("todoList").textContent = t("Aucune liste « À faire » dans Home Assistant. Ajoutez-en une dans Home Assistant (Paramètres → Appareils et services → Ajouter → Liste de tâches locale).");
+  // Équipes suivies : capteurs TeamTracker.
+  {
+    const b = $("sportList"), list = have("sports"), sel = S.settings.sportSensors || [];
+    if (list && !list.length && !sel.length) { b.className = "muted"; b.textContent = t("Aucun capteur TeamTracker dans Home Assistant. Installez l'intégration TeamTracker (HACS) et ajoutez-y vos équipes."); }
+    else tokens(b, (list || []).map(x => ({id: x.id, name: x.name, note: x.id})), sel,
+      next => { S.settings.sportSensors = next; saveSettings({sportSensors: next}); renderHome(); },
+      {offline: !list, placeholder: t("Ajouter une équipe"), empty: t("Aucune équipe suivie.")});
+  }
   // Enceintes de Music Assistant : l'ordre est gardé (la première est proposée d'office).
   {
     const b = $("musicList"), list = have("music"), sel = S.settings.musicPlayers || [];
@@ -1460,6 +1526,34 @@ function renderHome() {
       {offline: !list, first: t("pastille"), placeholder: t("Ajouter un capteur"), empty: t("Aucun capteur choisi.")});
   }
   $("showNowPlaying").checked = S.settings.showNowPlaying !== false;
+  $("npHeader").checked = S.settings.nowPlayingHeader !== false;
+  $("npHeader").disabled = S.settings.showNowPlaying === false;
+  $("posterSearch").checked = S.settings.posterSearch !== false;
+  // Chaînes de télé : une ligne par code vu ou déjà réglé ; nom et numéro s'enregistrent en quittant le champ.
+  {
+    const b = $("fibeList"), saved = S.settings.fibeChannels || {}, seen = S.settings.fibeSeen || [];
+    const codes = [...new Set([...seen.map(x => x.code), ...Object.keys(saved)])].sort();
+    if (!b.contains(document.activeElement)) {
+      b.replaceChildren();
+      if (!codes.length) { b.className = "muted"; b.textContent = t("Aucune chaîne vue pour l'instant. Regardez la télé avec Télé Fibe, puis revenez ici."); }
+      else {
+        b.className = "";
+        for (const code of codes) {
+          const def = (seen.find(x => x.code === code) || {}).name || code, cur = saved[code] || {};
+          const name = el("input", {value: cur.name || "", placeholder: def, style: "flex:3"}), num = el("input", {value: cur.number || "", placeholder: t("numéro"), inputMode: "numeric", style: "flex:1;max-width:110px"});
+          const save = () => {
+            const next = {...(S.settings.fibeChannels || {})};
+            if (name.value.trim() || num.value.trim()) next[code] = {name: name.value.trim(), number: num.value.trim()}; else delete next[code];
+            S.settings.fibeChannels = next; saveSettings({fibeChannels: next});
+          };
+          name.onchange = save; num.onchange = save;
+          b.append(el("div", {class: "row", style: "align-items:center;margin-bottom:6px"}, el("code", {textContent: code, style: "min-width:90px"}), name, num));
+        }
+      }
+    }
+  }
+  $("tmdbKey").placeholder = S.settings.hasTmdbKey ? t("•••••••• clé enregistrée (laisser vide pour la garder)") : "";
+  $("youtubeKey").placeholder = S.settings.hasYoutubeKey ? t("•••••••• clé enregistrée (laisser vide pour la garder)") : "";
   // Vue d'ensemble : lumières, serrures, portes et fenêtres des pièces ; tout compte, sauf ce qu'on décoche.
   {
     const b = $("sumList"), all = S.settings.summaryDevices || [];

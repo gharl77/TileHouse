@@ -242,6 +242,7 @@ class WebServer(private val app: App) {
                 req.optJSONArray("timerPresets")?.let { cfg.timerPresets = it }
                 if (!cfg.demo) req.optJSONArray("todoLists")?.let { a -> cfg.todoLists = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("todo.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("musicPlayers")?.let { a -> cfg.musicPlayers = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("media_player.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("sportSensors")?.let { a -> cfg.sportSensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("energySensors")?.let { a -> cfg.energySensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("summaryHidden")?.let { a -> cfg.summaryHidden = (0 until a.length()).map { a.getString(it) } }
                 if (!cfg.demo) req.optJSONArray("summaryShown")?.let { a -> cfg.summaryShown = (0 until a.length()).map { a.getString(it) } }
@@ -249,6 +250,11 @@ class WebServer(private val app: App) {
                 if (req.has("nowPlayingPause")) cfg.nowPlayingPause = req.optInt("nowPlayingPause", 10)
                 if (!cfg.demo) req.optJSONArray("nowPlayingHidden")?.let { a -> cfg.nowPlayingHidden = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("media_player.") } }
                 if (req.has("showNowPlaying")) cfg.showNowPlaying = req.optBoolean("showNowPlaying", true)
+                if (req.has("nowPlayingHeader")) cfg.nowPlayingHeader = req.optBoolean("nowPlayingHeader", true)
+                if (req.has("posterSearch")) cfg.posterSearch = req.optBoolean("posterSearch", true)
+                if (!cfg.demo) req.optJSONObject("fibeChannels")?.let { cfg.fibeChannels = it.toString() }
+                if (req.str("tmdbKey").isNotBlank()) cfg.tmdbKey = req.str("tmdbKey")
+                if (req.str("youtubeKey").isNotBlank()) cfg.youtubeKey = req.str("youtubeKey")
                 if (req.has("morningStart")) cfg.morningStart = req.optInt("morningStart", 300)
                 if (req.has("morningEnd")) cfg.morningEnd = req.optInt("morningEnd", 600)
                 val homeExtras = listOf("weatherAlerts", "shortcuts", "customChips", "morningSources").any { req.has(it) }
@@ -286,6 +292,14 @@ class WebServer(private val app: App) {
                 if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour exporter votre configuration.")))
                 ok(onMain { app.config.exportJson(req.optBoolean("secrets")) })
             }
+            "POST /api/poster/test-tmdb" -> {
+                val latch = CountDownLatch(1); var code = 0; var poster = false
+                main.post { Posters.testTmdb { c, p -> code = c; poster = p; latch.countDown() } }
+                latch.await(20, TimeUnit.SECONDS)
+                ok(JSONObject().put("code", code).put("poster", poster))
+            }
+            "GET /api/playlog" -> ok(JSONObject().put("entries", onMain { PlayLog.json() }))
+            "POST /api/playlog/clear" -> ok(JSONObject().put("entries", onMain { PlayLog.clear(); PlayLog.json() }))
             "GET /api/backups" -> ok(backupsJson())
             "POST /api/backups/now" -> {
                 if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour exporter votre configuration.")))
@@ -458,8 +472,10 @@ class WebServer(private val app: App) {
                 .put("wallpaperOk", JSONObject().also { o -> for (k in Wallpapers.keys) o.put(k, Wallpapers.available(app, cfg, k)) })
                 .put("photoVeilLevel", cfg.photoVeilLevel)
                 .put("timerPresets", cfg.timerPresets)
-                .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("summaryHidden", JSONArray(cfg.summaryHidden)).put("summaryShown", JSONArray(cfg.summaryShown)).put("summaryDevices", summaryDevices())
-                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors)).put("musicPlayers", JSONArray(cfg.musicPlayers))
+                .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHeader", cfg.nowPlayingHeader).put("posterSearch", cfg.posterSearch)
+                .put("fibeChannels", try { JSONObject(cfg.fibeChannels) } catch (_: Exception) { JSONObject() }).put("fibeSeen", fibeSeen())
+                .put("hasTmdbKey", cfg.tmdbKey.isNotEmpty()).put("hasYoutubeKey", cfg.youtubeKey.isNotEmpty()).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("summaryHidden", JSONArray(cfg.summaryHidden)).put("summaryShown", JSONArray(cfg.summaryShown)).put("summaryDevices", summaryDevices())
+                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors)).put("musicPlayers", JSONArray(cfg.musicPlayers)).put("sportSensors", JSONArray(cfg.sportSensors))
                 .put("activeTheme", cfg.activeTheme)
                 .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
                 .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
@@ -490,6 +506,17 @@ class WebServer(private val app: App) {
                 .put("alertTrigger", cfg.alertTrigger)
                 .put("doorbellAlert", cfg.doorbellAlert)
                 .put("pinSet", cfg.pin.isNotEmpty()))
+    }
+
+    /** Codes de chaîne vus dans le relevé, avec le nom que la tablette leur donne : la page propose d'y mettre un numéro. */
+    private fun fibeSeen(): JSONArray {
+        val out = JSONArray(); val seen = HashSet<String>()
+        val log = PlayLog.json()
+        for (i in 0 until log.length()) {
+            val code = Channels.code(log.optJSONObject(i)?.optString("contentId").orEmpty()) ?: continue
+            if (seen.add(code)) out.put(JSONObject().put("code", code).put("name", Channels.name(code)))
+        }
+        return out
     }
 
     /** Lumières, serrures, portes, fenêtres et stores des pièces : ce que la page propose pour les pastilles de l'accueil. */
