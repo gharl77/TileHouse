@@ -35,6 +35,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - [First setup](#first-setup)
 - [Features in detail](#features-in-detail)
   - [Home screen](#home-screen)
+  - [Safety alarms, everyday helpers and home health](#safety-alarms-everyday-helpers-and-home-health)
   - [Rooms](#rooms)
   - [Detailed controls](#detailed-controls)
   - [Cameras](#cameras)
@@ -74,7 +75,11 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
   repeat, queue and transfer to another speaker.
 - **Scores** of your teams (TeamTracker), with the two logos, in the top bar and on the screen saver.
 - **Kitchen timers**, **collection reminders** (recycling, garbage) and a **photo frame** screen saver (Immich).
-- **Quiet hours**: silent notifications and a black screen at night.
+- **Quiet hours**: silent notifications and, if you want, a black screen at night.
+- **Smoke and carbon monoxide alarm**: full red screen and siren when a detector goes off, until someone silences it.
+- **Family messages**: short notes pinned at the top of the home screen, written on the tablet or from the web page.
+- **Everyday helpers**: tracked appliances (3D printer, washer, oven…), a good-night summary, a birthday banner, a screen-cleaning mode and a confirmation before unlocking a door.
+- **Home health**: chips for low batteries and devices offline, only when there is a problem.
 - **Two layouts** (*Appearance → Layout*): **Classic** — the home screen lists the rooms and the tools sit at the top right — or **Side navigation** — the rooms stay in a rail on the left, and in a room the camera and the players sit side by side, with idle players on a single line. Independent of the skin. With side navigation the home screen also shows previews of the tools (lists, running timers, the game in progress), your favourite devices as tiles and the cameras you choose (*Home → Home favourites*, *Tool previews* and *Home cameras* on the web page).
 
   | Side navigation: home | Side navigation: a room |
@@ -204,7 +209,11 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   household), recognised from common French and English words; a list that isn't groceries stays as it is. **Long-press an
   item** to remove it from the list, or to start a kitchen timer with its name ("Bread · 45 min").
 
-  | Lists | Next hours |
+  The weather window shows the active weather alerts first, then the next hours, then the **next days** with highs, lows and the
+  chance of rain. Its **Radar** button shows the image of a radar camera of Home Assistant (for example Environment Canada's,
+  to enable there), found by its name or chosen on the web page (*Home → Weather alerts*).
+
+  | Lists | Weather window |
   |---|---|
   | <img src="docs/screenshots/lists.png" alt="Shopping list"> | <img src="docs/screenshots/hourly-forecast.png" alt="Hourly forecast"> |
 
@@ -269,7 +278,10 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 
 <img src="docs/screenshots/home-floors.png" width="860" alt="Rooms grouped by floor">
 
-<img src="docs/screenshots/chip-detail.png" width="860" alt="Lights that are on, with a Turn off button on each">
+<img src="docs/screenshots/chip-detail.png" width="860" alt="Lights that are on, with a Turn off button on each and Turn all off at the bottom">
+
+The details of the *lights on*, *blinds open* and *unlocked* chips end with one button: **Turn all off**, **Close all** or
+**Lock all**. It only ever turns off, closes or locks, and disappears once there is nothing left to do.
 
 **Who's home** accepts several kinds of entities, so it works with any presence setup:
 
@@ -278,6 +290,62 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 | `person.*` (companion app) / `device_tracker.*` | state is `home` |
 | `binary_sensor.*`, `input_boolean.*` | state is `on` |
 | Room‑presence sensors (ESPresense, Bermuda…), e.g. `sensor.riley_presence` | state is anything but an absence (`not_home`, `away`, `unknown`…) |
+
+### Safety alarms, everyday helpers and home health
+
+**Safety alarms.** When a smoke, carbon monoxide or gas detector placed in a room turns on, the tablet wakes up, sounds a siren
+and shows a full red screen with the detector, its room and the time, until someone taps *Silence the alarm*. A **water leak**
+detector does the same in blue, with a softer two-beep sound. Both ignore quiet hours and the notification sound switch, come in
+front of the settings or a camera, and leave an entry in the notification centre. If the tablet's alarm volume is at zero, a real
+alarm raises it. *Test the alarm* (tablet and web page, *Alerts & sounds*) shows the same screen with the same sound.
+
+| Smoke or carbon monoxide | Water leak |
+|---|---|
+| <img src="docs/screenshots/safety-alarm.png" alt="Full red alarm screen with a Silence the alarm button"> | <img src="docs/screenshots/leak-alarm.png" alt="Full blue water leak alarm screen"> |
+
+**Confirm before unlocking.** Tapping a locked lock (its tile, or its line in the chip details) asks *Unlock?* with the name of
+the door. Nothing is sent without the second tap, and the window closes by itself after 15 seconds. Locking stays immediate.
+
+**Family messages.** Short notes pinned at the top of the home screen ("Dinner at grandma's at 6"). Write one on the tablet with
+the **+** (keyboard, who signs it, and how long it stays: until midnight, until tomorrow night, or until erased) or from the web
+page (*Home → Family messages*). Tap a note to read it in full or erase it. Up to six notes; they stay on the tablet.
+
+| Unlock confirmation | New family message |
+|---|---|
+| <img src="docs/screenshots/unlock-confirm.png" alt="Unlock? window with Cancel and Unlock buttons"> | <img src="docs/screenshots/family-note.png" alt="New message window with the keyboard, the signature and the duration"> |
+
+**Tracked appliances.** A 3D printer, a washer, an oven: give the entity that holds the appliance's state (web page, *Devices &
+health*); progress, time left, job name and an image (a camera or an image entity) are optional. Attached to a room, the appliance
+has a card there, always visible, with its picture, the job, a progress bar and the time left. Without a room, it makes a chip on
+the home screen only while it is working ("Washer: Washing · 25 min left"). Idle states (`idle`, `off`, `initial`, `finish`,
+`Inactive`…) are recognised automatically, and each appliance can send a notification when it has finished.
+
+<img src="docs/screenshots/tracker-printer.png" width="860" alt="A 3D printer card in a room, with its camera, the job name, a progress bar and the time left">
+
+**Good-night summary.** Ten seconds after the *Good night* shortcut is tapped on the tablet, a window lists what is still on,
+unlocked or open, with *Turn off*, *Lock* and *Fix everything*. If nothing is left it says so and closes by itself. The shortcut
+is recognised by its name, or chosen on the web page (*Home → Shortcuts*).
+
+**Birthday banner.** On the day of an event in your birthday calendar, a banner shows at the top of the home screen: an event named
+with a first name gives "Happy birthday, Léa"; a title that already mentions a birthday is shown as is. The calendar is found by
+its name, or chosen on the web page (*Home → Calendar*).
+
+**Screen cleaning.** Long-press the clock (or the date): the touch screen is frozen for 30 seconds, with a countdown, so the tablet
+can be wiped. Hold a finger still on the panel for 3 seconds to finish early.
+
+| Good-night summary | Screen cleaning |
+|---|---|
+| <img src="docs/screenshots/night-summary.png" alt="Good night window listing lights on, an unlocked door and open windows"> | <img src="docs/screenshots/cleaning-mode.png" alt="Screen locked for cleaning, with a countdown"> |
+
+**Home health.** Chips that exist only when there is a problem, each with its list on tap: **low batteries** (every battery of the
+house at or below a level you choose; phones and tablets are not counted), **devices offline** (devices of your rooms that Home
+Assistant can no longer reach; players and cameras are not counted) and **vacuum maintenance** (a filter, a brush or the water
+tank of a vacuum that exposes them, such as Dreame, near the end of its life).
+
+**Temperature and humidity history.** In a room, tap the temperature or humidity chip to see the last 24 hours as a curve, with
+the current value, the minimum and the maximum.
+
+<img src="docs/screenshots/sensor-history.png" width="640" alt="Temperature of a room over the last 24 hours">
 
 ### Rooms
 
@@ -344,7 +412,8 @@ Long‑press a tile to open its control panel:
   two arrows that raise and lower the target (step taken from the entity). Mode pills are shown only when there is
   more than one mode besides off.
 - **Media players**: volume slider, previous / play‑pause / next and power.
-- **Robot vacuums**: the tile shows the state and battery; tap it for Start / Resume, Pause, Stop and Return to base.
+- **Robot vacuums**: the tile shows the state and battery; tap it for Start / Resume, Pause, Stop and Return to base. For a vacuum
+  whose integration lists its rooms (Dreame), the rooms appear as chips: pick some, then *Clean N rooms*.
 
 <img src="docs/screenshots/vacuum-dialog.png" width="860" alt="Robot vacuum controls">
 
@@ -532,7 +601,13 @@ are shown (videos are skipped), in Immich's "preview" size.
 started them yourself.
 
 **Quiet hours** (default 22:00–07:00): notifications make no sound, except red alerts (leak, lock, window…), and the
-screen saver is black whatever style you chose. Also available as the switch *Quiet hours* in Home Assistant.
+screen saver is black whatever style you chose (uncheck *Black screen saver during quiet hours* to keep the clock or the
+photos and only mute the sounds). Also available as the switch *Quiet hours* in Home Assistant.
+
+**Smoke and carbon monoxide alarm**: when a smoke, carbon monoxide or gas detector placed in a room turns on, the tablet
+wakes up, sounds a siren and shows a red screen with the detector and its room until someone taps *Silence the alarm*.
+It ignores quiet hours and the notification sound switch, and raises the tablet's alarm volume if it is at zero.
+*Test the alarm* (tablet and web page) shows the same screen with the same siren.
 
 <img src="docs/screenshots/screensaver.png" width="860" alt="Screen saver with the time and weather">
 
@@ -660,14 +735,17 @@ Long explanations sit behind *Learn more*.
   groups the rooms by. **Now playing** (the card at the top of a room, the thumbnail in the top bar, the poster search and its optional keys, its
   players and what happens after a pause) is here too.
 - **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
-  **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity, weather alerts, custom chips) and **Shortcuts**.
+  **Messages** (family messages), **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity, weather alerts and radar, custom chips) and **Shortcuts** (with the good-night summary). The birthday calendar is chosen in the *Calendar* card.
+- **Devices & health**: **Tracked appliances** (3D printer, washer, oven…) and **Home health** (the low-battery, offline and vacuum-maintenance chips).
 - **Tools & media**: **Tools** — shopping and to-do lists, favourite timers, This morning and sports — and **Media** — music (the Music Assistant
   speakers offered, and the server token for the queue) and Now playing (posters, TV channels, log, which players count).
 
 **Tablet**
 - **Appearance**: language, layout, skin and night skin, the sections shown, dashboard options and the background (theme or wallpaper, your photo).
-- **Screen & sleep**: brightness, sleep delay, wake on motion, and the screen saver (including the Immich photo frame).
-- **Alerts & sounds**: notification sounds and quiet hours, notification duration, and camera alerts.
+- **Screen & sleep**: brightness, sleep delay, wake on motion (front camera, or Home Assistant presence sensors), brightness by room
+  (the screen dims when the lights of its room are all off), and the screen saver (including the Immich photo frame).
+- **Alerts & sounds**: safety first — **Safety alarms** (smoke, carbon monoxide, water leak, and the test), **Locks** (confirm before
+  unlocking) and **Camera alerts** — then **Notifications** and **Sounds and quiet hours**.
 
 The room editor shows one clean row per device: drag ⠿ to reorder, and ✎ (rename for the tablet only) and ✕ (remove) appear
 when you point at a row — they are always visible on a touch screen. Device types are filter chips, and a device that is
@@ -676,28 +754,30 @@ the feed answered) that you drag to reorder and open to edit; suggestions are gr
 
 **System**
 - **Connection**: Home Assistant address and token, demo mode, and MQTT.
-- **Security & backups**: PIN, export and restore. The tablet also keeps an **automatic copy of the configuration every week**
+- **Access & backups**: PIN, export and restore. The tablet also keeps an **automatic copy of the configuration every week**
   (the last six, without the token, the passwords or the PIN); download or restore one, or make one right away.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
 
-| Rooms | Tools & media |
+| Rooms | Devices & health |
 |---|---|
-| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-tools.png" alt="Web page — tools and media"> |
+| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-devices.png" alt="Web page — tracked appliances and home health"> |
+
+| Tools & media | Alerts & sounds |
+|---|---|
+| <img src="docs/screenshots/web-tools.png" alt="Web page — tools and media"> | <img src="docs/screenshots/web-sound.png" alt="Web page — safety alarms, locks and camera alerts"> |
 
 | Appearance | Screen & sleep |
 |---|---|
 | <img src="docs/screenshots/web-display.png" alt="Web page — appearance"> | <img src="docs/screenshots/web-screen.png" alt="Web page — screen and sleep"> |
 
-| Alerts & sounds | Connection |
+| Connection | Access & backups |
 |---|---|
-| <img src="docs/screenshots/web-sound.png" alt="Web page — alerts and sounds"> | <img src="docs/screenshots/web-connection.png" alt="Web page — connection"> |
+| <img src="docs/screenshots/web-connection.png" alt="Web page — connection"> | <img src="docs/screenshots/web-security.png" alt="Web page — access and backups"> |
 
-| Security & backups | About |
-|---|---|
-| <img src="docs/screenshots/web-security.png" alt="Web page — security and backups"> | <img src="docs/screenshots/web-about.png" alt="Web page — about"> |
+<img src="docs/screenshots/web-about.png" width="640" alt="Web page — about">
 
 Changes are applied to the tablet instantly. If the configuration was changed elsewhere in the meantime (on the tablet or in another
-browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#rooms`, `#home`, `#tools`, `#display`, `#screen`, `#sound`, `#conn`, `#security`, `#about`.
+browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#rooms`, `#home`, `#devices`, `#tools`, `#display`, `#screen`, `#sound`, `#conn`, `#security`, `#about`.
 
 ### Tablet settings
 
@@ -713,22 +793,23 @@ that it is recorded, that the app comes back and that Home Assistant is told.
 **↻ Refresh entities**, at the top of the web page, reads the list of devices, calendars, lists and sensors again from Home
 Assistant, for instance right after creating a to-do list. The list is also read again by itself after every reconnection.
 
-Six tabs, named and grouped like the web page: **Rooms**, **Display** (appearance, dashboard options, screen brightness and
-sleep, screen saver), **Sounds & alerts** (sounds and quiet hours, notifications, camera alerts), **Connection**, **Security**
-(web page, PIN, kiosk mode) and **About**. A setting that depends on a switch (quiet-hours times, alert trigger and duration)
+Eight tabs, named and grouped like the web page: **Rooms**, **Appearance**, **Home** (sections shown, tool previews), **Screen**
+(brightness, sleep, screen saver), **Alerts** (safety alarms and their test, locks, camera alerts, home health, notifications,
+sounds and quiet hours), **Connection**, **Access** (web page, PIN, kiosk mode) and **About**. What needs a list of entities
+(tracked appliances, wake sensors, the lights of the room, calendars) is set on the web page. A setting that depends on a switch (quiet-hours times, alert trigger and duration)
 only shows when that switch is on; on the web page it is greyed out.
 
 | Rooms | Display |
 |---|---|
 | <img src="docs/screenshots/settings-rooms.png" alt="Settings — rooms"> | <img src="docs/screenshots/settings-display.png" alt="Settings — display"> |
 
-| Sounds & alerts | Connection |
+| Alerts | Connection |
 |---|---|
-| <img src="docs/screenshots/settings-sleep.png" alt="Settings — sounds and alerts"> | <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> |
+| <img src="docs/screenshots/settings-sleep.png" alt="Settings — safety alarms, locks and camera alerts"> | <img src="docs/screenshots/settings-connection.png" alt="Settings — connection"> |
 
-| Security | About |
+| Access | About |
 |---|---|
-| <img src="docs/screenshots/settings-kiosk.png" alt="Settings — security"> | <img src="docs/screenshots/settings-about.png" alt="Settings — about"> |
+| <img src="docs/screenshots/settings-kiosk.png" alt="Settings — access"> | <img src="docs/screenshots/settings-about.png" alt="Settings — about"> |
 
 ### The tablet as a Home Assistant device (MQTT)
 

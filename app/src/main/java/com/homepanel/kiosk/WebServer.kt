@@ -176,6 +176,9 @@ class WebServer(private val app: App) {
                 app.receiveNotice(m)
                 JSONObject().put("ok", true)
             })
+            "POST /api/notes/add" -> ok(onMain { JSONObject().put("ok", FamilyNotes.add(app, req.str("text"), req.str("author"), req.str("keep"))).put("notes", FamilyNotes.toJson(FamilyNotes.all(app))) })
+            "POST /api/notes/remove" -> ok(onMain { FamilyNotes.remove(app, req.optLong("id")); JSONObject().put("ok", true).put("notes", FamilyNotes.toJson(FamilyNotes.all(app))) })
+            "POST /api/safety/test" -> ok(onMain { app.safety.test(req.optBoolean("keepVolume"), req.optBoolean("leak")); JSONObject().put("ok", true) })
             "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera"), req.optBoolean("ring")); JSONObject().put("ok", true) })
             "POST /api/demo" -> ok(onMain { app.setDemo(req.optBoolean("on")); state() })
             "POST /api/rooms" -> {
@@ -267,6 +270,22 @@ class WebServer(private val app: App) {
                 if (req.has("alertSeconds")) cfg.alertSeconds = req.optInt("alertSeconds", 20)
                 if (req.has("alertTrigger")) cfg.alertTrigger = req.str("alertTrigger")
                 if (req.has("doorbellAlert")) cfg.doorbellAlert = req.optBoolean("doorbellAlert")
+                if (req.has("quietBlack")) cfg.quietBlack = req.optBoolean("quietBlack", true)
+                if (req.has("smokeAlarm")) cfg.smokeAlarm = req.optBoolean("smokeAlarm", true)
+                if (req.has("leakAlarm")) cfg.leakAlarm = req.optBoolean("leakAlarm", true)
+                if (req.has("birthdayCalendar")) cfg.birthdayCalendar = req.str("birthdayCalendar")
+                if (!cfg.demo) req.optJSONArray("trackers")?.let { cfg.trackers = it; app.ha.setEntities(cfg.allEntityIds()) }
+                if (req.has("radarCamera")) cfg.radarCamera = req.str("radarCamera")
+                if (req.has("maintenanceLow")) cfg.maintenanceLow = req.optInt("maintenanceLow", 10)
+                if (req.has("nightShortcut")) cfg.nightShortcut = req.str("nightShortcut")
+                if (req.has("confirmUnlock")) cfg.confirmUnlock = req.optBoolean("confirmUnlock", true)
+                if (req.has("batteryLow")) cfg.batteryLow = req.optInt("batteryLow", 15)
+                if (req.has("offlineChip")) cfg.offlineChip = req.optBoolean("offlineChip", true)
+                if (req.has("darkBrightness")) cfg.darkBrightness = req.optInt("darkBrightness", 20)
+                if (req.has("scoreBefore")) cfg.scoreBefore = req.optInt("scoreBefore", 12)
+                if (req.has("scoreAfter")) cfg.scoreAfter = req.optInt("scoreAfter", 8)
+                if (!cfg.demo) req.optJSONArray("wakeSensors")?.let { a -> cfg.wakeSensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("binary_sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("ambientLights")?.let { a -> cfg.ambientLights = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("light.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (req.has("pin")) cfg.pin = req.str("pin").filter { it.isDigit() }.take(12)
                 // Accueil : météo, calendriers, personnes, ordre des paliers
                 var subs = false
@@ -510,6 +529,10 @@ class WebServer(private val app: App) {
                 .put("alertSeconds", cfg.alertSeconds)
                 .put("alertTrigger", cfg.alertTrigger)
                 .put("doorbellAlert", cfg.doorbellAlert)
+                .put("familyNotes", FamilyNotes.toJson(FamilyNotes.all(app))).put("noteAuthors", JSONArray(FamilyNotes.authors(cfg, app.ha.states)))
+                .put("quietBlack", cfg.quietBlack).put("smokeAlarm", cfg.smokeAlarm).put("trackers", cfg.trackers).put("radarCamera", cfg.radarCamera).put("maintenanceLow", cfg.maintenanceLow).put("birthdayCalendar", cfg.birthdayCalendar).put("nightShortcut", cfg.nightShortcut).put("leakAlarm", cfg.leakAlarm).put("confirmUnlock", cfg.confirmUnlock).put("batteryLow", cfg.batteryLow).put("offlineChip", cfg.offlineChip)
+                .put("darkBrightness", cfg.darkBrightness).put("scoreBefore", cfg.scoreBefore).put("scoreAfter", cfg.scoreAfter)
+                .put("wakeSensors", JSONArray(cfg.wakeSensors)).put("ambientLights", JSONArray(cfg.ambientLights))
                 .put("pinSet", cfg.pin.isNotEmpty()))
     }
 

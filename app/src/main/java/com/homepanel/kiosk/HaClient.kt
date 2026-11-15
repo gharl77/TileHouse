@@ -130,6 +130,27 @@ class HaClient {
         send(msg, null)
     }
 
+    /** Abonnements ponctuels (gabarits) : identifiant du message → suite à donner au premier événement. */
+    private val eventCallbacks = HashMap<Int, (JSONObject?) -> Unit>()
+
+    /**
+     * Fait calculer un gabarit par Home Assistant, une seule fois (l'abonnement est refermé dès la réponse).
+     * [cb] reçoit le résultat en texte (du JSON si le gabarit rend une liste), ou null si c'est impossible.
+     */
+    fun renderTemplate(template: String, cb: (String?) -> Unit) {
+        if (demo) { main.post { cb(Demo.template(template)) }; return }
+        var done = false
+        val id = send(JSONObject().put("type", "render_template").put("template", template)) { res ->
+            if (!res.optBoolean("success", false) && !done) { done = true; cb(null) }
+        }
+        if (id <= 0) return
+        eventCallbacks[id] = { ev ->
+            eventCallbacks.remove(id)
+            if (ev != null) send(JSONObject().put("type", "unsubscribe_events").put("subscription", id), null)
+            if (!done) { done = true; cb(ev?.opt("result")?.toString()) }
+        }
+    }
+
     fun request(type: String, cb: (JSONObject) -> Unit) = send(JSONObject().put("type", type), cb)
     fun request(msg: JSONObject, cb: (JSONObject) -> Unit) = send(msg, cb)
 
@@ -203,6 +224,7 @@ class HaClient {
             }
             "result" -> callbacks.remove(msg.optInt("id"))?.invoke(msg)
             "event" -> if (msg.optInt("id") == subscriptionId) msg.optJSONObject("event")?.let { applyEntities(it) }
+                else eventCallbacks[msg.optInt("id")]?.invoke(msg.optJSONObject("event") ?: JSONObject())
         }
     }
 
@@ -230,6 +252,8 @@ class HaClient {
     }
 
     private fun failPending() {
+        // Les gabarits en attente n'auront pas de réponse sur cette connexion.
+        if (eventCallbacks.isNotEmpty()) { val evs = eventCallbacks.values.toList(); eventCallbacks.clear(); for (cb in evs) cb(null) }
         if (callbacks.isEmpty()) return
         val err = JSONObject().put("success", false)
             .put("error", JSONObject().put("message", tr("Connexion perdue")))

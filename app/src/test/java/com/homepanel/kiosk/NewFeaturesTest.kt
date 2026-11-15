@@ -383,7 +383,7 @@ class NewFeaturesTest {
     }
 
     @Test fun sectionKeysAreKnown() {
-        assertEquals(12, SECTIONS.size); assertEquals(SECTIONS.size, SECTIONS.distinct().size)
+        assertEquals(15, SECTIONS.size); assertEquals(SECTIONS.size, SECTIONS.distinct().size)
         assertTrue(listOf("lists", "music", "weather", "agenda").all { it in SECTIONS })
     }
 
@@ -392,5 +392,155 @@ class NewFeaturesTest {
         assertEquals((0 until 10).toList(), Rail.range(0, 15).toList())
         assertEquals((10 until 15).toList(), Rail.range(1, 15).toList())
         assertEquals(0, Rail.pageOf(9)); assertEquals(1, Rail.pageOf(10))
+    }
+
+    @Test fun scoreDurations() {
+        fun game(state: String, start: Long) = Scores.Game(state, Scores.Side("A", "", "", "1"), Scores.Side("B", "", "", "2"), "", start, "", "")
+        val start = 100 * 3_600_000L
+        // Réglage « 3 h avant » : un match dans 5 heures ne s'affiche pas encore ; avec 12 h (défaut), oui.
+        assertFalse(Scores.visible(game("PRE", start), start - 5 * 3_600_000L, before = 3, after = 8))
+        assertTrue(Scores.visible(game("PRE", start), start - 5 * 3_600_000L))
+        // Réglage « 4 h après le début » : le pointage final disparaît plus tôt.
+        assertFalse(Scores.visible(game("POST", start), start + 6 * 3_600_000L, before = 12, after = 4))
+        assertTrue(Scores.visible(game("POST", start), start + 6 * 3_600_000L, before = 12, after = 24))
+    }
+
+    @Test fun safetyAlarmSteps() {
+        assertEquals("smoke", SafetyAlarm.kind("binary_sensor.a", "smoke"))
+        assertEquals("co", SafetyAlarm.kind("binary_sensor.a", "carbon_monoxide"))
+        assertEquals("leak", SafetyAlarm.kind("binary_sensor.a", "moisture"))
+        assertNull(SafetyAlarm.kind("binary_sensor.a", "door")); assertNull(SafetyAlarm.kind("sensor.a", "smoke"))
+        val ringing = HashSet<String>(); val silenced = HashSet<String>()
+        assertTrue(SafetyAlarm.step("d", true, ringing, silenced))    // se déclenche : sonne
+        assertFalse(SafetyAlarm.step("d", true, ringing, silenced))   // encore en alerte : pas une nouvelle alarme
+        silenced.addAll(ringing); ringing.clear()                     // « Arrêter la sonnerie »
+        assertFalse(SafetyAlarm.step("d", true, ringing, silenced))   // toujours en alerte : reste silencieux
+        assertFalse(SafetyAlarm.step("d", false, ringing, silenced))  // retour au calme
+        assertTrue(silenced.isEmpty())
+        assertTrue(SafetyAlarm.step("d", true, ringing, silenced))    // nouvelle alerte : resonne
+    }
+
+    @Test fun bulkActions() {
+        fun e(id: String, st: String) = EntityState(id, st, JSONObject())
+        assertTrue(Present.bulkNeeded("light.a", e("light.a", "on"))); assertFalse(Present.bulkNeeded("light.a", e("light.a", "off")))
+        assertTrue(Present.bulkNeeded("cover.a", e("cover.a", "open"))); assertFalse(Present.bulkNeeded("cover.a", e("cover.a", "closed")))
+        assertTrue(Present.bulkNeeded("lock.a", e("lock.a", "unlocked"))); assertFalse(Present.bulkNeeded("lock.a", e("lock.a", "locked")))
+        assertFalse(Present.bulkNeeded("light.a", e("light.a", "unavailable"))); assertFalse(Present.bulkNeeded("light.a", null))
+        assertNull(Present.bulkLabel("door")); assertNull(Present.bulkLabel("window"))
+    }
+
+    @Test fun healthChips() {
+        val list = Health.parse("""[["Bouton Salon",10],["Tablette Cuisine",12],["Serrure",-1],["PIR",14]]""", "tablette cuisine")
+        assertEquals(listOf("Serrure", "Bouton Salon", "PIR"), list.map { it.name })   // la tablette elle-même ne compte pas
+        assertEquals("battery", Health.batteryChip(list)!!.kind); assertNull(Health.batteryChip(emptyList()))
+        assertTrue(Health.parse(null).isEmpty()); assertTrue(Health.parse("pas du json").isEmpty())
+        assertTrue("<= 20" in Health.template(20))
+        val room = Room("r", "Maison").apply { for (id in listOf("light.a", "light.b", "media_player.tv", "camera.c", "light.hidden")) entities.add(RoomEntity(id)) }
+        val states = room.entities.associate { it.id to EntityState(it.id, if (it.id == "light.b") "on" else "unavailable", JSONObject()) }
+        // Les lecteurs et les caméras ne comptent pas, ni un appareil décoché de la vue d'ensemble.
+        assertEquals(listOf("light.a"), Health.offline(room, states, setOf("light.hidden")).map { it.id })
+        assertNull(Health.offlineChip(0)); assertEquals(1, Health.offlineChip(2)!!.level)
+    }
+
+    @Test fun familyNotes() {
+        val cal = java.util.Calendar.getInstance().apply { set(2026, 10, 15, 9, 30, 0); set(java.util.Calendar.MILLISECOND, 0) }
+        val now = cal.timeInMillis
+        val midnight = FamilyNotes.until("today", now)
+        // « Jusqu'à minuit » : la nuit qui suit ; « demain soir » : un jour de plus ; « sans fin » : 0.
+        assertEquals((24 - 9) * 3_600_000L - 30 * 60_000L, midnight - now)
+        assertEquals(86_400_000L, FamilyNotes.until("tomorrow", now) - midnight)
+        assertEquals(0L, FamilyNotes.until("forever", now))
+        val list = listOf(FamilyNotes.Note(1, "Ancienne", "A", now - 3_600_000L, midnight), FamilyNotes.Note(2, "Sans fin", "", now - 60_000L, 0L),
+            FamilyNotes.Note(3, "Échue", "", now - 2 * 86_400_000L, now - 1))
+        // Les notes échues disparaissent ; la plus récente d'abord.
+        assertEquals(listOf(2L, 1L), FamilyNotes.valid(list, now).map { it.id })
+        assertEquals(listOf(2L), FamilyNotes.valid(list, midnight).map { it.id })
+        // Aller-retour par le stockage, et texte nettoyé.
+        assertEquals(listOf("Ancienne", "Sans fin", "Échue"), FamilyNotes.parse(FamilyNotes.toJson(list).toString()).map { it.text })
+        assertTrue(FamilyNotes.parse("pas du json").isEmpty())
+        assertEquals("Souper à 18 h", FamilyNotes.clean("  Souper\n à   18 h "))
+        assertEquals(FamilyNotes.MAX_LENGTH, FamilyNotes.clean("x".repeat(500)).length)
+    }
+
+    @Test fun unlockNeedsConfirmation() {
+        fun e(st: String) = EntityState("lock.a", st, JSONObject())
+        assertTrue(Present.wouldUnlock("lock.a", e("locked")))
+        // Verrouiller, ou toucher autre chose qu'une serrure, ne demande rien.
+        assertFalse(Present.wouldUnlock("lock.a", e("unlocked"))); assertFalse(Present.wouldUnlock("lock.a", e("unavailable")))
+        assertFalse(Present.wouldUnlock("light.a", EntityState("light.a", "locked", JSONObject()))); assertFalse(Present.wouldUnlock("lock.a", null))
+    }
+
+    @Test fun historyAxis() {
+        val pts = listOf(Energy.Point(0, 20.4), Energy.Point(1, 21.9), Energy.Point(2, 19.8))
+        assertEquals(19.8 to 21.9, Energy.range(pts))
+        val (lo, hi) = Energy.axis(19.8, 21.9)
+        assertTrue(lo <= 19.8 && hi >= 21.9 && lo > 15 && hi < 26)       // l'axe serre la courbe, il ne part pas de zéro
+        val (a, b) = Energy.axis(21.0, 21.0)
+        assertTrue(b - a >= 2)                                            // une valeur constante garde un axe lisible
+    }
+
+    @Test fun vacuumRooms() {
+        val attrs = JSONObject().put("selected_map", "Carte 2").put("rooms", JSONObject()
+            .put("Carte 1", org.json.JSONArray().put(JSONObject().put("id", 9).put("name", "Garage")))
+            .put("Carte 2", org.json.JSONArray().put(JSONObject().put("id", 2).put("name", "Bureau")).put(JSONObject().put("id", 7).put("name", "Séjour")).put(JSONObject().put("name", "Sans numéro"))))
+        assertEquals(listOf(2 to "Bureau", 7 to "Séjour"), Present.vacuumRooms(EntityState("vacuum.a", "docked", attrs)))
+        // Sans carte sélectionnée : la première ; un autre aspirateur : rien.
+        attrs.remove("selected_map")
+        assertEquals(listOf(9 to "Garage"), Present.vacuumRooms(EntityState("vacuum.a", "docked", attrs)))
+        assertTrue(Present.vacuumRooms(EntityState("vacuum.b", "docked", JSONObject())).isEmpty()); assertTrue(Present.vacuumRooms(null).isEmpty())
+    }
+
+    @Test fun birthdaysAndNight() {
+        // Un prénom devient « Bonne fête, … » ; un titre qui parle déjà d'anniversaire reste tel quel.
+        assertEquals("Bonne fête, Florianne", HomeCare.birthdayText(" Florianne "))
+        assertEquals("Joyeux anniversaire!", HomeCare.birthdayText("Joyeux anniversaire!"))
+        assertEquals("Fête de Laurent", HomeCare.birthdayText("Fête de Laurent"))
+        val cals = listOf("calendar.famille", "calendar.anniversaires")
+        assertEquals("calendar.anniversaires", HomeCare.birthdayCalendar("", cals))
+        assertEquals("", HomeCare.birthdayCalendar("none", cals)); assertEquals("", HomeCare.birthdayCalendar("", listOf("calendar.famille")))
+        assertEquals("calendar.famille", HomeCare.birthdayCalendar("calendar.famille", cals))
+        // Raccourci du soir : reconnu à son nom en automatique, ou choisi, ou jamais.
+        assertTrue(HomeCare.isNightShortcut("", "script.bonne_nuit", "Bonne nuit")); assertFalse(HomeCare.isNightShortcut("", "scene.match_de_hockey", "Match de hockey"))
+        assertFalse(HomeCare.isNightShortcut("none", "script.bonne_nuit", "Bonne nuit")); assertTrue(HomeCare.isNightShortcut("scene.x", "scene.x", "Cinéma"))
+        // Ce qui reste à régler.
+        fun e(id: String, st: String, dc: String = "") = EntityState(id, st, JSONObject().apply { if (dc.isNotEmpty()) put("device_class", dc) })
+        val room = Room("r", "Maison").apply { for (id in listOf("light.a", "light.b", "lock.a", "lock.b", "binary_sensor.w", "binary_sensor.d", "binary_sensor.m")) entities.add(RoomEntity(id)) }
+        val n = HomeCare.night(room, mapOf("light.a" to e("light.a", "on"), "light.b" to e("light.b", "off"), "lock.a" to e("lock.a", "unlocked"), "lock.b" to e("lock.b", "locked"),
+            "binary_sensor.w" to e("binary_sensor.w", "on", "window"), "binary_sensor.d" to e("binary_sensor.d", "off", "door"), "binary_sensor.m" to e("binary_sensor.m", "on", "motion")))
+        assertEquals(listOf("light.a"), n.lights.map { it.id }); assertEquals(listOf("lock.a"), n.locks.map { it.id }); assertEquals(listOf("binary_sensor.w"), n.openings.map { it.id })
+        assertTrue(n.fixable); assertFalse(n.clear)
+        assertTrue(HomeCare.night(room, mapOf("light.b" to e("light.b", "off"), "lock.b" to e("lock.b", "locked"))).clear)
+    }
+
+    @Test fun trackedAppliances() {
+        // Au repos ou au travail, quelle que soit la casse ; les états d'un four LG et d'une imprimante Bambu.
+        for (s in listOf("idle", "Inactive", "initial", "finish", "off", "unavailable", "cleaning_is_done")) assertFalse(s, Trackers.active(s))
+        for (s in listOf("running", "preheating", "cooking_in_progress", "Lavage", "pause")) assertTrue(s, Trackers.active(s))
+        assertFalse(Trackers.active(null))
+        assertEquals("Cooking in progress", Trackers.stateText("cooking_in_progress").let { if (it == "Cuisson") "Cooking in progress" else it })
+        assertEquals("Lavage", Trackers.stateText("Lavage"))
+        // Temps restant : heures, minutes, secondes, ou heure de fin.
+        fun e(st: String, unit: String = "") = EntityState("sensor.x", st, JSONObject().apply { if (unit.isNotEmpty()) put("unit_of_measurement", unit) })
+        assertEquals(75, Trackers.remainingMinutes(e("1.25", "h"), 0)); assertEquals(25, Trackers.remainingMinutes(e("25", "min"), 0)); assertEquals(2, Trackers.remainingMinutes(e("120", "s"), 0))
+        assertEquals(90, Trackers.remainingMinutes(e("2026-11-15T17:00:00+00:00"), 1794756600000L))   // 15 h 30 UTC
+        assertNull(Trackers.remainingMinutes(e("0", "min"), 0)); assertNull(Trackers.remainingMinutes(e("unknown"), 0)); assertNull(Trackers.remainingMinutes(null, 0))
+        assertEquals("25 min", Trackers.remainingText(25)); assertEquals("1 h 15", Trackers.remainingText(75)); assertEquals("2 h", Trackers.remainingText(120))
+        // Configuration : sans entité d'état, l'appareil est ignoré ; sans pièce et au travail, il fait une pastille.
+        val list = Trackers.parse(org.json.JSONArray().put(JSONObject().put("name", "Laveuse").put("icon", "🧺").put("entity", "sensor.w").put("remaining", "sensor.r"))
+            .put(JSONObject().put("name", "Imprimante").put("entity", "sensor.p").put("progress", "sensor.pp").put("room", "bureau")).put(JSONObject().put("name", "Vide")))
+        assertEquals(listOf("Laveuse", "Imprimante"), list.map { it.name })
+        val states = mapOf("sensor.w" to e("Lavage"), "sensor.r" to e("25", "min"), "sensor.p" to e("running"), "sensor.pp" to e("50", "%"))
+        val chips = Trackers.chips(list, states, 0)
+        assertEquals(1, chips.size); assertTrue(chips[0].text.startsWith("🧺 Laveuse : Lavage")); assertTrue("25 min" in chips[0].text)
+        assertTrue(Trackers.chips(list, mapOf("sensor.w" to e("Inactive")), 0).isEmpty())
+        assertTrue("50 %" in Trackers.statusLine(list[1], states, 0))
+    }
+
+    @Test fun vacuumMaintenance() {
+        val list = Health.parseWear("""[["Léon","Filtre",8],["Léon","Avertissement de niveau d'eau bas",-1],["Robbie","Brosse latérale",3]]""")
+        assertEquals(listOf(-1, 3, 8), list.map { it.pct })
+        assertTrue(Health.wearChip(list)!!.text.contains("2")); assertTrue(Health.wearChip(list.filter { it.device == "Léon" })!!.text.endsWith("Léon"))
+        assertNull(Health.wearChip(emptyList())); assertTrue(Health.parseWear(null).isEmpty())
+        assertTrue("<= 10" in Health.wearTemplate(10))
     }
 }

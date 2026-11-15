@@ -73,6 +73,7 @@ class App : Application() {
         KitchenTimers.listeners.add { mqtt.publishTimers() }
         updater = Updater(this)
         alerts = PersonAlerts(this)
+        safety = SafetyAlarm(this)
         mqtt.start()
         updater.start()
         // À chaque (re)connexion à HA, on renvoie l'état de la tablette.
@@ -83,6 +84,10 @@ class App : Application() {
             }
         })
     }
+
+    /** Alarme fumée et monoxyde de carbone (écran rouge et sirène). */
+    lateinit var safety: SafetyAlarm
+        private set
 
     /** Alertes « personne détectée » des caméras. */
     lateinit var alerts: PersonAlerts

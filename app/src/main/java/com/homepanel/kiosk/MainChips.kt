@@ -44,6 +44,8 @@ import kotlin.math.abs
  * se commande directement depuis sa ligne ; la liste suit l'état en direct.
  */
 internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
+    // Température et humidité : la courbe des dernières 24 heures plutôt qu'une liste d'un seul capteur.
+    if (chip.kind == "temp" || chip.kind == "hum") { showSensorHistory(room, chip.kind); return }
     val home = room.id == "__home"
     val all = room.entities.filter { Present.chipKind(it.id, app.ha.states[it.id]) == chip.kind }
     if (all.isEmpty()) return
@@ -96,21 +98,42 @@ internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
                 row.isClickable = true
                 row.setOnClickListener {
                     if (haOffline()) return@setOnClickListener
-                    if (Present.tap(app.ha, re.id, app.ha.states[re.id])) row.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    val now = app.ha.states[re.id]
+                    if (cfg.confirmUnlock && Present.wouldUnlock(re.id, now)) {
+                        confirmUnlock(Present.displayName(re, now, src.name)) { if (!haOffline()) Present.tap(app.ha, re.id, app.ha.states[re.id]) }
+                        return@setOnClickListener
+                    }
+                    if (Present.tap(app.ha, re.id, now)) row.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                 }
             }
             rows.addView(row)
         }
     }
-    build()
+    // Lumières, stores et serrures : un bouton pour tout éteindre, fermer ou verrouiller d'un coup.
+    val bulkText = Present.bulkLabel(chip.kind)
+    val bulk = if (bulkText == null) null else label(16f, Skin.onPrimary, true, bulkText).apply {
+        gravity = Gravity.CENTER
+        background = roundRect(Skin.accent, dpf(18))
+        setPadding(dp(20), dp(13), dp(20), dp(13))
+        isClickable = true
+        setOnClickListener {
+            if (haOffline()) return@setOnClickListener
+            var n = 0
+            for (re in list) if (Present.bulkOff(app.ha, re.id, app.ha.states[re.id])) n++
+            if (n > 0) performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        }
+    }
+    val buildRows = { build(); bulk?.visibility = if (list.any { Present.bulkNeeded(it.id, app.ha.states[it.id]) }) View.VISIBLE else View.GONE }
+    buildRows()
     // Liste longue (vue d'ensemble) : hauteur limitée, défilante
     val listH = if (list.size > 8) resources.displayMetrics.heightPixels * 6 / 10 else WRAP_CONTENT
     box.addView(ScrollView(this).apply { addView(rows) }, LinearLayout.LayoutParams(MATCH_PARENT, listH))
+    bulk?.let { box.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(14) }) }
     d.setContentView(box)
     d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
     d.window?.setDimAmount(0.6f)
     d.setCanceledOnTouchOutside(true)
-    val refresh = { build() }
+    val refresh = { buildRows() }
     chipDetailRefresh = refresh
     d.setOnDismissListener { if (chipDetailRefresh === refresh) chipDetailRefresh = null }
     d.window?.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
@@ -132,7 +155,7 @@ internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, ac
     val shown = if (Skin.chipRows == Int.MAX_VALUE) chips else chips.sortedByDescending { it.level }
     fun chip(c: Present.Chip, before: () -> Unit = {}) = chipView(c).apply {
         isClickable = true
-        setOnClickListener { before(); if (c.entity != null) room?.find(c.entity)?.let { re -> if (!haOffline()) openDetail(re, room) } else if (c.kind == "wx") showWeatherAlerts() else if (c.kind == "energy" || c.kind == "peak") showEnergy() else room?.let { showChipDetail(it, c) } }
+        setOnClickListener { before(); if (c.entity != null) room?.find(c.entity)?.let { re -> if (!haOffline()) openDetail(re, room) } else if (c.kind == "wx") showWeatherAlerts() else if (c.kind == "wear") showWear() else if (c.kind == "tracker") Unit else if (c.kind == "battery") showBatteries() else if (c.kind == "offline") showOffline() else if (c.kind == "energy" || c.kind == "peak") showEnergy() else room?.let { showChipDetail(it, c) } }
     }
     for (c in shown) chipsView.addView(chip(c))
     if (Skin.chipRows != Int.MAX_VALUE) {
@@ -192,5 +215,39 @@ internal fun MainActivity.showReader(title: String, body: CharSequence, footer: 
         addView(label(16f, Skin.fg(0xE6)).apply { text = body; setLineSpacing(0f, 1.15f) })
     })
     footer?.let { box.addView(it(d), LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(16) }) }
+    showSheet(d, box)
+}
+
+/**
+ * Courbe des dernières 24 heures du capteur de température ou d'humidité d'une pièce (celui de sa pastille),
+ * avec la valeur actuelle, le minimum et le maximum. Ouverte en touchant la pastille.
+ */
+internal fun MainActivity.showSensorHistory(room: Room, kind: String) {
+    val re = room.entities.firstOrNull { Present.chipKind(it.id, app.ha.states[it.id]) == kind && app.ha.states[it.id]?.state?.toDoubleOrNull() != null } ?: return
+    val e = app.ha.states[re.id] ?: return
+    val unit = e.attrs.str("unit_of_measurement").ifEmpty { if (kind == "hum") "%" else "°" }
+    val d = android.app.Dialog(this)
+    d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    val box = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(30), dp(24), dp(30), dp(24))
+        background = Skin.panelBg(this@showSensorHistory, dpf(22))
+    }
+    box.addView(label(15f, Skin.fg(0x99), text = room.name + "  ·  " + if (kind == "hum") tr("Humidité") else tr("Température")))
+    box.addView(label(44f, Skin.ink, text = Present.num(e.state.toDouble()) + " " + unit).apply { typeface = Skin.light; setPadding(0, dp(2), 0, dp(2)) })
+    val caption = label(14f, Skin.fg(0xB3), text = tr("Dernières 24 heures") + " …").apply { setPadding(0, 0, 0, dp(10)) }
+    box.addView(caption)
+    val chart = ChartView(this)
+    box.addView(chart, LinearLayout.LayoutParams(MATCH_PARENT, dp(220)))
+    val to = System.currentTimeMillis(); val from = to - 86_400_000L
+    val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+    app.snapshots.restGet("/api/history/period/${Uri.encode(iso.format(Date(from)))}?filter_entity_id=${re.id}&end_time=${Uri.encode(iso.format(Date(to)))}&minimal_response&no_attributes") { text ->
+        val pts = Energy.series(text)
+        if (pts.isEmpty()) { caption.text = tr("Dernières 24 heures") + " · " + tr("pas d'historique"); return@restGet }
+        val (lo, hi) = Energy.range(pts)
+        caption.text = tr("Dernières 24 heures") + "  ·  " + tr("min") + " " + Present.num(lo) + " " + unit + "  ·  " + tr("max") + " " + Present.num(hi) + " " + unit
+        val (axisLo, axisHi) = Energy.axis(lo, hi)
+        chart.set(pts, false, unit, from, to, floor = axisLo, ceil = axisHi)
+    }
     showSheet(d, box)
 }

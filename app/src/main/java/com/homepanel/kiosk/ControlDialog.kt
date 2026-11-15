@@ -284,6 +284,44 @@ class ControlDialog(private val act: Activity, private val id: String, title: St
         button(R.drawable.ic_stop, tr("Arrêter"), "stop")
         button(R.drawable.ic_home, tr("Base"), "return_to_base")
         box.addView(r)
+        // Nettoyage par pièce : on coche les pièces, puis un bouton lance le nettoyage de celles-là seulement.
+        val rooms = Present.vacuumRooms(ha.states[id])
+        if (rooms.isEmpty()) return
+        box.addView(act.label(15f, Skin.fg(0x99), text = tr("Nettoyer seulement certaines pièces")).apply { gravity = Gravity.CENTER; setPadding(0, act.dp(22), 0, act.dp(10)) })
+        val chosen = LinkedHashSet<Int>()
+        val go = act.label(17f, Skin.onPrimary, true, "")
+        fun updateGo() {
+            go.text = when (chosen.size) { 0 -> tr("Choisissez des pièces"); 1 -> tr("Nettoyer 1 pièce"); else -> tr("Nettoyer") + " ${chosen.size} " + tr("pièces") }
+            go.alpha = if (chosen.isEmpty()) 0.4f else 1f
+        }
+        val flow = FlowLayout(act)
+        for ((rid, name) in rooms) {
+            lateinit var p: TextView
+            p = act.pill(name, false) {
+                if (!chosen.remove(rid)) chosen.add(rid)
+                stylePill(p, rid in chosen)
+                updateGo()
+            }
+            flow.addView(p)
+        }
+        box.addView(flow, LinearLayout.LayoutParams(act.dp(560), -2).apply { gravity = Gravity.CENTER_HORIZONTAL })
+        go.apply {
+            gravity = Gravity.CENTER
+            background = roundRect(Skin.accent, act.dpf(22))
+            setPadding(act.dp(26), act.dp(13), act.dp(26), act.dp(13))
+            isClickable = true
+            setOnClickListener {
+                if (chosen.isEmpty()) return@setOnClickListener
+                // Service de l'intégration Dreame ; l'ordre des pièces est celui des touchers.
+                ha.callService("dreame_vacuum", "vacuum_clean_segment", this@ControlDialog.id, org.json.JSONObject().put("segments", org.json.JSONArray(chosen.toList())))
+                performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY)
+                chosen.clear()
+                for (i in 0 until flow.childCount) (flow.getChildAt(i) as? TextView)?.let { stylePill(it, false) }
+                updateGo()
+            }
+        }
+        updateGo()
+        box.addView(go, LinearLayout.LayoutParams(-2, -2).apply { gravity = Gravity.CENTER_HORIZONTAL; topMargin = act.dp(14) })
     }
 
     private fun refreshClimate(e: EntityState?) {

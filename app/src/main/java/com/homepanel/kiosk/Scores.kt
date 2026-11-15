@@ -44,15 +44,18 @@ object Scores {
         return Game(e.state, if (teamHome) opp else team, if (teamHome) team else opp, a.str("clock"), time(a.str("date")), a.str("league"), a.str("last_play"))
     }
 
-    /** À montrer : un match en cours, un match qui commence d'ici 12 heures, ou terminé depuis moins de 8 heures. */
-    fun visible(g: Game, now: Long) = when (g.state) {
+    /**
+     * À montrer : un match en cours, un match qui commence d'ici [before] heures, ou commencé depuis moins de [after] heures
+     * (les deux durées se règlent ; 12 et 8 par défaut).
+     */
+    fun visible(g: Game, now: Long, before: Int = 12, after: Int = 8) = when (g.state) {
         "IN" -> true
-        "PRE" -> g.startsAt > 0 && g.startsAt - now in -3_600_000L..12 * 3_600_000L
-        else -> g.startsAt > 0 && now - g.startsAt in 0..8 * 3_600_000L
+        "PRE" -> g.startsAt > 0 && g.startsAt - now in -3_600_000L..before * 3_600_000L
+        else -> g.startsAt > 0 && now - g.startsAt in 0..after * 3_600_000L
     }
 
-    fun active(ids: List<String>, states: Map<String, EntityState>, now: Long): List<Game> =
-        ids.mapNotNull { game(states[it]) }.filter { visible(it, now) }.distinctBy { it.away.abbr + it.home.abbr }.sortedBy { if (it.live) 0 else if (it.state == "PRE") 1 else 2 }
+    fun active(ids: List<String>, states: Map<String, EntityState>, now: Long, before: Int = 12, after: Int = 8): List<Game> =
+        ids.mapNotNull { game(states[it]) }.filter { visible(it, now, before, after) }.distinctBy { it.away.abbr + it.home.abbr }.sortedBy { if (it.live) 0 else if (it.state == "PRE") 1 else 2 }
 
     /** « 1 – 2 », ou « @ » avant le match. */
     fun score(g: Game) = if (g.state == "PRE") "@" else "${g.away.score} – ${g.home.score}"
@@ -84,7 +87,7 @@ class ScoresButton(ctx: Context) : ImageView(ctx) {
     }
 }
 
-internal fun MainActivity.activeGames() = if (!cfg.shows("scores")) emptyList() else Scores.active(cfg.sportSensors, app.ha.states, System.currentTimeMillis())
+internal fun MainActivity.activeGames() = if (!cfg.shows("scores")) emptyList() else Scores.active(cfg.sportSensors, app.ha.states, System.currentTimeMillis(), cfg.scoreBefore, cfg.scoreAfter)
 
 internal fun MainActivity.updateScoresButton() = scoresButton.set(activeGames())
 

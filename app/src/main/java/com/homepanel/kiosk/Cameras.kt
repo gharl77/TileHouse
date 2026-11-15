@@ -50,6 +50,11 @@ class Snapshots(private val app: App) {
         }
     }
 
+    /** Image d'une caméra ou d'une entité image (affiche d'un modèle, radar…). */
+    fun loadAny(entityId: String, targetWidth: Int, cb: (Bitmap?) -> Unit) {
+        if (entityId.startsWith("image.") && !app.ha.demo) fetch("/api/image_proxy/$entityId", targetWidth, cb) else load(entityId, targetWidth, cb)
+    }
+
     private fun fetch(path: String, targetWidth: Int, cb: (Bitmap?) -> Unit) {
         val cfg = app.config
         if (!cfg.isConfigured) { cb(null); return }

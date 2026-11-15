@@ -138,7 +138,13 @@ object Demo {
         st("binary_sensor.hallway_smoke", "off", n("Détecteur de fumée", "Smoke Detector"), "device_class" to "smoke"),
         st("binary_sensor.entrance_motion", "off", n("Mouvement entrée", "Entrance Motion"), "device_class" to "motion"),
         // Chambre principale
-        st("vacuum.robbie", "cleaning", "Robbie", "battery_level" to 64, "fan_speed" to "standard"),
+        st("vacuum.robbie", "cleaning", "Robbie", "battery_level" to 64, "fan_speed" to "standard").also { v ->
+            // Pièces de la carte, au format de l'intégration Dreame : l'aspirateur peut n'en nettoyer que certaines.
+            v.attrs.put("selected_map", "Map 1").put("rooms", JSONObject().put("Map 1", JSONArray().apply {
+                listOf(n("Cuisine", "Kitchen"), n("Salon", "Living room"), n("Salle à manger", "Dining room"), n("Entrée", "Entrance"), n("Bureau", "Office"))
+                    .forEachIndexed { i, name -> put(JSONObject().put("id", i + 1).put("name", name)) }
+            }))
+        },
         st("light.bedside_left", "off", n("Chevet gauche", "Bedside Left"), DIM),
         st("light.bedside_right", "on", n("Chevet droit", "Bedside Right"), DIM, bri(20)),
         st("light.bedroom_ceiling", "off", n("Plafonnier chambre", "Bedroom Ceiling"), DIM),
@@ -162,6 +168,12 @@ object Demo {
         st("switch.monitor_plug", "on", n("Prise écrans", "Monitor Plug"), "device_class" to "outlet"),
         st("climate.office", "heat", n("Thermostat bureau", "Office Thermostat"), "current_temperature" to 21.8, "temperature" to 22.0,
             "hvac_action" to "idle", "hvac_modes" to listOf("off", "heat"), "min_temp" to 7.0, "max_temp" to 30.0, "target_temp_step" to 0.5),
+        st("sensor.printer_status", "running", n("Imprimante État", "Printer Status")),
+        st("sensor.printer_progress", "62", n("Imprimante Avancement", "Printer Progress"), "unit_of_measurement" to "%"),
+        st("sensor.printer_remaining", "1.25", n("Imprimante Temps restant", "Printer Remaining"), "unit_of_measurement" to "h"),
+        st("sensor.printer_task", n("Support de tablette", "Tablet stand"), n("Imprimante Tâche", "Printer Task")),
+        st("sensor.washer_step", n("Lavage", "Washing"), n("Laveuse Étape", "Washer Step")),
+        st("sensor.washer_remaining", "25", n("Laveuse Temps restant", "Washer Remaining"), "unit_of_measurement" to "min"),
         st("sensor.office_temperature", "21.8", n("Température bureau", "Office Temperature"), *temp(21.8)),
         st("sensor.office_humidity", "38", n("Humidité bureau", "Office Humidity"), *HUM),
         st("binary_sensor.office_presence", "on", n("Présence bureau", "Office Occupancy"), "device_class" to "occupancy"),
@@ -293,6 +305,17 @@ object Demo {
         return id
     }
 
+    /** Appareils suivis de la maison fictive : une imprimante 3D dans le bureau, une laveuse sur l'accueil. */
+    fun trackers(): JSONArray = JSONArray()
+        .put(JSONObject().put("name", n("Imprimante 3D", "3D printer")).put("icon", "🖨️").put("entity", "sensor.printer_status").put("progress", "sensor.printer_progress")
+            .put("remaining", "sensor.printer_remaining").put("title", "sensor.printer_task").put("image", "camera.printer").put("room", "demo-office").put("notify", true))
+        .put(JSONObject().put("name", n("Laveuse", "Washer")).put("icon", "🧺").put("entity", "sensor.washer_step").put("remaining", "sensor.washer_remaining"))
+
+    /** Gabarit des piles faibles (voir [Health]) : deux appareils fictifs. */
+    fun template(t: String): String? = if ("_left" in t) JSONArray().put(JSONArray().put("Robbie").put(n("Filtre", "Filter")).put(6)).toString()
+        else if ("radar" in t) "camera.radar" else if ("battery" in t) JSONArray().put(JSONArray().put(n("Capteur de la porte d'entrée", "Front door sensor")).put(9))
+        .put(JSONArray().put(n("Télécommande du salon", "Living room remote")).put(12)).toString() else null
+
     // ------------------------------------------------------------ requêtes WebSocket
 
     fun respond(states: Map<String, EntityState>, msg: JSONObject): JSONObject {
@@ -356,6 +379,21 @@ object Demo {
     }
 
     /** Courbe de puissance des dernières 24 heures : creux la nuit, bosses au déjeuner et au souper. */
+    /** Température (ou humidité) d'une pièce sur 24 heures : plus frais la nuit, un peu plus chaud en soirée. */
+    private fun roomHistory(humidity: Boolean): String {
+        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
+        val arr = JSONArray()
+        val now = System.currentTimeMillis()
+        for (i in 0..96) {
+            val t = now - (96 - i) * 900_000L
+            val h = Calendar.getInstance().apply { timeInMillis = t }.let { it.get(Calendar.HOUR_OF_DAY) + it.get(Calendar.MINUTE) / 60.0 }
+            val day = Math.sin((h - 9) / 24.0 * 2 * Math.PI)
+            val v = if (humidity) 44 - 5 * day + Math.sin(i * 0.9) else 20.6 + 1.3 * day + 0.15 * Math.sin(i * 1.3)
+            arr.put(JSONObject().put("state", (Math.round(v * 10) / 10.0).toString()).put("last_changed", iso.format(Date(t))))
+        }
+        return JSONArray().put(arr).toString()
+    }
+
     private fun history(): String {
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
         val arr = JSONArray()
@@ -373,7 +411,7 @@ object Demo {
 
     /** Réponse REST simulée, ou null si le chemin n'est pas géré. */
     fun rest(path: String): String? {
-        if (path.startsWith("/api/history/period/")) return history()
+        if (path.startsWith("/api/history/period/")) return if ("temperature" in path || "humidity" in path) roomHistory("humidity" in path) else history()
         if (!path.startsWith("/api/calendars/")) return null
         val cal = path.removePrefix("/api/calendars/").substringBefore('?')
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
@@ -398,6 +436,7 @@ object Demo {
                     put(allDay(n("Journée pédagogique", "Teacher work day"), 2))
                     put(timed(n("Rencontre de parents", "Parent-teacher meeting"), at(4, 18, 30), at(4, 19, 30)))
                 }
+                "calendar.birthdays" -> put(allDay("Sam", 0))
                 "calendar.holidays" -> put(allDay(n("Long congé", "Long weekend"), 4))
                 // Collectes : ordures aujourd'hui (jusqu'à 23 h), recyclage demain.
                 "calendar.peaks" -> put(if (hour < 16) timed(n("Pointe", "Peak"), at(0, 16), at(0, 20)) else timed(n("Pointe", "Peak"), at(1, 6), at(1, 9)))
@@ -428,6 +467,25 @@ object Demo {
             p.shader = null
         }
         when (id) {
+            "camera.printer" -> {                                                     // intérieur d'une imprimante 3D
+                sky(0xFF20242B.toInt(), 0xFF2E343D.toInt(), 1f)
+                rect(0.08f, 0.10f, 0.92f, 0.16f, 0xFF4A515C.toInt(), 0.01f)             // portique
+                rect(0.44f, 0.16f, 0.56f, 0.34f, 0xFF6B7380.toInt(), 0.01f)             // tête d'impression
+                rect(0.49f, 0.34f, 0.51f, 0.40f, 0xFFB8BEC8.toInt())                    // buse
+                rect(0.36f, 0.40f, 0.64f, 0.74f, 0xFFFF7A1A.toInt(), 0.015f)            // pièce en cours
+                rect(0.41f, 0.46f, 0.59f, 0.74f, 0xFFE0650F.toInt(), 0.01f)
+                rect(0.10f, 0.74f, 0.90f, 0.82f, 0xFF3B4250.toInt(), 0.01f)             // plateau
+                rect(0f, 0.82f, 1f, 1f, 0xFF171A1F.toInt())
+            }
+            "camera.radar" -> {                                                       // carte radar : terre, fleuve, averses
+                sky(0xFF2F4A3A.toInt(), 0xFF3C5A46.toInt(), 1f)
+                rect(0f, 0.52f, 1f, 0.62f, 0xFF2B5C8A.toInt(), 0.03f)                   // fleuve
+                rect(0.12f, 0.14f, 0.52f, 0.46f, 0x9934C759.toInt(), 0.08f)             // pluie faible
+                rect(0.20f, 0.20f, 0.42f, 0.38f, 0xCCFFD60A.toInt(), 0.06f)             // modérée
+                rect(0.26f, 0.24f, 0.36f, 0.33f, 0xE6FF453A.toInt(), 0.04f)             // forte
+                rect(0.60f, 0.64f, 0.88f, 0.86f, 0x9934C759.toInt(), 0.07f)
+                rect(0.495f, 0.555f, 0.505f, 0.575f, 0xFFFFFFFF.toInt(), 0.005f)        // la maison
+            }
             "camera.living_room" -> {
                 sky(0xFF8C7B6B.toInt(), 0xFFB9A893.toInt(), 0.72f)                 // mur
                 rect(0f, 0.72f, 1f, 1f, 0xFF6B4F3A.toInt())                           // plancher

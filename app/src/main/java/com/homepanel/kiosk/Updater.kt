@@ -94,11 +94,21 @@ class Updater(private val app: App) {
                 main.post {
                     lastCheck = System.currentTimeMillis()
                     if (rel == null) status = tr("Vérification impossible")
-                    else { latest = rel; if (!busy && status.startsWith(tr("Vérification impossible"))) status = "" } // garde un message d'installation
+                    else { latest = rel; if (!busy && status.startsWith(tr("Vérification impossible"))) status = ""; announce(rel) } // garde un message d'installation
                     changed(); cb?.invoke()
                 }
             }
         })
+    }
+
+    /** Nouvelle version : une notification sur la tablette, une seule fois par version (elle reste dans la clochette). */
+    private fun announce(rel: Release) {
+        val cfg = app.config
+        if (!updateAvailable || cfg.demo || cfg.announcedVersion == rel.version) return
+        cfg.announcedVersion = rel.version
+        app.receiveNotice(JSONObject().put("title", tr("Nouvelle version de TileHouse") + " : " + rel.version)
+            .put("message", tr("Pour l'installer : Réglages, À propos, puis Installer."))
+            .put("icon", "⬇️").put("color", "blue").put("tag", "tilehouse_update").toString())
     }
 
     // ------------------------------------------------------------ installation

@@ -229,6 +229,7 @@ details.more>p{margin:6px 0 0}
     <div class="ng">Contenu</div>
     <button data-tab="rooms"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12h-6v-7H9v7z"/></svg><span>Pièces</span></button>
     <button data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v7H4zM13 5h7v4h-7zM13 11h7v8h-7zM4 14h7v5H4z"/></svg><span>Accueil</span></button>
+    <button data-tab="devices"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 13h3l2-6 4 12 2-6h5"/></svg><span>Appareils et santé</span></button>
     <button data-tab="tools"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg><span>Outils et médias</span></button>
     <div class="ng">Tablette</div>
     <button data-tab="display"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5S14.5 15 16 15h2a3 3 0 0 0 3-3c0-5-4-9-9-9zM7.5 12h.01M9.5 8h.01M14.5 8h.01"/></svg><span>Apparence</span></button>
@@ -236,7 +237,7 @@ details.more>p{margin:6px 0 0}
     <button data-tab="sound"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7zM10 20a2 2 0 0 0 4 0"/></svg><span>Alertes et sons</span></button>
     <div class="ng">Système</div>
     <button data-tab="conn"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5M15 3v5M7 8h10v4a5 5 0 0 1-10 0zM12 17v4"/></svg><span>Connexion</span></button>
-    <button data-tab="security"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11h12v9H6zM8 11V8a4 4 0 1 1 8 0v3"/></svg><span>Sécurité et copies</span></button>
+    <button data-tab="security"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 11h12v9H6zM8 11V8a4 4 0 1 1 8 0v3"/></svg><span>Accès et copies</span></button>
     <button data-tab="about"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 11v6M12 7.5h.01"/></svg><span>À propos</span></button>
   </nav>
   <button id="refreshCat" title="Relit dans Home Assistant la liste des appareils, calendriers, listes et capteurs proposés dans ces réglages.">↻ Actualiser les entités</button>
@@ -294,6 +295,18 @@ details.more>p{margin:6px 0 0}
 
 </main>
 <main class="panel" data-panel="home" hidden>
+  <h3 class="group">Messages</h3>
+  <section class="card">
+    <h2>📌 Messages pour la famille</h2>
+    <div id="noteList" class="muted"></div>
+    <div class="set"><label class="f" for="noteText">Nouveau message</label><input id="noteText" maxlength="120" placeholder="Souper chez mamie à 18 h" autocomplete="off"></div>
+    <div class="row">
+      <div style="flex:1"><label class="f" for="noteAuthor">De</label><select id="noteAuthor"></select></div>
+      <div style="flex:1"><label class="f" for="noteKeep">Reste</label><select id="noteKeep"><option value="today">Jusqu'à minuit</option><option value="tomorrow">Jusqu'à demain soir</option><option value="forever">Jusqu'à ce qu'on l'efface</option></select></div>
+    </div>
+    <div class="row"><button class="primary" id="noteAdd">Épingler</button><span class="muted" id="noteInfo"></span></div>
+    <p class="muted">Les messages s'affichent en haut de l'accueil de la tablette (six au plus). On peut aussi en écrire sur la tablette, avec le « + ». Ils restent sur la tablette et ne passent pas par Home Assistant.</p>
+  </section>
   <h3 class="group">En-tête</h3>
   <section class="card">
     <h2>Qui est à la maison</h2>
@@ -320,6 +333,9 @@ details.more>p{margin:6px 0 0}
     <h2>📅 Agenda</h2>
     <h3 class="sub">Calendriers affichés</h3>
     <div id="calList" class="muted">Connexion requise…</div>
+    <h3 class="sub">Anniversaires</h3>
+    <div class="set"><label class="f" for="birthdayCal">Calendrier des anniversaires</label><select id="birthdayCal"></select></div>
+    <p class="muted">Le jour d'un événement de ce calendrier, une bannière s'affiche en haut de l'accueil. Un événement nommé d'un simple prénom donne « Bonne fête, Léa » ; un titre qui parle déjà d'anniversaire est affiché tel quel.</p>
     <p class="muted">Sur la tablette, touchez un événement pour voir son lieu, sa durée et sa description, et la carte météo pour les prévisions heure par heure.</p>
   </section>
   <h3 class="group">Accueil en navigation latérale</h3>
@@ -368,6 +384,8 @@ details.more>p{margin:6px 0 0}
     <details class="more"><summary>En savoir plus</summary><p class="muted">Capteurs qui comptent les alertes en vigueur (ex. Environnement Canada : alertes, veilles, avis). Une pastille apparaît quand l'un d'eux est au-dessus de 0 ; touchez-la pour le détail.</p></details>
     <h3 class="sub">Capteurs d'alertes</h3>
     <div id="alertList" class="muted">Connexion requise…</div>
+    <div class="set"><label class="f" for="radarCam">Radar de précipitations</label><select id="radarCam"></select></div>
+    <p class="muted">Le bouton « Radar » de la fenêtre météo montre l'image de cette caméra (par exemple la caméra radar d'Environnement Canada, à activer dans Home Assistant).</p>
   </section>
   <section class="card">
     <h2>🏷️ Pastilles personnalisées</h2>
@@ -381,9 +399,35 @@ details.more>p{margin:6px 0 0}
     <details class="more"><summary>En savoir plus</summary><p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p></details>
     <h3 class="sub">Raccourcis choisis</h3>
     <div id="scList" class="muted">Connexion requise…</div>
+    <h3 class="sub">Résumé du soir</h3>
+    <div class="set"><label class="f" for="nightShortcut">Résumé du soir après le raccourci</label><select id="nightShortcut"></select></div>
+    <p class="muted">Dix secondes après ce raccourci touché sur la tablette, une fenêtre montre ce qui reste allumé, déverrouillé ou ouvert, avec un bouton pour tout régler.</p>
   </section>
 </main>
 <datalist id="allEnts"></datalist>
+<main class="panel" data-panel="devices" hidden>
+  <h3 class="group">Appareils</h3>
+  <section class="card">
+    <h2>🖨️ Appareils suivis</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Imprimante 3D, laveuse, four… Indiquez l'entité qui donne l'état de l'appareil ; l'avancement, le temps restant, le nom de la tâche et une image sont facultatifs. Rattaché à une pièce, l'appareil y a sa carte, toujours visible. Sans pièce, il fait une pastille sur l'accueil seulement pendant qu'il travaille. Les états de repos (idle, off, initial, finish, Inactive…) sont reconnus d'eux-mêmes.</p></details>
+    <div id="trackerList"></div>
+    <button id="addTracker">+ Ajouter un appareil</button>
+  </section>
+  <h3 class="group">Santé</h3>
+  <section class="card">
+    <h2>Santé de la maison</h2>
+    <div class="set">
+      <label class="f" for="batteryLow">Pastille « piles faibles » sous</label>
+      <select id="batteryLow"><option value="0">Jamais</option><option value="10">10 %</option><option value="15">15 %</option><option value="20">20 %</option><option value="25">25 %</option><option value="30">30 %</option></select>
+    </div>
+    <label class="check"><input type="checkbox" id="offlineChip"> Pastille « appareils hors ligne »</label>
+    <div class="set">
+      <label class="f" for="maintenanceLow">Pastille « entretien des aspirateurs » sous</label>
+      <select id="maintenanceLow"><option value="0">Jamais</option><option value="5">5 %</option><option value="10">10 %</option><option value="15">15 %</option><option value="20">20 %</option></select>
+    </div>
+    <p class="muted">Ces pastilles n'apparaissent sur l'accueil que s'il y a un problème ; un toucher donne la liste. Les piles sont celles de toute la maison (sauf téléphones et tablettes). Les appareils hors ligne sont ceux des pièces, sauf les lecteurs et les caméras. L'entretien regarde le filtre, les brosses et le réservoir d'eau des aspirateurs qui les exposent (Dreame).</p>
+  </section>
+</main>
 <main class="panel" data-panel="tools" hidden>
   <h3 class="group">Outils</h3>
   <section class="card">
@@ -414,6 +458,12 @@ details.more>p{margin:6px 0 0}
     <details class="more"><summary>En savoir plus</summary><p class="muted">Choisissez les capteurs de vos équipes (intégration TeamTracker de Home Assistant, un capteur par équipe). Quand l'une joue, commence dans les prochaines heures ou vient de finir, une icône apparaît en haut de la tablette : la toucher montre les deux logos et le pointage. Le pointage s'affiche aussi sur l'écran de veille, avec l'heure et la météo.</p></details>
     <h3 class="sub">Équipes suivies</h3>
     <div id="sportList" class="muted">Connexion requise…</div>
+    <div class="row">
+      <div style="flex:1"><label class="f" for="scoreBefore">Afficher avant le match</label>
+        <select id="scoreBefore"><option value="0">Au début du match</option><option value="1">1 h avant</option><option value="3">3 h avant</option><option value="6">6 h avant</option><option value="12">12 h avant</option><option value="24">24 h avant</option></select></div>
+      <div style="flex:1"><label class="f" for="scoreAfter">Garder le pointage final</label>
+        <select id="scoreAfter"><option value="3">3 h après le début</option><option value="4">4 h après le début</option><option value="6">6 h après le début</option><option value="8">8 h après le début</option><option value="12">12 h après le début</option><option value="24">24 h après le début</option></select></div>
+    </div>
   </section>
   <h3 class="group">Médias</h3>
   <section class="card">
@@ -547,6 +597,16 @@ details.more>p{margin:6px 0 0}
     <label class="check" id="motionWakeRow"><input type="checkbox" id="motionWake"> Réveil par mouvement (caméra avant de la tablette)</label>
     <p class="muted" id="motionWakeInfo" hidden></p>
     <p class="muted">Un toucher rallume l'écran. Dans une pièce, la tablette revient à l'accueil après 3 minutes sans toucher.</p>
+    <h3 class="sub">Réveil à l'approche</h3>
+    <div id="wakeList" class="muted">Connexion requise…</div>
+    <p class="muted">Capteurs de présence ou de mouvement de Home Assistant : quand l'un d'eux détecte quelqu'un, l'écran sort de veille.</p>
+    <h3 class="sub">Luminosité selon la pièce</h3>
+    <div id="ambientList" class="muted">Connexion requise…</div>
+    <div class="set">
+      <label class="f" for="darkBrightness">Luminosité quand ces lumières sont toutes éteintes</label>
+      <select id="darkBrightness"><option value="5">5 %</option><option value="10">10 %</option><option value="15">15 %</option><option value="20">20 %</option><option value="30">30 %</option><option value="40">40 %</option><option value="50">50 %</option></select>
+    </div>
+    <p class="muted">Choisissez les lumières de la pièce où se trouve la tablette. Quand elles sont toutes éteintes, l'écran baisse à cette luminosité ; dès qu'une s'allume, il reprend la luminosité normale.</p>
   </section>
   <section class="card">
     <h2>Écran de veille</h2>
@@ -573,23 +633,18 @@ details.more>p{margin:6px 0 0}
   </section>
 </main>
 <main class="panel" data-panel="sound" hidden>
+  <h3 class="group">Sécurité</h3>
   <section class="card">
-    <h2>Sons et heures calmes</h2>
-    <label class="check"><input type="checkbox" id="soundsEnabled"> Sons des notifications (désactivé = silence en tout temps)</label>
-    <label class="check"><input type="checkbox" id="quietEnabled"> Activer les heures calmes</label>
-    <div class="row">
-      <div style="flex:1"><label class="f" for="quietStart">Début</label><input type="time" id="quietStart"></div>
-      <div style="flex:1"><label class="f" for="quietEnd">Fin</label><input type="time" id="quietEnd"></div>
-    </div>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">Pendant les heures calmes, les notifications n'ont pas de son (sauf les alertes rouges : fuite, serrure, fenêtre…) et l'écran de veille est noir. Les minuteries sonnent toujours.</p></details>
+    <h2>Alarmes de sécurité</h2>
+    <label class="check"><input type="checkbox" id="smokeAlarm"> Alarme fumée et monoxyde de carbone : écran rouge et sirène</label>
+    <label class="check"><input type="checkbox" id="leakAlarm"> Alarme de fuite d'eau : écran bleu et sonnerie plus douce</label>
+    <div class="row"><button id="safetyTest">Tester l'alarme</button><span class="muted" id="safetyInfo"></span></div>
+    <p class="muted">Quand un détecteur de fumée, de monoxyde ou de fuite d'eau placé dans une pièce se déclenche, la tablette sort de veille, sonne et affiche un écran plein écran (rouge pour la fumée, bleu pour l'eau) jusqu'à ce qu'on touche « Arrêter la sonnerie ». Elle sonne aussi pendant les heures calmes, et remonte le volume d'alarme de la tablette s'il est à zéro.</p>
   </section>
   <section class="card">
-    <h2>Notifications</h2>
-    <div class="set">
-      <label class="f" for="noticeSeconds">Durée d'affichage maximale</label>
-      <select id="noticeSeconds"><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
-    </div>
-    <p class="muted">Une notification qui n'a pas été confirmée par OK reste non lue : une clochette apparaît sur la tablette avec leur nombre. <span id="unreadInfo"></span></p>
+    <h2>Serrures</h2>
+    <label class="check"><input type="checkbox" id="confirmUnlock"> Demander une confirmation avant de déverrouiller une serrure</label>
+    <p class="muted">Un toucher sur une serrure verrouillée demande « Déverrouiller ? » ; rien ne part sans le second toucher. Verrouiller reste immédiat.</p>
   </section>
   <section class="card">
     <h2>Alertes des caméras</h2>
@@ -604,6 +659,26 @@ details.more>p{margin:6px 0 0}
       <select id="alertSeconds"><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="60">60 s</option></select>
     </div>
     <p class="muted">Quand le détecteur de personne d'une caméra des pièces s'active, la tablette affiche son live. Toucher l'écran garde le live ouvert.</p>
+  </section>
+  <h3 class="group">Notifications et sons</h3>
+  <section class="card">
+    <h2>Notifications</h2>
+    <div class="set">
+      <label class="f" for="noticeSeconds">Durée d'affichage maximale</label>
+      <select id="noticeSeconds"><option value="10">10 s</option><option value="15">15 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="45">45 s</option><option value="60">1 min</option><option value="120">2 min</option><option value="300">5 min</option></select>
+    </div>
+    <p class="muted">Une notification qui n'a pas été confirmée par OK reste non lue : une clochette apparaît sur la tablette avec leur nombre. <span id="unreadInfo"></span></p>
+  </section>
+  <section class="card">
+    <h2>Sons et heures calmes</h2>
+    <label class="check"><input type="checkbox" id="soundsEnabled"> Sons des notifications (désactivé = silence en tout temps)</label>
+    <label class="check"><input type="checkbox" id="quietEnabled"> Activer les heures calmes</label>
+    <div class="row">
+      <div style="flex:1"><label class="f" for="quietStart">Début</label><input type="time" id="quietStart"></div>
+      <div style="flex:1"><label class="f" for="quietEnd">Fin</label><input type="time" id="quietEnd"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="quietBlack"> Écran de veille noir pendant les heures calmes</label>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Pendant les heures calmes, les notifications n'ont pas de son (sauf les alertes rouges : fuite, serrure, fenêtre…). L'écran de veille devient noir si la case est cochée ; sinon il garde l'heure ou les photos. Les minuteries et l'alarme de fumée sonnent toujours.</p></details>
   </section>
 </main>
 <main class="panel" data-panel="conn" hidden>
@@ -757,12 +832,13 @@ async function initI18n() {
 const LEADS = {
   rooms: "Les pièces de la maison, leurs appareils et ce qui s'affiche en haut d'une pièce.",
   home: "Ce que la page principale de la tablette affiche.",
+  devices: "Les appareils suivis (imprimante 3D, laveuse, four…) et les pastilles qui signalent un problème dans la maison.",
   tools: "Les outils en haut de la tablette (listes, minuteries, Ce matin, pointage) et les médias (musique, affiches de ce qui joue).",
   display: "Le style, le fond et les options d'affichage du tableau de bord.",
   screen: "La luminosité, la mise en veille et ce que l'écran montre pendant la veille.",
-  sound: "Les sons, les notifications et les alertes des caméras.",
+  sound: "Les alarmes de sécurité (fumée, fuite d'eau), les serrures, les alertes des caméras, puis les notifications et les sons.",
   conn: "Le lien avec Home Assistant et l'appareil MQTT de la tablette.",
-  security: "Le code PIN et les copies de la configuration.",
+  security: "Le code PIN qui protège les réglages, et les copies de la configuration.",
   about: "La version installée, les mises à jour et l'état de la tablette."
 };
 function showTab(name) {
@@ -845,7 +921,7 @@ let savedTab = "rooms";
 try { savedTab = localStorage.getItem("tab") || "rooms"; } catch (e) {}
 // Lien direct vers un onglet : #rooms, #home, #display, #sound, #conn (ou #rooms/2 pour la 3e pièce)
 const HASH = location.hash.slice(1).split("/");
-const TABS = ["rooms", "home", "tools", "display", "screen", "sound", "conn", "security", "about"];
+const TABS = ["rooms", "home", "devices", "tools", "display", "screen", "sound", "conn", "security", "about"];
 if (!TABS.includes(savedTab)) savedTab = "rooms";
 if (TABS.includes(HASH[0])) savedTab = HASH[0];
 showTab(savedTab);
@@ -993,6 +1069,25 @@ function renderHomeExtras(ex, h) {
   if (cat && !ex.alerts) ex.alerts = []; // liste reçue sans capteur d'alertes : « aucun », pas « non connecté »
   const dl = $("allEnts");
   if (ex.all && dl.childElementCount !== ex.all.length) dl.replaceChildren(...ex.all.map(e => el("option", {value: e.id, textContent: e.name})));
+  // Radar : les caméras de Home Assistant, celles qui s'appellent « radar » d'abord.
+  const rc = $("radarCam"), cams = (ex.all || []).filter(e => e.id.startsWith("camera.")).sort((a, b) => (b.id.includes("radar") - a.id.includes("radar")) || a.name.localeCompare(b.name));
+  rc.replaceChildren(el("option", {value: "", textContent: t("Automatique (caméra « radar »)")}), el("option", {value: "none", textContent: t("— Aucun —")}), ...cams.map(c => el("option", {value: c.id, textContent: c.name})));
+  rc.value = S.settings.radarCamera || "";
+  if (rc.value !== (S.settings.radarCamera || "")) rc.append(el("option", {value: S.settings.radarCamera, textContent: S.settings.radarCamera})), rc.value = S.settings.radarCamera;
+  rc.onchange = () => { S.settings.radarCamera = rc.value; saveSettings({radarCamera: rc.value}); };
+  renderTrackers();
+  // Anniversaires et résumé du soir
+  const bc = $("birthdayCal"), st0 = S.settings;
+  bc.replaceChildren(el("option", {value: "", textContent: t("Automatique (calendrier « Anniversaires »)")}), el("option", {value: "none", textContent: t("— Aucun —")}));
+  for (const c of withCurrent(ex.calendar, ["", "none"].includes(st0.birthdayCalendar) ? "" : st0.birthdayCalendar)) bc.append(el("option", {value: c.id, textContent: c.name}));
+  bc.value = st0.birthdayCalendar || "";
+  bc.onchange = () => { st0.birthdayCalendar = bc.value; saveSettings({birthdayCalendar: bc.value}); };
+  const ns = $("nightShortcut");
+  ns.replaceChildren(el("option", {value: "", textContent: t("Automatique (raccourci « Bonne nuit »)")}), el("option", {value: "none", textContent: t("— Aucun —")}));
+  for (const id of (h.shortcuts || [])) ns.append(el("option", {value: id, textContent: ((ex.all || []).find(e => e.id === id) || {name: id}).name}));
+  ns.value = st0.nightShortcut || "";
+  if (ns.value !== (st0.nightShortcut || "")) ns.value = "";
+  ns.onchange = () => { st0.nightShortcut = ns.value; saveSettings({nightShortcut: ns.value}); };
   // Pointes
   const pc = $("peakCal");
   pc.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
@@ -1198,6 +1293,45 @@ function renderChipRules() {
   });
 }
 $("addChip").onclick = () => { H.customChips.push({entity: "", states: [], text: "", color: "orange"}); openChip = H.customChips.length - 1; renderChipRules(); };
+
+// Appareils suivis : une ligne repliable par appareil, comme les pastilles personnalisées.
+let openTracker = -1;
+function renderTrackers() {
+  const box = $("trackerList");
+  box.className = "items"; box.replaceChildren();
+  const list = S.settings.trackers || (S.settings.trackers = []);
+  const save = () => saveSettings({trackers: list});
+  if (!list.length) box.append(el("p", {class: "muted", textContent: t("Aucun appareil suivi pour l'instant.")}));
+  list.forEach((r, i) => {
+    const where = () => { const rm = (rooms || []).find(x => x.id === r.room); return rm ? t("carte dans") + " " + rm.name : t("pastille sur l'accueil"); };
+    const sub = el("div", {class: "t2", textContent: (r.entity || t("Choisissez une entité")) + " · " + where()});
+    const title = el("div", {textContent: ((r.icon || "") + " " + (r.name || t("Appareil"))).trim(), style: "font-weight:600;min-width:150px"});
+    const head = el("div", {class: "head", onclick: () => { openTracker = openTracker === i ? -1 : i; renderTrackers(); }}, title, el("div", {class: "grow"}, sub), el("span", {class: "chev", textContent: "›"}));
+    const item = el("div", {class: "item" + (openTracker === i ? " open" : "")}, head);
+    if (openTracker === i) {
+      const field = (label, key, ph, list2) => {
+        const inp = el("input", {value: r[key] || "", placeholder: ph, onchange: ev => { r[key] = ev.target.value.trim(); save(); title.textContent = ((r.icon || "") + " " + (r.name || t("Appareil"))).trim(); sub.textContent = (r.entity || t("Choisissez une entité")) + " · " + where(); }});
+        if (list2) inp.setAttribute("list", "allEnts");
+        return el("div", {style: "flex:1;min-width:220px"}, el("label", {class: "f", textContent: label}), inp);
+      };
+      const room = el("select", {onchange: ev => { r.room = ev.target.value; save(); sub.textContent = (r.entity || "") + " · " + where(); }},
+        el("option", {value: "", textContent: t("Aucune : pastille sur l'accueil")}), ...(rooms || []).map(x => el("option", {value: x.id, textContent: x.name})));
+      room.value = r.room || "";
+      const notify = el("input", {type: "checkbox", onchange: ev => { r.notify = ev.target.checked; save(); }});
+      notify.checked = !!r.notify;
+      item.append(el("div", {class: "body"},
+        el("div", {class: "row"}, field(t("Nom"), "name", t("Imprimante 3D")), field(t("Icône (émoji)"), "icon", "🖨️")),
+        el("div", {class: "row"}, field(t("État de l'appareil"), "entity", "sensor.imprimante_etat", true), field(t("Avancement en % (facultatif)"), "progress", "sensor.imprimante_progression", true)),
+        el("div", {class: "row"}, field(t("Temps restant ou heure de fin (facultatif)"), "remaining", "sensor.imprimante_temps_restant", true), field(t("Nom de la tâche (facultatif)"), "title", "sensor.imprimante_tache", true)),
+        el("div", {class: "row"}, field(t("Image : caméra ou entité image (facultatif)"), "image", "camera.imprimante", true),
+          el("div", {style: "flex:1;min-width:220px"}, el("label", {class: "f", textContent: t("Pièce")}), room)),
+        el("label", {class: "check"}, notify, " " + t("Notification sur la tablette quand il a terminé")),
+        el("div", {class: "row", style: "margin-top:10px"}, el("button", {class: "danger", textContent: t("Retirer cet appareil"), onclick: () => { list.splice(i, 1); openTracker = -1; save(); renderTrackers(); }}))));
+    }
+    box.append(item);
+  });
+}
+$("addTracker").onclick = () => { const l = S.settings.trackers || (S.settings.trackers = []); l.push({name: "", icon: "", entity: "", progress: "", remaining: "", title: "", image: "", room: "", notify: false}); openTracker = l.length - 1; renderTrackers(); };
 
 const attrCache = {};
 async function attrsOf(id) {
@@ -1525,6 +1659,17 @@ function renderHome() {
       next => { S.settings.sportSensors = next; saveSettings({sportSensors: next}); renderHome(); },
       {offline: !list, placeholder: t("Ajouter une équipe"), empty: t("Aucune équipe suivie.")});
   }
+  // Réveil à l'approche et luminosité selon la pièce (section Écran).
+  {
+    const wl = have("motion"), ws2 = S.settings.wakeSensors || [];
+    tokens($("wakeList"), (wl || []).map(x => ({id: x.id, name: x.name, note: x.id})), ws2,
+      next => { S.settings.wakeSensors = next; saveSettings({wakeSensors: next}); renderHome(); },
+      {offline: !wl, placeholder: t("Ajouter un capteur"), empty: t("Aucun capteur choisi.")});
+    const ll = have("lights"), al = S.settings.ambientLights || [];
+    tokens($("ambientList"), (ll || []).map(x => ({id: x.id, name: x.name, note: x.id})), al,
+      next => { S.settings.ambientLights = next; saveSettings({ambientLights: next}); renderHome(); dependents(); },
+      {offline: !ll, placeholder: t("Ajouter une lumière"), empty: t("Aucune lumière choisie : la luminosité ne change pas.")});
+  }
   // Enceintes de Music Assistant : l'ordre est gardé (la première est proposée d'office).
   {
     const b = $("musicList"), list = have("music"), sel = S.settings.musicPlayers || [];
@@ -1730,7 +1875,7 @@ function renderSettings() {
   w.disabled = !!st.theme;
   $("dim").value = String(st.dim);
   {
-    const names = [["weather", t("Météo")], ["agenda", t("Agenda")], ["shortcuts", t("Raccourcis")], ["favorites", t("Favoris de l'accueil")], ["previews", t("Aperçus des outils")], ["cameras", t("Caméras de l'accueil")], ["energy", t("Électricité")], ["scores", t("Pointage")],
+    const names = [["trackers", t("Appareils suivis")], ["birthdays", t("Anniversaires")], ["notes", t("Messages pour la famille")], ["weather", t("Météo")], ["agenda", t("Agenda")], ["shortcuts", t("Raccourcis")], ["favorites", t("Favoris de l'accueil")], ["previews", t("Aperçus des outils")], ["cameras", t("Caméras de l'accueil")], ["energy", t("Électricité")], ["scores", t("Pointage")],
       ["timers", t("Minuteries")], ["lists", t("Listes d'épicerie et de tâches")], ["music", t("Musique")], ["morning", t("Ce matin")]];
     let hid = st.hiddenSections || [];
     const draw = () => pills($("sectionList"), names.map(([id, name]) => ({id, name})), it => !hid.includes(it.id), (it, on) => {
@@ -1767,6 +1912,17 @@ function renderSettings() {
   $("alertSeconds").value = String(st.alertSeconds);
   $("alertTrigger").value = st.alertTrigger;
   $("doorbellAlert").checked = st.doorbellAlert;
+  renderNotes(st.familyNotes || [], st.noteAuthors || []);
+  $("quietBlack").checked = st.quietBlack;
+  $("smokeAlarm").checked = st.smokeAlarm;
+  $("leakAlarm").checked = st.leakAlarm;
+  $("confirmUnlock").checked = st.confirmUnlock;
+  $("batteryLow").value = String(st.batteryLow);
+  $("maintenanceLow").value = String(st.maintenanceLow);
+  $("offlineChip").checked = st.offlineChip;
+  $("darkBrightness").value = String(st.darkBrightness);
+  $("scoreBefore").value = String(st.scoreBefore);
+  $("scoreAfter").value = String(st.scoreAfter);
   $("brightness").value = String(st.brightness > 0 ? Math.min(100, Math.max(10, Math.round(st.brightness / 10) * 10)) : -1);
   dependents();
   $("pinInfo").textContent = st.pinSet ? t("Un code PIN est défini. Laissez vide puis « Changer » pour le retirer.")
@@ -1853,7 +2009,8 @@ $("soundsEnabled").onchange = () => saveSettings({soundsEnabled: $("soundsEnable
 function dependents() {
   const dis = (ids, off) => { for (const id of ids) { $(id).disabled = off; const l = document.querySelector('label[for="' + id + '"]'); if (l) l.style.opacity = off ? .45 : ""; } };
   dis(["nightSkinStart", "nightSkinEnd"], !$("nightSkin").value);
-  dis(["quietStart", "quietEnd"], !$("quietEnabled").checked);
+  dis(["quietStart", "quietEnd", "quietBlack"], !$("quietEnabled").checked);
+  dis(["darkBrightness"], !(S.settings.ambientLights || []).length);
   dis(["alertTrigger"], !$("personAlert").checked);
   dis(["alertSeconds"], !$("personAlert").checked && !$("doorbellAlert").checked);
   dis(["mqttHost", "mqttPort", "mqttUser", "mqttPass", "devName"], !$("mqttEnabled").checked);
@@ -1862,6 +2019,45 @@ $("mqttEnabled").addEventListener("change", dependents);
 $("brightness").onchange = () => saveSettings({brightness: +$("brightness").value});
 $("quietEnabled").onchange = () => { dependents(); saveSettings({quietEnabled: $("quietEnabled").checked}); };
 $("quietStart").onchange = () => saveSettings({quietStart: toMin($("quietStart").value)});
+function renderNotes(notes, authors) {
+  const b = $("noteList");
+  b.replaceChildren();
+  if (!notes.length) b.textContent = t("Aucun message épinglé.");
+  for (const n of notes) {
+    const when = new Date(n.at).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+    const del = el("button", {textContent: t("Effacer")});
+    del.onclick = async () => { const r = await api("POST", "/api/notes/remove", {id: n.id}); S.settings.familyNotes = r.notes; renderNotes(r.notes, authors); };
+    const text = el("div", {style: "flex:1"});
+    text.append(el("div", {textContent: n.text, style: "color:var(--text,inherit);font-weight:600"}), el("div", {class: "muted", textContent: [n.author, when].filter(Boolean).join(" · ")}));
+    const row = el("div", {class: "row", style: "align-items:center;margin-bottom:8px"});
+    row.append(text, del); b.append(row);
+  }
+  const a = $("noteAuthor");
+  if (document.activeElement !== a && a.childElementCount !== authors.length + 1) {
+    a.replaceChildren(el("option", {value: "", textContent: t("— Sans signature —")}), ...authors.map(x => el("option", {value: x, textContent: x})));
+  }
+  $("noteAdd").onclick = async () => {
+    const text = $("noteText").value.trim();
+    if (!text) { $("noteInfo").textContent = t("Écrivez d'abord le message"); return; }
+    const r = await api("POST", "/api/notes/add", {text, author: a.value, keep: $("noteKeep").value});
+    $("noteText").value = ""; $("noteInfo").textContent = "";
+    S.settings.familyNotes = r.notes; renderNotes(r.notes, authors);
+  };
+}
+$("quietBlack").onchange = () => saveSettings({quietBlack: $("quietBlack").checked});
+$("leakAlarm").onchange = () => saveSettings({leakAlarm: $("leakAlarm").checked});
+$("confirmUnlock").onchange = () => saveSettings({confirmUnlock: $("confirmUnlock").checked});
+$("smokeAlarm").onchange = () => saveSettings({smokeAlarm: $("smokeAlarm").checked});
+$("maintenanceLow").onchange = () => saveSettings({maintenanceLow: +$("maintenanceLow").value});
+$("batteryLow").onchange = () => saveSettings({batteryLow: +$("batteryLow").value});
+$("offlineChip").onchange = () => saveSettings({offlineChip: $("offlineChip").checked});
+$("darkBrightness").onchange = () => saveSettings({darkBrightness: +$("darkBrightness").value});
+$("scoreBefore").onchange = () => saveSettings({scoreBefore: +$("scoreBefore").value});
+$("scoreAfter").onchange = () => saveSettings({scoreAfter: +$("scoreAfter").value});
+$("safetyTest").onclick = async () => {
+  try { await api("POST", "/api/safety/test", {}); $("safetyInfo").textContent = t("L'alarme sonne sur la tablette : touchez « Arrêter la sonnerie »."); }
+  catch (e) { $("safetyInfo").textContent = t("Essai impossible."); }
+};
 $("quietEnd").onchange = () => saveSettings({quietEnd: toMin($("quietEnd").value)});
 $("photoSeconds").onchange = () => saveSettings({photoSeconds: +$("photoSeconds").value});
 let photoSourcesLoaded = false;

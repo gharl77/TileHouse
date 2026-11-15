@@ -98,6 +98,20 @@ object Energy {
     /** Hausse d'un compteur sur la période couverte par [points] (zéro s'il a été remis à zéro). */
     fun increase(points: List<Point>): Double? = if (points.size < 2) null else maxOf(0.0, points.last().v - points.first().v)
 
+    /** Minimum et maximum d'une série. */
+    fun range(points: List<Point>): Pair<Double, Double> = (points.minOfOrNull { it.v } ?: 0.0) to (points.maxOfOrNull { it.v } ?: 0.0)
+
+    /**
+     * Bornes d'un axe qui ne part pas de zéro (température, humidité) : un peu d'air de chaque côté, sur des valeurs rondes,
+     * et au moins deux unités d'écart pour qu'une courbe presque plate ne remplisse pas tout le graphique.
+     */
+    fun axis(lo: Double, hi: Double): Pair<Double, Double> {
+        val pad = maxOf(0.5, (hi - lo) * 0.15)
+        var a = Math.floor(lo - pad); var b = Math.ceil(hi + pad)
+        if (b - a < 2) { a -= 1; b += 1 }
+        return a to b
+    }
+
     /** Historique de Home Assistant (/api/history/period, réponse allégée) → points (temps, valeur). */
     fun series(json: String?): List<Point> {
         val outer = try { JSONArray(json ?: return emptyList()) } catch (_: Exception) { return emptyList() }
@@ -143,13 +157,16 @@ class ChartView(ctx: Context) : View(ctx) {
     private var unit = ""
     private var from = 0L
     private var to = 0L
+    /** Bornes de l'axe quand il ne part pas de zéro (courbe de température) ; null = de zéro au maximum. */
+    private var floor: Double? = null
+    private var ceil: Double? = null
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = ctx.dpf(2.5f); strokeJoin = Paint.Join.ROUND; color = Skin.accent }
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; color = Skin.accent }
     private val grid = Paint().apply { color = Skin.fg(0x1F); strokeWidth = ctx.dpf(1f) }
     private val text = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Skin.fg(0x99); textSize = ctx.dpf(12f) }
 
-    fun set(points: List<Energy.Point>, bars: Boolean, unit: String, from: Long, to: Long, days: Boolean = false) {
-        this.points = points; this.bars = bars; this.unit = unit; this.from = from; this.to = to; this.days = days
+    fun set(points: List<Energy.Point>, bars: Boolean, unit: String, from: Long, to: Long, days: Boolean = false, floor: Double? = null, ceil: Double? = null) {
+        this.points = points; this.bars = bars; this.unit = unit; this.from = from; this.to = to; this.days = days; this.floor = floor; this.ceil = ceil
         invalidate()
     }
 
@@ -157,12 +174,14 @@ class ChartView(ctx: Context) : View(ctx) {
         val padL = context.dpf(4f); val padB = context.dpf(20f); val padT = context.dpf(18f)
         val w = width - padL * 2; val h = height - padB - padT
         if (w <= 0 || h <= 0 || to <= from) return
-        val max = (points.maxOfOrNull { it.v } ?: 0.0).let { if (it <= 0) 1.0 else it }
+        val lo = floor ?: 0.0
+        val max = ceil ?: (points.maxOfOrNull { it.v } ?: 0.0).let { if (it <= 0) 1.0 else it }
         fun x(t: Long) = padL + w * (t - from).toFloat() / (to - from)
-        fun y(v: Double) = padT + h * (1f - (v / max).toFloat().coerceIn(0f, 1f))
+        fun y(v: Double) = padT + h * (1f - ((v - lo) / (max - lo).coerceAtLeast(1e-9)).toFloat().coerceIn(0f, 1f))
         c.drawLine(padL, padT, padL + w, padT, grid)
         c.drawLine(padL, padT + h, padL + w, padT + h, grid)
         c.drawText(Present.num(Math.round(max * 10) / 10.0) + " " + unit, padL, padT - context.dpf(5f), text)
+        if (floor != null) c.drawText(Present.num(Math.round(lo * 10) / 10.0) + " " + unit, padL + context.dpf(4f), padT + h - context.dpf(5f), text)
         // Repères d'heure toutes les six heures
         val fmt = SimpleDateFormat(if (I18n.english) "ha" else "H 'h'", I18n.locale)
         var t = from - from % 3_600_000L + 3_600_000L

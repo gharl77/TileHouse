@@ -44,6 +44,9 @@ internal fun MainActivity.showHome() {
     subtitleView.visibility = View.VISIBLE
     updateHomeHeader()
 
+    // Anniversaire du jour, puis messages pour la famille, tout en haut
+    addBirthdayBanner()
+    addFamilyNotes()
     // Météo + agenda côte à côte
     val cards = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     val w = WeatherCard(this).also { weatherCard = it }
@@ -196,6 +199,8 @@ internal fun MainActivity.addShortcuts(ids: List<String>, top: Int) {
             if (Present.tap(app.ha, id, app.ha.states[id])) {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                 v.animate().alpha(0.5f).setDuration(120).withEndAction { v.animate().alpha(1f).setDuration(300).start() }.start()
+                // « Bonne nuit » : dix secondes plus tard (le temps que le script agisse), ce qui reste à régler.
+                if (HomeCare.isNightShortcut(cfg.nightShortcut, id, app.ha.states[id]?.name.orEmpty())) { handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
             }
         })
         content.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = top })
@@ -544,7 +549,95 @@ internal fun MainActivity.updateHomeHeader() {
     // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
     val st = app.ha.states
     updateChips(homeRoom(), only = setOf("light", "lock", "door", "window", "cover", "smoke"), activeOnly = true,
-        extra = (if (cfg.shows("energy")) Energy.chips(cfg.energySensors, st, energyToday) else emptyList()) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
+        extra = (if (cfg.shows("energy")) Energy.chips(cfg.energySensors, st, energyToday) else emptyList()) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st)
+            + (if (cfg.shows("trackers")) Trackers.chips(Trackers.parse(cfg.trackers), st, System.currentTimeMillis()) else emptyList()) + healthChips())
+}
+
+/** Appareils des pièces que Home Assistant ne joint plus (sauf ceux décochés de la vue d'ensemble). */
+internal fun MainActivity.offlineDevices(): List<RoomEntity> =
+    if (!cfg.offlineChip || app.ha.status != HaClient.Status.CONNECTED) emptyList() else Health.offline(wholeHouse(), app.ha.states, cfg.summaryHidden.toSet())
+
+/** Pastilles « piles faibles » et « hors ligne » : seulement quand il y a quelque chose à signaler. */
+internal fun MainActivity.healthChips(): List<Present.Chip> =
+    listOfNotNull(if (cfg.batteryLow > 0) Health.batteryChip(lowBatteries) else null, Health.offlineChip(offlineDevices().size),
+        if (cfg.maintenanceLow > 0) Health.wearChip(wear) else null)
+
+internal fun MainActivity.loadBatteries() {
+    val t = cfg.batteryLow
+    if (t <= 0) { lowBatteries = emptyList(); return }
+    app.ha.renderTemplate(Health.template(t)) { text ->
+        // Pas de réponse (HA occupé) : on garde la dernière liste connue.
+        if (text != null) { lowBatteries = Health.parse(text, cfg.deviceName); if (roomIndex == MainActivity.HOME) updateHomeHeader() }
+    }
+}
+
+internal fun MainActivity.loadWear() {
+    val t = cfg.maintenanceLow
+    if (t <= 0) { wear = emptyList(); return }
+    app.ha.renderTemplate(Health.wearTemplate(t)) { text ->
+        if (text != null) { wear = Health.parseWear(text); if (roomIndex == MainActivity.HOME) updateHomeHeader() }
+    }
+}
+
+internal fun MainActivity.showWear() {
+    val t = wear.joinToString("<br>") { "• <b>" + android.text.Html.escapeHtml(it.device) + "</b>  ·  " + android.text.Html.escapeHtml(it.item) + "  —  " + (if (it.pct < 0) tr("à vérifier") else "${it.pct} %") }
+    @Suppress("DEPRECATION")
+    showReader(tr("Entretien des aspirateurs"), android.text.Html.fromHtml(t + "<br><br><small>" + tr("Pièces à nettoyer ou à remplacer bientôt. Seuil :") + " ${cfg.maintenanceLow} %.</small>"))
+}
+
+/** Image du radar de précipitations (caméra radar de Home Assistant, ex. Environnement Canada), ouverte depuis la fenêtre météo. */
+internal fun MainActivity.showRadar() {
+    fun open(cam: String) {
+        if (cam.isEmpty()) { Toast.makeText(this, tr("Aucune caméra radar dans Home Assistant. Activez celle de votre intégration météo."), Toast.LENGTH_LONG).show(); return }
+        val d = android.app.Dialog(this)
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(20), dp(18), dp(20), dp(18))
+            background = Skin.panelBg(this@showRadar, dpf(22))
+            setOnClickListener { d.dismiss() }
+        }
+        val caption = label(15f, Skin.fg(0x99), text = tr("Radar de précipitations") + " …").apply { setPadding(0, 0, 0, dp(10)) }
+        val img = ImageView(this).apply { scaleType = ImageView.ScaleType.FIT_CENTER; adjustViewBounds = true }
+        box.addView(caption)
+        box.addView(img, LinearLayout.LayoutParams(dp(640), dp(640)))
+        d.setContentView(box)
+        d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        d.window?.setDimAmount(0.75f)
+        d.setCanceledOnTouchOutside(true)
+        d.window?.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE, WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        d.show()
+        @Suppress("DEPRECATION")
+        d.window?.decorView?.systemUiVisibility = window.decorView.systemUiVisibility
+        d.window?.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
+        app.snapshots.loadAny(cam, dp(640)) { bmp ->
+            if (!d.isShowing) { bmp?.recycle(); return@loadAny }
+            if (bmp == null) caption.text = tr("Radar de précipitations") + " · " + tr("image indisponible")
+            else { caption.text = tr("Radar de précipitations"); img.setImageBitmap(bmp) }
+        }
+    }
+    when (val choice = cfg.radarCamera) {
+        "none" -> open("")
+        "" -> app.ha.renderTemplate("{{ states.camera | map(attribute='entity_id') | select('search', 'radar') | list | first | default('') }}") { open(it?.trim().orEmpty().takeIf { id -> id.startsWith("camera.") }.orEmpty()) }
+        else -> open(choice)
+    }
+}
+
+internal fun MainActivity.showBatteries() {
+    val t = lowBatteries.joinToString("<br>") { "• " + android.text.Html.escapeHtml(it.name) + "  —  <b>" + (if (it.pct < 0) tr("faible") else "${it.pct} %") + "</b>" }
+    @Suppress("DEPRECATION")
+    showReader(tr("Piles faibles"), android.text.Html.fromHtml(t + "<br><br><small>" + tr("Seuil :") + " ${cfg.batteryLow} %. " + tr("Les téléphones et tablettes ne sont pas comptés.") + "</small>"))
+}
+
+internal fun MainActivity.showOffline() {
+    val roomOf = HashMap<String, Room>()
+    for (r in cfg.rooms) for (e in r.entities) roomOf.putIfAbsent(e.id, r)
+    val t = offlineDevices().joinToString("<br>") { re ->
+        val room = roomOf[re.id]
+        "• " + android.text.Html.escapeHtml(Present.displayName(re, app.ha.states[re.id], room?.name ?: "")) + (room?.let { "  ·  " + android.text.Html.escapeHtml(it.name) } ?: "")
+    }
+    @Suppress("DEPRECATION")
+    showReader(tr("Appareils hors ligne"), android.text.Html.fromHtml(t + "<br><br><small>" + tr("Home Assistant ne les joint plus : pile vide, appareil débranché ou hors de portée.") + "</small>"))
 }
 
 /** Prévisions (weather.get_forecasts) et agenda (API calendrier), rafraîchis toutes les 15 min. */
@@ -563,6 +656,9 @@ internal fun MainActivity.loadHomeData() {
         }
     }
     loadCollections()
+    loadBirthdays()
+    loadBatteries()
+    loadWear()
     loadPeaks()
     loadEnergyToday()
     val cals = cfg.calendars
@@ -824,7 +920,24 @@ internal fun MainActivity.showHourlyForecast() {
             setPadding(dp(30), dp(24), dp(30), dp(26))
             background = Skin.panelBg(this@showHourlyForecast, dpf(22))
         }
-        box.addView(label(22f, Skin.ink, true, tr("Prochaines heures")).apply { setPadding(0, 0, 0, dp(14)) })
+        // Alertes en vigueur (Environnement Canada…) : en tête, avant les prévisions.
+        val alerts = HomeExtras.weatherDetails(cfg.weatherAlerts, app.ha.states)
+        @Suppress("DEPRECATION")
+        if (alerts.isNotEmpty()) box.addView(label(15f, Skin.ink).apply {
+            text = android.text.Html.fromHtml(alerts.trim().removeSuffix("<br>").removeSuffix("<br>"))
+            maxLines = 5; ellipsize = android.text.TextUtils.TruncateAt.END
+            background = roundRect(0x33FF9F0A, dpf(14))
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            isClickable = true
+            setOnClickListener { showWeatherAlerts() }
+        }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(16) })
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, dp(14)) }
+        head.addView(label(22f, Skin.ink, true, tr("Prochaines heures")), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        if (cfg.radarCamera != "none") head.addView(label(15f, Skin.ink, true, "🛰  " + tr("Radar")).apply {
+            background = roundRect(Skin.fg(0x1F), dpf(18)); setPadding(dp(16), dp(9), dp(18), dp(9)); isClickable = true
+            setOnClickListener { showRadar() }
+        })
+        box.addView(head)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US)
         val hourFmt = SimpleDateFormat(if (I18n.english) "ha" else "H 'h'", I18n.locale)
@@ -868,6 +981,36 @@ internal fun MainActivity.showHourlyForecast() {
         }
         box.addView(android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) })
         box.addView(label(12.5f, Skin.fg(0x99), text = "💨 " + tr("Vent en") + " " + windUnit + "  ·  " + tr("« ress. » : température ressentie")).apply { setPadding(0, dp(12), 0, 0) })
+        // Les sept prochains jours, d'après les prévisions quotidiennes déjà chargées pour la carte.
+        val daily = forecast
+        if (daily != null && daily.length() > 0) {
+            box.addView(label(22f, Skin.ink, true, tr("Prochains jours")).apply { setPadding(0, dp(20), 0, dp(12)) })
+            val days = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            val dayIso = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+            val today = dayIso.format(Date())
+            for (i in 0 until minOf(7, daily.length())) {
+                val f = daily.optJSONObject(i) ?: continue
+                val date = try { dayIso.parse(f.str("datetime").take(10)) } catch (_: Exception) { null }
+                val col = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+                    setPadding(dp(6), dp(10), dp(6), dp(10))
+                    background = roundRect(Skin.fg(0x0F), dpf(14))
+                }
+                col.addView(label(14f, Skin.fg(0xCC), text = if (date != null && dayIso.format(date) == today) tr("Auj.") else date?.let { dayFmt.format(it).replaceFirstChar { c -> c.uppercase() } } ?: ""))
+                col.addView(label(26f, Skin.ink, text = HomeText.emoji(f.str("condition"))).apply { setPadding(0, dp(6), 0, dp(4)) })
+                val hi = f.dbl("temperature")?.let { Present.num(Math.round(it).toDouble()) + "°" } ?: "—"
+                col.addView(label(17f, Skin.ink, true, hi))
+                col.addView(label(13f, Skin.fg(0xB3), text = f.dbl("templow")?.let { Present.num(Math.round(it).toDouble()) + "°" } ?: " "))
+                val prob = f.dbl("precipitation_probability"); val amount = f.dbl("precipitation")
+                col.addView(label(12.5f, Skin.fg(0xB3), text = when {
+                    prob != null && prob >= 5 -> "💧 " + Math.round(prob) + " %"
+                    amount != null && amount > 0 -> "💧 " + Present.num(amount) + " mm"
+                    else -> " "
+                }).apply { setPadding(0, dp(4), 0, 0) })
+                days.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(8) })
+            }
+            box.addView(days, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
         showSheet(d, box)
     }
 }

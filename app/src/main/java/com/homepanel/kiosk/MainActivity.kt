@@ -118,6 +118,8 @@ class MainActivity : Activity(), HaClient.Listener {
             if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
             checkPeakReminder()
             checkReminders()
+            // Messages pour la famille : ceux qui sont échus (minuit) s'effacent ; l'heure affichée suit.
+            if (!FamilyNotes.prune(this@MainActivity) && roomIndex == HOME && notesBox != null && Calendar.getInstance().get(Calendar.MINUTE) == 0) updateFamilyNotes()
             app.backupTick()
             handler.postDelayed(this, 10_000)
         }
@@ -194,6 +196,8 @@ class MainActivity : Activity(), HaClient.Listener {
         timeRow.addView(bellView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
         heureRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
         heureRow.addView(clockView)
+        // Appui long sur l'heure ou la date : nettoyage de l'écran (tactile gelé 30 secondes).
+        for (v in listOf(clockView, dateView)) v.setOnLongClickListener { startCleaning(); true }
         clockBox.addView(heureRow)
         clockBox.addView(dateView)
         header.addView(clockBox)
@@ -325,6 +329,9 @@ class MainActivity : Activity(), HaClient.Listener {
         if (onNoticesChanged !in app.notices.listeners) app.notices.listeners.add(onNoticesChanged)
         if (onTimers !in KitchenTimers.listeners) KitchenTimers.listeners.add(onTimers)
         app.onTimerDone = { showTimerDone(it) }
+        app.safety.onChange = { syncSafety() }
+        if (onNotes !in FamilyNotes.listeners) FamilyNotes.listeners.add(onNotes)
+        handler.post { syncSafety() }
         // Minuterie finie pendant que cet écran était caché ou reconstruit : la carte (et son bouton d'arrêt) revient.
         app.ringingTimer?.let { t -> handler.post { if (notice?.showing != true) showTimerDone(t) } }
         onTimers()
@@ -367,6 +374,11 @@ class MainActivity : Activity(), HaClient.Listener {
         app.mqtt.onHome = null
         app.onNotice = null
         app.onTimerDone = null
+        app.safety.onChange = null
+        FamilyNotes.listeners.remove(onNotes)
+        stopCleaning()
+        handler.removeCallbacks(nightSummary)
+        safetyDialog?.dismiss(); safetyDialog = null
         app.onNoticeCleared = null
         app.notices.listeners.remove(onNoticesChanged)
         // Sans ceci, chaque écran reconstruit (changement de skin) restait en mémoire et recevait encore les minuteries.
@@ -445,6 +457,9 @@ class MainActivity : Activity(), HaClient.Listener {
         calendarCard = null
         nowPlayingBox = null
         homePreviewBox = null
+        notesBox = null
+        birthdayBox = null
+        trackerViews.clear()
         handler.removeCallbacks(snapshotTick)
     }
 
@@ -497,6 +512,37 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var collectChips: List<Present.Chip> = emptyList()
 
     internal var peaks: List<HomeExtras.Peak> = emptyList()
+    /** Piles faibles de la maison (pastille de l'accueil), redemandées avec les autres données de l'accueil. */
+    internal var lowBatteries: List<Health.Battery> = emptyList()
+    /** Pièces d'usure des aspirateurs à remplacer (pastille « Entretien »). */
+    internal var wear: List<Health.Wear> = emptyList()
+    /** Cartes des appareils suivis de la pièce affichée, et le dernier état « au travail » de chacun (notification de fin). */
+    internal val trackerViews = ArrayList<TrackerView>()
+    internal val trackerActive = HashMap<String, Boolean>()
+    /** Rangée des messages pour la famille, en haut de l'accueil (null hors de l'accueil ou si la section est masquée). */
+    internal var notesBox: LinearLayout? = null
+    /** Anniversaires d'aujourd'hui (titres des événements) et leur bannière en haut de l'accueil. */
+    internal var birthdays: List<String> = emptyList()
+    internal var birthdayBox: LinearLayout? = null
+    /** Nettoyage de l'écran en cours : le panneau central, le voile, les secondes restantes. */
+    internal var cleanBox: LinearLayout? = null
+    internal var cleanVeil: View? = null
+    internal var cleanLeft = 0
+    internal var cleanDownX = 0f
+    internal var cleanDownY = 0f
+    internal val cleanHold = Runnable { stopCleaning() }
+    internal val nightSummary = Runnable { showNightSummary() }
+    internal val onNotes: () -> Unit = { updateFamilyNotes() }
+    /** Écran rouge de l'alarme fumée / monoxyde, tant qu'elle sonne. */
+    internal var safetyDialog: android.app.Dialog? = null
+    /** Dernier état connu des capteurs de présence qui réveillent l'écran. */
+    internal val wakeState = HashMap<String, Boolean>()
+
+    /** Vrai quand les lumières de la pièce de la tablette (réglage) sont toutes éteintes : l'écran baisse sa luminosité. */
+    internal fun roomDark(): Boolean {
+        val known = cfg.ambientLights.mapNotNull { app.ha.states[it] }.filter { it.state != "unavailable" && it.state != "unknown" }
+        return known.isNotEmpty() && known.none { it.state == "on" }
+    }
     internal lateinit var todoButton: TodoButton
     internal var todoPanel: TodoPanel? = null
     internal lateinit var musicButton: MusicButton
@@ -551,6 +597,14 @@ class MainActivity : Activity(), HaClient.Listener {
 
     override fun onHaEntities(ids: Set<String>) {
         chipDetailRefresh?.invoke()
+        checkTrackers(ids)
+        // Capteur de présence : quelqu'un approche, l'écran sort de veille (le premier état reçu ne compte pas).
+        for (id in cfg.wakeSensors) if (id in ids) {
+            val on = app.ha.states[id]?.state == "on"
+            if (wakeState.put(id, on) == false && on) onMotion()
+        }
+        // Lumières de la pièce : la luminosité de l'écran suit.
+        if (cfg.ambientLights.any { it in ids }) { if (dimmed) applyDimBrightness() else applyBrightness() }
         // On note quand un lecteur joue, même si sa pièce n'est pas à l'écran : la carte « En lecture » sait ainsi
         // qu'une pause est récente quand on ouvre la pièce ensuite.
         for (id in ids) if (id.startsWith("media_player.") && app.ha.states[id]?.state == "playing") lastPlaying[id] = SystemClock.uptimeMillis()
@@ -616,6 +670,8 @@ class MainActivity : Activity(), HaClient.Listener {
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         lastTouch = SystemClock.uptimeMillis()
+        // Nettoyage de l'écran : aucun toucher n'atteint le tableau de bord.
+        if (cleanBox != null) { cleanTouch(ev); return true }
         val action = ev.actionMasked
         if (action == MotionEvent.ACTION_DOWN) {
             if (dimmed) { undim(); swallow = true; return true }
@@ -659,7 +715,7 @@ class MainActivity : Activity(), HaClient.Listener {
 
     internal fun checkDim() {
         val m = cfg.dimMinutes
-        if (m <= 0 || dimmed || dialog?.isShowing == true) return
+        if (m <= 0 || dimmed || dialog?.isShowing == true || safetyDialog != null) return
         if (SystemClock.uptimeMillis() - lastTouch > m * 60_000L) dim()
     }
 
@@ -678,7 +734,8 @@ class MainActivity : Activity(), HaClient.Listener {
     /** Écran de veille : noir (luminosité minimale) ou heure + météo (luminosité choisie). */
     internal fun applyDimBrightness() {
         val lit = cfg.effectiveDimStyle != "black"
-        window.attributes = window.attributes.apply { screenBrightness = if (lit) cfg.dimBrightness / 100f else 0.01f }
+        val level = if (roomDark()) minOf(cfg.dimBrightness, cfg.darkBrightness) else cfg.dimBrightness
+        window.attributes = window.attributes.apply { screenBrightness = if (lit) level / 100f else 0.01f }
     }
 
     internal var shownDimStyle = ""
@@ -694,7 +751,8 @@ class MainActivity : Activity(), HaClient.Listener {
 
     /** Luminosité normale : réglage de l'app (HA / page web), sinon celle du système. */
     internal fun applyBrightness() {
-        val b = cfg.brightness
+        // Pièce sombre : la luminosité choisie pour le noir, sans jamais dépasser celle demandée par ailleurs.
+        val b = if (roomDark()) (if (cfg.brightness > 0) minOf(cfg.brightness, cfg.darkBrightness) else cfg.darkBrightness) else cfg.brightness
         window.attributes = window.attributes.apply {
             screenBrightness = if (b > 0) b / 100f else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
         }

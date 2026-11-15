@@ -30,7 +30,7 @@ object Rail {
 }
 
 /** Sections qu'on peut masquer, dans l'ordre où les réglages les proposent. */
-val SECTIONS = listOf("weather", "agenda", "shortcuts", "favorites", "previews", "cameras", "energy", "scores", "timers", "lists", "music", "morning")
+val SECTIONS = listOf("birthdays", "notes", "trackers", "weather", "agenda", "shortcuts", "favorites", "previews", "cameras", "energy", "scores", "timers", "lists", "music", "morning")
 
 class ConfigStore(ctx: Context) {
     private val p = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
@@ -157,7 +157,11 @@ class ConfigStore(ctx: Context) {
         get() = p.getString("dimStyle", "clock") ?: "clock"
         set(v) = p.edit().putString("dimStyle", if (v in setOf("black", "photos")) v else "clock").apply()
     /** Style réellement affiché : noir pendant les heures calmes. */
-    val effectiveDimStyle: String get() = if (isQuietNow()) "black" else dimStyle
+    val effectiveDimStyle: String get() = if (quietBlack && isQuietNow()) "black" else dimStyle
+    /** Écran de veille noir pendant les heures calmes (décoché : les heures calmes ne coupent que le son). */
+    var quietBlack: Boolean
+        get() = p.getBoolean("quietBlack", true)
+        set(v) = p.edit().putBoolean("quietBlack", v).apply()
     /** Luminosité de l'écran de veille « heure + météo », en %. */
     var dimBrightness: Int
         get() = p.getInt("dimBrightness", 10)
@@ -210,6 +214,70 @@ class ConfigStore(ctx: Context) {
         val m = c.get(java.util.Calendar.HOUR_OF_DAY) * 60 + c.get(java.util.Calendar.MINUTE)
         return TimeRange.contains(quietStart, quietEnd, m)
     }
+
+    /** Pointage : heures avant le début d'un match où il s'affiche déjà, et heures après le début où il reste affiché. */
+    var scoreBefore: Int
+        get() = p.getInt("scoreBefore", 12)
+        set(v) = p.edit().putInt("scoreBefore", v.coerceIn(0, 72)).apply()
+    var scoreAfter: Int
+        get() = p.getInt("scoreAfter", 8)
+        set(v) = p.edit().putInt("scoreAfter", v.coerceIn(3, 72)).apply()
+
+    /** Alarme plein écran, avec sonnerie, quand un détecteur de fumée ou de monoxyde des pièces se déclenche. */
+    var smokeAlarm: Boolean
+        get() = p.getBoolean("smokeAlarm", true)
+        set(v) = p.edit().putBoolean("smokeAlarm", v).apply()
+    /** Alarme plein écran (bleue, sonnerie plus douce) quand un détecteur de fuite d'eau des pièces se déclenche. */
+    var leakAlarm: Boolean
+        get() = p.getBoolean("leakAlarm", true)
+        set(v) = p.edit().putBoolean("leakAlarm", v).apply()
+    /** Demander une confirmation avant de déverrouiller une serrure (verrouiller reste immédiat). */
+    var confirmUnlock: Boolean
+        get() = p.getBoolean("confirmUnlock", true)
+        set(v) = p.edit().putBoolean("confirmUnlock", v).apply()
+    /** Calendrier des anniversaires : "" = automatique (le calendrier de l'agenda qui en porte le nom), "none" = aucun. */
+    var birthdayCalendar: String
+        get() = p.getString("birthdayCalendar", "") ?: ""
+        set(v) = p.edit().putString("birthdayCalendar", v).apply()
+    /** Raccourci qui ouvre le résumé du soir : "" = automatique (« Bonne nuit »), "none" = aucun, sinon l'entité. */
+    var nightShortcut: String
+        get() = if (demo) "" else p.getString("nightShortcut", "") ?: ""
+        set(v) = p.edit().putString("nightShortcut", v).apply()
+    /** Appareils suivis (voir [Trackers]) : [{name, icon, entity, progress, remaining, title, image, room, notify}]. */
+    var trackers: JSONArray
+        get() = if (demo) Demo.trackers() else json("trackers")
+        set(v) = p.edit().putString("trackers", v.toString()).apply()
+    /** Caméra du radar météo : "" = automatique (la caméra de Home Assistant qui s'appelle « radar »), "none" = aucune. */
+    var radarCamera: String
+        get() = p.getString("radarCamera", "") ?: ""
+        set(v) = p.edit().putString("radarCamera", v).apply()
+    /** Pastille d'entretien des aspirateurs (filtre, brosses… en fin de vie) : seuil en %, 0 = pas de pastille. */
+    var maintenanceLow: Int
+        get() = if (demo) 10 else p.getInt("maintenanceLow", 10)
+        set(v) = p.edit().putInt("maintenanceLow", v.coerceIn(0, 50)).apply()
+    /** Pastille « piles faibles » de l'accueil : seuil en % (0 = pas de pastille). */
+    var batteryLow: Int
+        get() = if (demo) 15 else p.getInt("batteryLow", 15)
+        set(v) = p.edit().putInt("batteryLow", v.coerceIn(0, 50)).apply()
+    /** Pastille « appareils hors ligne » de l'accueil (appareils des pièces que Home Assistant ne joint plus). */
+    var offlineChip: Boolean
+        get() = p.getBoolean("offlineChip", true)
+        set(v) = p.edit().putBoolean("offlineChip", v).apply()
+    /** Capteurs de présence ou de mouvement (Home Assistant) qui sortent la tablette de veille quand on approche. */
+    var wakeSensors: List<String>
+        get() = if (demo) emptyList() else csv("wakeSensors")
+        set(v) = p.edit().putString("wakeSensors", v.distinct().joinToString(",")).apply()
+    /** Lumières de la pièce où est la tablette : toutes éteintes, l'écran passe à [darkBrightness]. Vide = pas d'ajustement. */
+    var ambientLights: List<String>
+        get() = if (demo) emptyList() else csv("ambientLights")
+        set(v) = p.edit().putString("ambientLights", v.distinct().joinToString(",")).apply()
+    var darkBrightness: Int
+        get() = p.getInt("darkBrightness", 20)
+        set(v) = p.edit().putInt("darkBrightness", v.coerceIn(1, 100)).apply()
+    /** Dernière version annoncée par une notification (une seule annonce par version). */
+    var announcedVersion: String
+        get() = p.getString("announcedVersion", "") ?: ""
+        set(v) = p.edit().putString("announcedVersion", v).apply()
 
     /** Calendriers des collectes (vide = pas de pastille). */
     var recycleCalendar: String
@@ -593,7 +661,10 @@ class ConfigStore(ctx: Context) {
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
                 .put("immichUrl", immichUrl).put("musicUrl", musicUrl).put("nowPlayingHeader", nowPlayingHeader).put("posterSearch", posterSearch).put("fibeChannels", try { JSONObject(fibeChannels) } catch (_: Exception) { JSONObject() }).put("brightness", brightness)
-                .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert))
+                .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert)
+                .put("quietBlack", quietBlack).put("smokeAlarm", smokeAlarm).put("trackers", trackers).put("radarCamera", radarCamera).put("maintenanceLow", maintenanceLow).put("birthdayCalendar", birthdayCalendar).put("nightShortcut", nightShortcut).put("leakAlarm", leakAlarm).put("confirmUnlock", confirmUnlock).put("batteryLow", batteryLow).put("offlineChip", offlineChip)
+                .put("wakeSensors", JSONArray(wakeSensors)).put("ambientLights", JSONArray(ambientLights)).put("darkBrightness", darkBrightness)
+                .put("scoreBefore", scoreBefore).put("scoreAfter", scoreAfter))
             .put("home", JSONObject()
                 .put("weather", weatherEntity).put("calendars", JSONArray(calendars))
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
@@ -651,6 +722,22 @@ class ConfigStore(ctx: Context) {
             if (d.has("alertSeconds")) alertSeconds = d.optInt("alertSeconds", 20)
             if (d.has("alertTrigger")) alertTrigger = d.str("alertTrigger")
             if (d.has("doorbellAlert")) doorbellAlert = d.optBoolean("doorbellAlert")
+            if (d.has("quietBlack")) quietBlack = d.optBoolean("quietBlack", true)
+            if (d.has("smokeAlarm")) smokeAlarm = d.optBoolean("smokeAlarm", true)
+            if (d.has("leakAlarm")) leakAlarm = d.optBoolean("leakAlarm", true)
+            if (d.has("birthdayCalendar")) birthdayCalendar = d.str("birthdayCalendar")
+            d.optJSONArray("trackers")?.let { trackers = it }
+            if (d.has("radarCamera")) radarCamera = d.str("radarCamera")
+            if (d.has("maintenanceLow")) maintenanceLow = d.optInt("maintenanceLow", 10)
+            if (d.has("nightShortcut")) nightShortcut = d.str("nightShortcut")
+            if (d.has("confirmUnlock")) confirmUnlock = d.optBoolean("confirmUnlock", true)
+            if (d.has("batteryLow")) batteryLow = d.optInt("batteryLow", 15)
+            if (d.has("offlineChip")) offlineChip = d.optBoolean("offlineChip", true)
+            d.optJSONArray("wakeSensors")?.let { a -> wakeSensors = (0 until a.length()).map { a.getString(it) } }
+            d.optJSONArray("ambientLights")?.let { a -> ambientLights = (0 until a.length()).map { a.getString(it) } }
+            if (d.has("darkBrightness")) darkBrightness = d.optInt("darkBrightness", 20)
+            if (d.has("scoreBefore")) scoreBefore = d.optInt("scoreBefore", 12)
+            if (d.has("scoreAfter")) scoreAfter = d.optInt("scoreAfter", 8)
         }
         o.optJSONObject("home")?.let { h ->
             if (h.has("weather")) weatherEntity = h.str("weather")
@@ -724,6 +811,9 @@ class ConfigStore(ctx: Context) {
         s.addAll(energySensors)
         s.addAll(musicPlayers)
         s.addAll(sportSensors)
+        for (t in Trackers.parse(trackers)) s.addAll(t.ids)
+        s.addAll(wakeSensors)
+        s.addAll(ambientLights)
         for (a in listOf(customChips, morningSources)) for (i in 0 until a.length()) a.optJSONObject(i)?.optString("entity")?.takeIf { it.isNotEmpty() }?.let { s.add(it) }
         return s
     }

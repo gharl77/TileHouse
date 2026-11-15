@@ -109,6 +109,10 @@ object CatalogLoader {
                 // Enceintes de Music Assistant, pour la fenêtre Musique
                 if (dom == "media_player" && Music.isPlayer(o.optJSONObject("attributes")))
                     extras.getOrPut("music") { ArrayList() }.add(id to fname)
+                // Lumières (luminosité de l'écran selon la pièce) et capteurs de présence (réveil de l'écran)
+                if (dom == "light") extras.getOrPut("lights") { ArrayList() }.add(id to fname)
+                if (dom == "binary_sensor" && o.optJSONObject("attributes")?.str("device_class") in setOf("motion", "occupancy", "presence"))
+                    extras.getOrPut("motion") { ArrayList() }.add(id to fname)
                 if (dom == "weather" || dom == "calendar" || dom == "person" || dom == "todo") {
                     val n = o.optJSONObject("attributes")?.str("friendly_name")?.ifEmpty { id } ?: id
                     extras.getOrPut(dom) { ArrayList() }.add(id to n)

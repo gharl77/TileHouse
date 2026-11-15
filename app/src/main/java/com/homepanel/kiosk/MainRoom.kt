@@ -77,6 +77,8 @@ internal fun MainActivity.showRoom() {
     if (!playersBesideCamera) nowPlayingBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also { content.addView(it) }
     nowPlayingKey = "?"
     updateNowPlaying()
+    // Appareils suivis rattachés à cette pièce (imprimante 3D…).
+    addTrackerCards(room)
 
     // Les capteurs résumés dans l'en-tête (température, portes, mouvement…) n'ont pas de tuile.
     val others = room.entities.filter {
@@ -158,8 +160,44 @@ internal fun MainActivity.onTileTap(t: TileView, re: RoomEntity, room: Room) {
     if (Present.domain(re.id) == "climate") { openDetail(re, room); return }
     // Capteur de puissance ou d'énergie : sa tuile ouvre la fenêtre Électricité, avec sa courbe des dernières 24 heures.
     if (Present.domain(re.id) == "sensor" && e?.attrs?.str("device_class").let { it == "power" || it == "energy" }) { showEnergy(re.id); return }
+    if (cfg.confirmUnlock && Present.wouldUnlock(re.id, e)) {
+        confirmUnlock(Present.displayName(re, e, room.name)) { if (!haOffline() && Present.tap(app.ha, re.id, app.ha.states[re.id])) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
+        return
+    }
     if (Present.tap(app.ha, re.id, e)) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     else if (Present.hasDetail(re.id, e)) openDetail(re, room)
+}
+
+/** « Déverrouiller la porte d'entrée ? » : rien ne part sans le second toucher. La fenêtre se referme seule après 15 secondes. */
+internal fun MainActivity.confirmUnlock(name: String, onYes: () -> Unit) {
+    val d = android.app.Dialog(this)
+    d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    val box = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+        background = Skin.panelBg(this@confirmUnlock, dpf(22))
+        setPadding(dp(34), dp(28), dp(34), dp(26))
+    }
+    box.addView(ImageView(this).apply {
+        setImageResource(R.drawable.ic_lock_open)
+        imageTintList = android.content.res.ColorStateList.valueOf(0xFFFF9F0A.toInt())
+    }, LinearLayout.LayoutParams(dp(54), dp(54)))
+    box.addView(label(26f, Skin.ink, true, tr("Déverrouiller ?")).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(4)) })
+    box.addView(label(18f, Skin.fg(0xCC), text = name).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(22)) })
+    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+    row.addView(label(18f, Skin.ink, true, tr("Annuler")).apply {
+        gravity = Gravity.CENTER; setPadding(dp(30), dp(15), dp(30), dp(15)); background = roundRect(Skin.fg(0x1F), dpf(26)); isClickable = true
+        setOnClickListener { d.dismiss() }
+    })
+    row.addView(label(18f, 0xFF1C1C1E.toInt(), true, tr("Déverrouiller")).apply {
+        gravity = Gravity.CENTER; setPadding(dp(30), dp(15), dp(30), dp(15)); background = roundRect(0xFFFF9F0A.toInt(), dpf(26)); isClickable = true
+        setOnClickListener { d.dismiss(); onYes() }
+    }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(14) })
+    box.addView(row)
+    showSheet(d, box)
+    d.window?.setLayout(dp(520), WindowManager.LayoutParams.WRAP_CONTENT)
+    val close = Runnable { if (d.isShowing) d.dismiss() }
+    handler.postDelayed(close, 15_000)
+    d.setOnDismissListener { handler.removeCallbacks(close) }
 }
 
 internal fun MainActivity.openDetail(re: RoomEntity, room: Room): Boolean {

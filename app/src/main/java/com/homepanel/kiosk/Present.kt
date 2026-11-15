@@ -189,6 +189,16 @@ object Present {
     }
 
     /** Aspirateur robot : état + batterie (ex. « Sur sa base · 100 % »). */
+    /**
+     * Pièces que l'aspirateur sait nettoyer séparément (identifiant, nom), d'après l'attribut « rooms » de l'intégration
+     * Dreame : {carte: [{id, name}, …]}. On prend la carte sélectionnée, sinon la première. Vide pour un autre aspirateur.
+     */
+    fun vacuumRooms(e: EntityState?): List<Pair<Int, String>> {
+        val maps = e?.attrs?.optJSONObject("rooms") ?: return emptyList()
+        val arr = maps.optJSONArray(e.attrs.str("selected_map")) ?: maps.keys().asSequence().firstOrNull()?.let { maps.optJSONArray(it) } ?: return emptyList()
+        return (0 until arr.length()).mapNotNull { i -> arr.optJSONObject(i)?.let { o -> if (o.has("id") && o.optString("name").isNotBlank()) o.optInt("id") to o.optString("name") else null } }
+    }
+
     fun vacuumStatus(e: EntityState): String {
         val a = e.attrs
         val st = when (e.state) {
@@ -294,6 +304,40 @@ object Present {
             else -> null
         }
     }
+
+    /** Bouton « tout… » du détail d'une pastille (null : rien à faire en groupe pour ce type). */
+    fun bulkLabel(kind: String): String? = when (kind) {
+        "light" -> tr("Tout éteindre")
+        "cover" -> tr("Tout fermer")
+        "lock" -> tr("Tout verrouiller")
+        else -> null
+    }
+
+    /** L'appareil est-il allumé, ouvert ou déverrouillé, donc concerné par le bouton « tout… » ? */
+    fun bulkNeeded(id: String, e: EntityState?): Boolean {
+        val s = e?.state ?: return false
+        if (s == "unavailable" || s == "unknown") return false
+        return when (domain(id)) {
+            "light" -> s == "on"
+            "cover" -> s == "open" || s == "opening"
+            "lock" -> s != "locked" && s != "locking"
+            else -> false
+        }
+    }
+
+    /** Éteint, ferme ou verrouille l'appareil s'il en a besoin (jamais l'inverse). Retourne true si une commande est partie. */
+    fun bulkOff(ha: HaClient, id: String, e: EntityState?): Boolean {
+        if (!bulkNeeded(id, e)) return false
+        when (domain(id)) {
+            "light" -> ha.callService("light", "turn_off", id)
+            "cover" -> ha.callService("cover", "close_cover", id)
+            "lock" -> ha.callService("lock", "lock", id)
+        }
+        return true
+    }
+
+    /** Le toucher déverrouillerait-il cette serrure ? (Verrouiller ne demande jamais de confirmation.) */
+    fun wouldUnlock(id: String, e: EntityState?) = domain(id) == "lock" && e?.state == "locked"
 
     /** Action d'un simple toucher. Retourne false si aucune action directe. */
     fun tap(ha: HaClient, id: String, e: EntityState?): Boolean {

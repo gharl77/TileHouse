@@ -170,7 +170,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         val sectionRows = listOf(
             Triple("weather", R.drawable.ic_globe, tr("Météo")), Triple("agenda", R.drawable.ic_clock, tr("Agenda")),
             Triple("shortcuts", R.drawable.ic_play, tr("Raccourcis")),
-            Triple("favorites", R.drawable.ic_star, tr("Favoris de l'accueil")), Triple("previews", R.drawable.ic_list, tr("Aperçus des outils")),
+            Triple("trackers", R.drawable.ic_outlet, tr("Appareils suivis")), Triple("birthdays", R.drawable.ic_star, tr("Anniversaires")), Triple("notes", R.drawable.ic_chat, tr("Messages pour la famille")), Triple("favorites", R.drawable.ic_star, tr("Favoris de l'accueil")), Triple("previews", R.drawable.ic_list, tr("Aperçus des outils")),
             Triple("cameras", R.drawable.ic_camera, tr("Caméras de l'accueil")), Triple("energy", R.drawable.ic_bolt, tr("Électricité")),
             Triple("scores", R.drawable.ic_trophy, tr("Pointage")), Triple("timers", R.drawable.ic_timer, tr("Minuteries")),
             Triple("lists", R.drawable.ic_list, tr("Listes d'épicerie et de tâches")), Triple("music", R.drawable.ic_music, tr("Musique")),
@@ -250,32 +250,20 @@ class SettingsActivity : Activity(), HaClient.Listener {
 
         // ================= Sons et alertes
         val alertsPage = section()
-        alertsPage.addView(groupLabel(tr("Sons et heures calmes")))
-        val sound = Card(this).also { alertsPage.addView(it) }
-        sound.addRow(settingRow(R.drawable.ic_bell, Ui.ORANGE, tr("Sons des notifications"), tr("Désactivé : aucune notification ne fait de son, en tout temps"),
-            toggle(cfg.soundsEnabled) { cfg.soundsEnabled = it; app.notifyConfigChanged() }))
-        val hours = (0 until 48).map { it * 30 }
-        fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
-        sound.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Heures calmes"), tr("Pas de son (sauf alertes rouges) et écran de veille noir"),
-            toggle(cfg.quietEnabled) { cfg.quietEnabled = it; app.notifyConfigChanged(); updateDependentRows() }))
-        quietStartRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Début"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietStart).let { if (it < 0) 44 else it }) {
-            cfg.quietStart = hours[it]; app.notifyConfigChanged()
+        alertsPage.addView(groupLabel(tr("Alarmes de sécurité")))
+        val safe = Card(this).also { alertsPage.addView(it) }
+        safe.addRow(settingRow(R.drawable.ic_smoke, Ui.RED, tr("Alarme fumée et monoxyde"),
+            tr("Écran rouge et sirène quand un détecteur des pièces se déclenche, même pendant les heures calmes"), toggle(cfg.smokeAlarm) { cfg.smokeAlarm = it; app.notifyConfigChanged() }))
+        safe.addRow(settingRow(R.drawable.ic_drop, Ui.BLUE, tr("Alarme de fuite d'eau"),
+            tr("Écran bleu et sonnerie plus douce quand un détecteur de fuite des pièces se déclenche"), toggle(cfg.leakAlarm) { cfg.leakAlarm = it; app.notifyConfigChanged() }))
+        safe.addRow(settingRow(R.drawable.ic_bell, Ui.ORANGE, tr("Tester l'alarme"), tr("Montre l'écran et fait sonner la sirène ; touchez « Arrêter la sonnerie » pour finir"), chevron = true) {
+            app.safety.test()
         })
-        quietEndRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Fin"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietEnd).let { if (it < 0) 14 else it }) {
-            cfg.quietEnd = hours[it]; app.notifyConfigChanged()
-        })
-        sound.addRow(quietStartRow)
-        sound.addRow(quietEndRow)
-        alertsPage.addView(footnote(tr("Les minuteries sonnent toujours : vous les avez lancées vous-même.")))
 
-        alertsPage.addView(groupLabel(tr("Notifications")))
-        val notCard = Card(this).also { alertsPage.addView(it) }
-        val noticeChoices = listOf(10, 15, 20, 30, 45, 60, 120, 300)
-        notCard.addRow(settingRow(R.drawable.ic_bell, Ui.RED, tr("Durée des notifications"),
-            tr("Temps d'affichage maximal. Sans OK, la notification reste non lue dans la clochette."), choice(
-            noticeChoices.map { if (it < 60) "$it s" else "${it / 60} min" }, noticeChoices.indexOf(cfg.noticeSeconds).let { if (it < 0) 3 else it }) {
-            cfg.noticeSeconds = noticeChoices[it]; app.notifyConfigChanged()
-        }))
+        alertsPage.addView(groupLabel(tr("Serrures")))
+        val locksCard = Card(this).also { alertsPage.addView(it) }
+        locksCard.addRow(settingRow(R.drawable.ic_lock_open, Ui.ORANGE, tr("Confirmer avant de déverrouiller"),
+            tr("Un second toucher est demandé pour déverrouiller une serrure ; verrouiller reste immédiat"), toggle(cfg.confirmUnlock) { cfg.confirmUnlock = it; app.notifyConfigChanged() }))
 
         alertsPage.addView(groupLabel(tr("Alertes des caméras")))
         val camCard = Card(this).also { alertsPage.addView(it) }
@@ -291,6 +279,48 @@ class SettingsActivity : Activity(), HaClient.Listener {
         alertTimeRow = settingRow(R.drawable.ic_clock, Ui.ORANGE, tr("Durée de l'alerte"), tr("Touchez l'écran pendant l'alerte pour garder le live ouvert"), choice(
             alertChoices.map { "$it s" }, alertChoices.indexOf(cfg.alertSeconds).coerceAtLeast(1)) { cfg.alertSeconds = alertChoices[it]; app.notifyConfigChanged() })
         camCard.addRow(alertTimeRow)
+        alertsPage.addView(groupLabel(tr("Santé de la maison")))
+        val health = Card(this).also { alertsPage.addView(it) }
+        val lowChoices = listOf(0, 10, 15, 20, 25, 30)
+        health.addRow(settingRow(R.drawable.ic_battery_low, Ui.GREEN, tr("Pastille « piles faibles »"), tr("Sur l'accueil, quand une pile de la maison passe sous ce niveau"), choice(
+            lowChoices.map { if (it == 0) tr("Jamais") else "$it %" }, lowChoices.indexOf(cfg.batteryLow).let { if (it < 0) 2 else it }) { cfg.batteryLow = lowChoices[it]; app.notifyConfigChanged() }))
+        health.addRow(settingRow(R.drawable.ic_offline, Ui.GRAY, tr("Pastille « appareils hors ligne »"), tr("Sur l'accueil, quand Home Assistant ne joint plus un appareil des pièces"),
+            toggle(cfg.offlineChip) { cfg.offlineChip = it; app.notifyConfigChanged() }))
+
+        val wearChoices = listOf(0, 5, 10, 15, 20)
+        health.addRow(settingRow(R.drawable.ic_vacuum, Ui.BLUE, tr("Pastille « entretien des aspirateurs »"), tr("Sur l'accueil, quand un filtre ou une brosse arrive en fin de vie"), choice(
+            wearChoices.map { if (it == 0) tr("Jamais") else "$it %" }, wearChoices.indexOf(cfg.maintenanceLow).let { if (it < 0) 2 else it }) { cfg.maintenanceLow = wearChoices[it]; app.notifyConfigChanged() }))
+
+        alertsPage.addView(groupLabel(tr("Notifications")))
+        val notCard = Card(this).also { alertsPage.addView(it) }
+        val noticeChoices = listOf(10, 15, 20, 30, 45, 60, 120, 300)
+        notCard.addRow(settingRow(R.drawable.ic_bell, Ui.RED, tr("Durée des notifications"),
+            tr("Temps d'affichage maximal. Sans OK, la notification reste non lue dans la clochette."), choice(
+            noticeChoices.map { if (it < 60) "$it s" else "${it / 60} min" }, noticeChoices.indexOf(cfg.noticeSeconds).let { if (it < 0) 3 else it }) {
+            cfg.noticeSeconds = noticeChoices[it]; app.notifyConfigChanged()
+        }))
+
+        alertsPage.addView(groupLabel(tr("Sons et heures calmes")))
+        val sound = Card(this).also { alertsPage.addView(it) }
+        sound.addRow(settingRow(R.drawable.ic_bell, Ui.ORANGE, tr("Sons des notifications"), tr("Désactivé : aucune notification ne fait de son, en tout temps"),
+            toggle(cfg.soundsEnabled) { cfg.soundsEnabled = it; app.notifyConfigChanged() }))
+        val hours = (0 until 48).map { it * 30 }
+        fun hm(m: Int) = "%02d:%02d".format(m / 60, m % 60)
+        sound.addRow(settingRow(R.drawable.ic_moon, Ui.INDIGO, tr("Heures calmes"), tr("Pas de son, sauf pour les alertes rouges"),
+            toggle(cfg.quietEnabled) { cfg.quietEnabled = it; app.notifyConfigChanged(); updateDependentRows() }))
+        quietStartRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Début"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietStart).let { if (it < 0) 44 else it }) {
+            cfg.quietStart = hours[it]; app.notifyConfigChanged()
+        })
+        quietEndRow = settingRow(R.drawable.ic_clock, Ui.GRAY, tr("Fin"), trailing = choice(hours.map { hm(it) }, hours.indexOf(cfg.quietEnd).let { if (it < 0) 14 else it }) {
+            cfg.quietEnd = hours[it]; app.notifyConfigChanged()
+        })
+        quietBlackRow = settingRow(R.drawable.ic_moon, Ui.GRAY, tr("Veille noire pendant les heures calmes"), tr("Décoché : l'écran de veille garde l'heure ou les photos, seul le son est coupé"),
+            toggle(cfg.quietBlack) { cfg.quietBlack = it; app.notifyConfigChanged() })
+        sound.addRow(quietStartRow)
+        sound.addRow(quietEndRow)
+        sound.addRow(quietBlackRow)
+        alertsPage.addView(footnote(tr("Les minuteries sonnent toujours : vous les avez lancées vous-même.")))
+
         updateDependentRows()
 
 
@@ -392,7 +422,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
 
         // --- Assemblage : en-tête et onglets fixes, contenu défilant
         val all = listOf(rooms, display, homePage, screenPage, alertsPage, conn, kiosk, aboutPage)
-        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Apparence"), tr("Accueil"), tr("Écran"), tr("Alertes"), tr("Connexion"), tr("Sécurité"), tr("À propos"))) { i ->
+        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Apparence"), tr("Accueil"), tr("Écran"), tr("Alertes"), tr("Connexion"), tr("Accès"), tr("À propos"))) { i ->
             pages.removeAllViews(); pages.addView(all[i])
             if (all[i] === aboutPage) updateMemory()
             scroll?.scrollTo(0, 0)
@@ -476,6 +506,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
     private lateinit var nightEndRow: View
     private lateinit var quietStartRow: View
     private lateinit var quietEndRow: View
+    private lateinit var quietBlackRow: View
     private lateinit var alertTrigRow: View
     private lateinit var alertTimeRow: View
 
@@ -485,6 +516,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
         nightEndRow.rowVisible(cfg.nightSkin.isNotEmpty())
         quietStartRow.rowVisible(cfg.quietEnabled)
         quietEndRow.rowVisible(cfg.quietEnabled)
+        quietBlackRow.rowVisible(cfg.quietEnabled)
         alertTrigRow.rowVisible(cfg.personAlert)
         alertTimeRow.rowVisible(cfg.personAlert || cfg.doorbellAlert)
     }
