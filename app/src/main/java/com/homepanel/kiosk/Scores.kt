@@ -84,7 +84,7 @@ class ScoresButton(ctx: Context) : ImageView(ctx) {
     }
 }
 
-internal fun MainActivity.activeGames() = Scores.active(cfg.sportSensors, app.ha.states, System.currentTimeMillis())
+internal fun MainActivity.activeGames() = if (!cfg.shows("scores")) emptyList() else Scores.active(cfg.sportSensors, app.ha.states, System.currentTimeMillis())
 
 internal fun MainActivity.updateScoresButton() = scoresButton.set(activeGames())
 

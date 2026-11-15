@@ -62,7 +62,8 @@ internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
     for (r in cfg.rooms) for (e in r.entities) roomOf.putIfAbsent(e.id, r)
     // Sur l'accueil, la liste est figée à l'ouverture : une lumière qu'on vient d'éteindre
     // reste affichée (on peut la rallumer) au lieu de disparaître sous le doigt.
-    val list = if (home) all.filter { Present.active(app.ha.states[it.id]) } else all
+    // Les détecteurs de fumée se montrent tous, même au calme : on veut voir qu'ils répondent.
+    val list = if (home && chip.kind != "smoke") all.filter { Present.active(app.ha.states[it.id]) } else all
     fun build() {
         rows.removeAllViews()
         if (list.isEmpty()) {
@@ -122,7 +123,7 @@ internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
 /** Met à jour les pastilles seulement si leur contenu a changé. */
 internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false, extra: List<Present.Chip> = emptyList()) {
     val chips = (if (room == null) emptyList() else Present.chips(room, app.ha.states)
-        .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light" || it.kind == "cover") }) + extra
+        .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light" || it.kind == "cover" || it.kind == "smoke") }) + extra
     if (chips == lastChips && chipsRoom === room) return
     lastChips = chips; chipsRoom = room
     chipsView.removeAllViews()
@@ -131,7 +132,7 @@ internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, ac
     val shown = if (Skin.chipRows == Int.MAX_VALUE) chips else chips.sortedByDescending { it.level }
     fun chip(c: Present.Chip, before: () -> Unit = {}) = chipView(c).apply {
         isClickable = true
-        setOnClickListener { before(); if (c.kind == "wx") showWeatherAlerts() else if (c.kind == "energy" || c.kind == "peak") showEnergy() else room?.let { showChipDetail(it, c) } }
+        setOnClickListener { before(); if (c.entity != null) room?.find(c.entity)?.let { re -> if (!haOffline()) openDetail(re, room) } else if (c.kind == "wx") showWeatherAlerts() else if (c.kind == "energy" || c.kind == "peak") showEnergy() else room?.let { showChipDetail(it, c) } }
     }
     for (c in shown) chipsView.addView(chip(c))
     if (Skin.chipRows != Int.MAX_VALUE) {

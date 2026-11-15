@@ -153,7 +153,7 @@ class MorningPanel(private val act: MainActivity, private val onRead: () -> Unit
         }
 
         if (texts.isEmpty() && feeds.isEmpty())
-            body.addView(act.label(18f, Skin.mute, text = tr("Aucune source : ajoutez-en sur la page web (Accueil → Ce matin).")).apply {
+            body.addView(act.label(18f, Skin.mute, text = tr("Aucune source : ajoutez-en sur la page web (Outils et médias → Ce matin).")).apply {
                 gravity = Gravity.CENTER; setPadding(0, act.dp(60), 0, act.dp(60))
             }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
         body.addView(View(act), LinearLayout.LayoutParams(MATCH_PARENT, act.dp(18)))

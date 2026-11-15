@@ -122,7 +122,70 @@ class TileView(ctx: Context) : View(ctx) {
 
     init { isClickable = true; isLongClickable = true }
 
-    fun bind(name: String, status: String, active: Boolean, unavailable: Boolean, accent: Int, iconRes: Int) {
+    /**
+     * Tuile réglable en glissant à gauche ou à droite (lumière à intensité variable) : [slideFrom] donne le niveau
+     * de départ (0–100), ou null si la tuile ne se règle pas pour l'instant ; [onSlide] reçoit le niveau au relâchement.
+     */
+    var slideFrom: (() -> Int?)? = null
+    var onSlide: ((Int) -> Unit)? = null
+    private var sliding = false
+    private var slideV = 0f
+    private var slideStart = 0f
+    private var downX = 0f
+    private var downY = 0f
+    /** Le niveau choisi reste affiché un instant, le temps que l'appareil confirme. */
+    private var holdUntil = 0L
+    private val slop = android.view.ViewConfiguration.get(ctx).scaledTouchSlop * 1.5f
+    private val levelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val clip = android.graphics.Path()
+
+    companion object {
+        /** Vrai pendant qu'une tuile est réglée du doigt : le balayage entre pièces ne doit pas se déclencher. */
+        var anySliding = false
+        /** Texte du niveau pendant le réglage. */
+        fun levelText(v: Int) = if (v <= 0) tr("Éteint") else "$v %"
+    }
+
+    override fun onTouchEvent(ev: MotionEvent): Boolean {
+        val from = slideFrom ?: return super.onTouchEvent(ev)
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> { downX = ev.rawX; downY = ev.rawY; sliding = false }
+            MotionEvent.ACTION_MOVE -> {
+                if (!sliding) {
+                    val dx = ev.rawX - downX; val dy = ev.rawY - downY
+                    val start = if (abs(dx) > slop && abs(dx) > abs(dy) * 1.5f) from() else null
+                    if (start != null) {
+                        sliding = true; anySliding = true
+                        slideStart = start.toFloat(); downX = ev.rawX
+                        parent?.requestDisallowInterceptTouchEvent(true)
+                        // Annule le toucher et l'appui long en cours : glisser n'allume ni n'ouvre rien.
+                        val c = MotionEvent.obtain(ev); c.action = MotionEvent.ACTION_CANCEL; super.onTouchEvent(c); c.recycle()
+                    }
+                }
+                if (sliding) {
+                    slideV = (slideStart + (ev.rawX - downX) / max(1, width) * 100f).coerceIn(0f, 100f)
+                    invalidate()
+                    return true
+                }
+            }
+            MotionEvent.ACTION_UP -> if (sliding) {
+                sliding = false; anySliding = false
+                holdUntil = android.os.SystemClock.uptimeMillis() + 1500
+                postInvalidateDelayed(1550)
+                invalidate()
+                onSlide?.invoke(slideV.roundToInt())
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> if (sliding) { sliding = false; anySliding = false; invalidate(); return true }
+        }
+        return super.onTouchEvent(ev)
+    }
+
+    /** [level] : niveau (0–100) qui remplit la tuile de gauche à droite, ou null (lumière à intensité variable allumée). */
+    private var level: Int? = null
+
+    fun bind(name: String, status: String, active: Boolean, unavailable: Boolean, accent: Int, iconRes: Int, level: Int? = null) {
+        this.level = level
         this.name = name; this.status = status; this.active = active; this.accent = accent
         look = Skin.tile(active, accent)
         tooltipText = name // nom complet au survol (souris) 
@@ -165,6 +228,16 @@ class TileView(ctx: Context) : View(ctx) {
             stroke.strokeWidth = context.dpf(1); stroke.color = k.underline
             c.drawLine(context.dpf(4), h - stroke.strokeWidth, w - context.dpf(4), h - stroke.strokeWidth, stroke)
         }
+        // Réglage du doigt : le niveau remplit la tuile de gauche à droite.
+        // Au repos, le niveau de la lumière remplit discrètement la tuile ; pendant le réglage, il suit le doigt, plus marqué.
+        val adjusting = sliding || android.os.SystemClock.uptimeMillis() < holdUntil
+        val shown = if (adjusting) slideV else level?.toFloat()
+        if (shown != null && shown > 0f) {
+            clip.rewind(); clip.addRoundRect(rect, radius, radius, android.graphics.Path.Direction.CW)
+            levelPaint.color = (accent and 0x00FFFFFF) or (if (adjusting) 0x66000000 else 0x30000000)
+            c.save(); c.clipPath(clip); c.drawRect(0f, 0f, w * shown / 100f, h, levelPaint); c.restore()
+        }
+        val status = if (adjusting) levelText(slideV.roundToInt()) else status
         if (k.iconCircle != 0) { circle.color = k.iconCircle; c.drawCircle(cx, cy, iconD / 2f, circle) }
         icon?.let {
             val s = (iconD * k.iconScale).toInt()

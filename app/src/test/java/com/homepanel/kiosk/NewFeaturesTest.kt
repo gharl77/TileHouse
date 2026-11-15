@@ -1,5 +1,6 @@
 package com.homepanel.kiosk
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -283,5 +284,113 @@ class NewFeaturesTest {
         assertTrue(Backups.due(0, 1_800_000_000_000L))
         assertFalse(Backups.due(1_800_000_000_000L - week + hour, 1_800_000_000_000L))
         assertTrue(Backups.due(1_800_000_000_000L - week, 1_800_000_000_000L))
+    }
+
+    // ---- 2026.11.12 : contrôles dessinés, pastille de fumée
+
+    @Test fun coverDrawingFollowsPosition() {
+        assertEquals(1f, ControlMath.covered(0f, 0.07f), 0.001f)
+        assertEquals(0.07f, ControlMath.covered(100f, 0.07f), 0.001f)
+        assertEquals(100f, ControlMath.blindPosition(10f, 10f, 210f), 0.01f)
+        assertEquals(0f, ControlMath.blindPosition(400f, 10f, 210f), 0.01f)
+        assertEquals(25f, ControlMath.blindPosition(160f, 10f, 210f), 0.01f)
+        // Rideau : symétrique autour du centre, fermé au centre, ouvert aux bords.
+        assertEquals(0f, ControlMath.curtainPosition(100f, 0f, 200f), 0.01f)
+        assertEquals(50f, ControlMath.curtainPosition(50f, 0f, 200f), 0.01f)
+        assertEquals(50f, ControlMath.curtainPosition(150f, 0f, 200f), 0.01f)
+        assertEquals(100f, ControlMath.curtainPosition(-20f, 0f, 200f), 0.01f)
+    }
+
+    @Test fun thermostatArcAndSteps() {
+        // Plein ouest (180°) = milieu de l'arc ; à droite du cadran, rien.
+        assertEquals(0.5f, ControlMath.arcFraction(-100f, 0f)!!, 0.001f)
+        assertNull(ControlMath.arcFraction(100f, 0f))
+        assertTrue(ControlMath.arcFraction(-60f, 80f)!! < 0.1f)   // bas à gauche : minimum
+        assertTrue(ControlMath.arcFraction(-60f, -80f)!! > 0.9f)  // haut à gauche : maximum
+        assertEquals(21.5, ControlMath.snap(21.4, 0.5, 5.0, 30.0), 0.0001)
+        assertEquals(30.0, ControlMath.snap(44.0, 0.5, 5.0, 30.0), 0.0001)
+        assertEquals(0xFFFF0000.toInt(), ControlMath.mix(0xFFFF0000.toInt(), 0xFF0000FF.toInt(), 0f))
+    }
+
+    @Test fun curtainOrBlind() {
+        fun cover(id: String, dc: String?, name: String = "x") =
+            EntityState(id, "closed", JSONObject().put("friendly_name", name).apply { dc?.let { put("device_class", it) } })
+        assertTrue(Present.isCurtain("cover.a", cover("cover.a", "curtain")))
+        assertFalse(Present.isCurtain("cover.a", cover("cover.a", "shade")))
+        assertTrue(Present.isCurtain("cover.rideaux_cuisine", cover("cover.rideaux_cuisine", null)))
+        assertFalse(Present.isCurtain("cover.store1", cover("cover.store1", null, "Store 1")))
+        val full = EntityState("cover.a", "open", JSONObject().put("supported_features", 15).put("current_position", 40))
+        assertTrue(Present.coverCan(full, 8)); assertEquals(40, Present.coverPosition(full))
+        val basic = EntityState("cover.b", "open", JSONObject().put("supported_features", 3))
+        assertFalse(Present.coverCan(basic, 4)); assertFalse(Present.coverCan(basic, 8)); assertEquals(100, Present.coverPosition(basic))
+    }
+
+    @Test fun smokeChip() {
+        fun det(id: String, dc: String, on: Boolean) = EntityState(id, if (on) "on" else "off", JSONObject().put("device_class", dc))
+        val room = Room("r", "Couloir").apply { entities.add(RoomEntity("binary_sensor.s")); entities.add(RoomEntity("binary_sensor.co")) }
+        fun chip(smoke: Boolean, co: Boolean) = Present.chips(room, mapOf(
+            "binary_sensor.s" to det("binary_sensor.s", "smoke", smoke), "binary_sensor.co" to det("binary_sensor.co", "carbon_monoxide", co))).single { it.kind == "smoke" }
+        assertEquals(0, chip(false, false).level)
+        assertEquals(2, chip(true, false).level)
+        assertEquals(2, chip(false, true).level)
+        assertEquals("smoke", Present.chipKind("binary_sensor.s", det("binary_sensor.s", "smoke", false)))
+        assertTrue(Present.isHeaderSensor("binary_sensor.s", det("binary_sensor.s", "smoke", false)))
+    }
+
+    @Test fun artistPhoto() {
+        assertEquals(listOf("Earth, Wind & Fire", "Earth"), Posters.artistNames("Earth, Wind & Fire"))
+        assertEquals(listOf("Loud feat. Lary Kidd", "Loud"), Posters.artistNames("Loud feat. Lary Kidd"))
+        assertEquals(listOf("Daniel Bélanger"), Posters.artistNames(" Daniel Bélanger "))
+        val json = """{"data":[{"name":"Daniel","picture_xl":"https://x/artist/aaa/1000.jpg"},{"name":"Daniel Belanger","picture_xl":"https://x/artist/bbb/1000.jpg"}]}"""
+        assertEquals("https://x/artist/bbb/1000.jpg", Posters.fromDeezerArtist(json, "Daniel Bélanger"))
+        assertEquals("", Posters.fromDeezerArtist(json, "Quelqu'un d'autre"))
+        // Silhouette grise de Deezer : pas une photo.
+        assertEquals("", Posters.fromDeezerArtist("""{"data":[{"name":"Inconnu","picture_xl":"https://x/artist//1000.jpg"}]}""", "Inconnu"))
+        assertEquals("", Posters.fromDeezerArtist(null, "x"))
+    }
+
+    @Test fun thermostatChip() {
+        val heat = EntityState("climate.a", "heat", JSONObject().put("current_temperature", 19.5).put("temperature", 21).put("hvac_action", "heating"))
+        val off = EntityState("climate.b", "off", JSONObject().put("current_temperature", 18.5))
+        assertEquals("19,5\u00A0°C → 21\u00A0°C".replace(',', java.text.DecimalFormatSymbols(I18n.locale).decimalSeparator), Present.climateChip(heat))
+        assertEquals("70\u00A0°F", Present.degrees(70.0, "°F")); assertEquals("20°", Present.degrees(20.0, ""))
+        assertTrue(Present.climateChip(off).startsWith("18"))
+        val room = Room("r", "Chambre").apply { entities.add(RoomEntity("climate.a")); entities.add(RoomEntity("climate.b")) }
+        val chips = Present.chips(room, mapOf("climate.a" to heat, "climate.b" to off))
+        assertEquals(listOf("climate.a", "climate.b"), chips.filter { it.kind == "climate" }.map { it.entity })
+        assertTrue(chips.none { it.kind == "temp" })
+        assertTrue(Present.isHeaderSensor("climate.a", heat))
+    }
+
+    @Test fun openCoversChip() {
+        fun cover(id: String, dc: String, open: Boolean) = EntityState(id, if (open) "open" else "closed", JSONObject().put("device_class", dc))
+        val room = Room("r", "Cuisine").apply { listOf("cover.s1", "cover.s2", "cover.r1").forEach { entities.add(RoomEntity(it)) } }
+        fun chip(s1: Boolean, s2: Boolean, r1: Boolean) = Present.chips(room, mapOf("cover.s1" to cover("cover.s1", "shade", s1),
+            "cover.s2" to cover("cover.s2", "shade", s2), "cover.r1" to cover("cover.r1", "curtain", r1))).firstOrNull { it.kind == "cover" }
+        assertNull(chip(false, false, false))                       // rien d'ouvert : pas de pastille
+        assertTrue(chip(true, true, false)!!.text.startsWith("2 "))
+        assertEquals(R.drawable.ic_curtain, chip(false, false, true)!!.icon)
+        assertTrue(chip(true, false, true)!!.text.startsWith("2 "))
+    }
+
+    @Test fun temperatureThenHumidityThenThermostat() {
+        val room = Room("r", "Salon").apply { listOf("climate.a", "sensor.h", "sensor.t").forEach { entities.add(RoomEntity(it)) } }
+        val chips = Present.chips(room, mapOf(
+            "climate.a" to EntityState("climate.a", "heat", JSONObject().put("current_temperature", 20).put("temperature", 21)),
+            "sensor.h" to EntityState("sensor.h", "45", JSONObject().put("device_class", "humidity")),
+            "sensor.t" to EntityState("sensor.t", "20", JSONObject().put("device_class", "temperature").put("friendly_name", "Salon"))))
+        assertEquals(listOf("temp", "hum", "climate"), chips.map { it.kind })
+    }
+
+    @Test fun sectionKeysAreKnown() {
+        assertEquals(12, SECTIONS.size); assertEquals(SECTIONS.size, SECTIONS.distinct().size)
+        assertTrue(listOf("lists", "music", "weather", "agenda").all { it in SECTIONS })
+    }
+
+    @Test fun railPages() {
+        assertEquals(1, Rail.pages(0)); assertEquals(1, Rail.pages(10)); assertEquals(2, Rail.pages(11)); assertEquals(2, Rail.pages(15))
+        assertEquals((0 until 10).toList(), Rail.range(0, 15).toList())
+        assertEquals((10 until 15).toList(), Rail.range(1, 15).toList())
+        assertEquals(0, Rail.pageOf(9)); assertEquals(1, Rail.pageOf(10))
     }
 }

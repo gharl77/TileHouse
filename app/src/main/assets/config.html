@@ -229,7 +229,7 @@ details.more>p{margin:6px 0 0}
     <div class="ng">Contenu</div>
     <button data-tab="rooms"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21V9l9-6 9 6v12h-6v-7H9v7z"/></svg><span>Pièces</span></button>
     <button data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h7v7H4zM13 5h7v4h-7zM13 11h7v8h-7zM4 14h7v5H4z"/></svg><span>Accueil</span></button>
-    <button data-tab="tools"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg><span>Outils du bandeau</span></button>
+    <button data-tab="tools"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v5l3 2M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z"/></svg><span>Outils et médias</span></button>
     <div class="ng">Tablette</div>
     <button data-tab="display"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2s-.5-1.5-.5-2.5S14.5 15 16 15h2a3 3 0 0 0 3-3c0-5-4-9-9-9zM7.5 12h.01M9.5 8h.01M14.5 8h.01"/></svg><span>Apparence</span></button>
     <button data-tab="screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg><span>Écran et veille</span></button>
@@ -292,31 +292,6 @@ details.more>p{margin:6px 0 0}
     </div>
   </section>
 
-  <section class="card wide">
-    <h2>🎵 En lecture</h2>
-    <label class="check"><input type="checkbox" id="showNowPlaying"> Afficher les haut-parleurs et les télés d'une pièce en cartes plutôt qu'en boutons</label>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">Chaque lecteur coché plus bas a sa carte dans sa pièce, sous les caméras et les raccourcis, et n'apparaît plus parmi les boutons : c'est l'un ou l'autre. La carte est toujours là. Quand le lecteur joue, elle montre l'affiche, le titre et les contrôles ; quand il est éteint ou inactif, elle devient sobre, avec un bouton pour l'allumer. Un lecteur décoché reste un simple bouton.</p></details>
-    <label class="check"><input type="checkbox" id="npHeader"> Afficher aussi une icône de télé dans le bandeau du haut quand un lecteur joue (la toucher montre l'affiche)</label>
-    <h3 class="sub">Affiches</h3>
-    <label class="check"><input type="checkbox" id="posterSearch"> Chercher l'affiche sur Internet quand le lecteur n'en donne pas</label>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">La carte montre l'image que donne Home Assistant quand il y en a une, et la vignette de la vidéo pour YouTube. Sinon, la tablette cherche le titre sur TVmaze (émissions) et iTunes (films, musique, balados) : le titre de ce qui joue est alors envoyé à ces sites. Une clé TMDB (gratuite, themoviedb.org → Paramètres → API) donne de meilleures affiches de films et de séries. Une clé de l'API YouTube Data (console Google Cloud) sert seulement quand le lecteur n'indique pas quelle vidéo joue. Les deux clés sont facultatives.</p></details>
-    <div class="row">
-      <div style="flex:3"><label class="f" for="tmdbKey">Clé TMDB (facultative)</label><input id="tmdbKey" type="password" autocomplete="new-password"></div>
-      <div style="flex:3"><label class="f" for="youtubeKey">Clé YouTube (facultative)</label><input id="youtubeKey" type="password" autocomplete="new-password"></div>
-    </div>
-    <button id="savePosterKeys">Enregistrer</button> <button id="testTmdb">Tester la clé TMDB</button> <span id="posterInfo" class="muted"></span>
-    <h3 class="sub">Chaînes de télé</h3>
-    <p class="muted">Télé Fibe indique la chaîne par un code, sans son numéro. Les codes déjà vus apparaissent ici : donnez-leur le nom et le numéro de chaîne à afficher sur la carte.</p>
-    <div id="fibeList" class="muted"></div>
-    <details class="more" id="playLogBox"><summary>Relevé : ce que les lecteurs annoncent</summary>
-      <p class="muted">Les derniers titres joués, tels que chaque lecteur les annonce, et d'où est venue l'affiche. Utile pour comprendre pourquoi une affiche manque. Le relevé reste sur la tablette.</p>
-      <div id="playLog" class="muted"></div>
-      <button id="playLogRefresh">Actualiser</button> <button id="playLogClear">Effacer</button>
-    </details>
-    <h3 class="sub">Lecteurs affichés en carte</h3>
-    <div id="npList" class="muted"></div>
-    <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
-  </section>
 </main>
 <main class="panel" data-panel="home" hidden>
   <h3 class="group">En-tête</h3>
@@ -347,6 +322,22 @@ details.more>p{margin:6px 0 0}
     <div id="calList" class="muted">Connexion requise…</div>
     <p class="muted">Sur la tablette, touchez un événement pour voir son lieu, sa durée et sa description, et la carte météo pour les prévisions heure par heure.</p>
   </section>
+  <h3 class="group">Accueil en navigation latérale</h3>
+  <section class="card">
+    <h2>⭐ Favoris de l'accueil</h2>
+    <p class="muted">En navigation latérale, l'accueil montre ces appareils en tuiles, utilisables sans ouvrir leur pièce. Ils se choisissent parmi les appareils de vos pièces.</p>
+    <details class="fold"><summary><span class="ft">Appareils</span><span class="sum" id="favSum"></span></summary><div id="favList" class="muted"></div></details>
+  </section>
+  <section class="card">
+    <h2>🧰 Aperçus des outils</h2>
+    <p class="muted">Cartes montrées sur l'accueil en navigation latérale, quand elles ont quelque chose à montrer. Décochez celles que vous ne voulez pas.</p>
+    <div id="previewList"></div>
+  </section>
+  <section class="card">
+    <h2>📷 Caméras de l'accueil</h2>
+    <p class="muted">En navigation latérale, l'accueil montre les vignettes de ces caméras ; touchez-en une pour le direct.</p>
+    <div id="homeCamList" class="muted"></div>
+  </section>
   <h3 class="group">Pastilles d'information</h3>
   <section class="card">
     <h2>🗑️ Collectes</h2>
@@ -359,12 +350,6 @@ details.more>p{margin:6px 0 0}
       <div style="flex:2"><label class="f" for="wasteCal">Calendrier des ordures</label><select id="wasteCal"></select></div>
       <div style="flex:1"><label class="f" for="wasteKw">Mot clé</label><input id="wasteKw" placeholder="ordure"></div>
     </div>
-  </section>
-  <section class="card">
-    <h2>🏒 Sports</h2>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">Choisissez les capteurs de vos équipes (intégration TeamTracker de Home Assistant, un capteur par équipe). Quand l'une joue, commence dans les prochaines heures ou vient de finir, une icône apparaît en haut de la tablette : la toucher montre les deux logos et le pointage. Le pointage s'affiche aussi sur l'écran de veille, avec l'heure et la météo.</p></details>
-    <h3 class="sub">Équipes suivies</h3>
-    <div id="sportList" class="muted">Connexion requise…</div>
   </section>
   <section class="card">
     <h2>⚡ Électricité</h2>
@@ -400,24 +385,12 @@ details.more>p{margin:6px 0 0}
 </main>
 <datalist id="allEnts"></datalist>
 <main class="panel" data-panel="tools" hidden>
+  <h3 class="group">Outils</h3>
   <section class="card">
     <h2>🛒 Listes d'épicerie et de tâches</h2>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Les listes « À faire » de Home Assistant que vous cochez ici apparaissent derrière une icône en haut de la tablette, avec le nombre d'articles restants. On y coche, ajoute et retire des articles ; les changements faits ailleurs (téléphone, assistant vocal) s'y reflètent.</p></details>
     <h3 class="sub">Listes affichées</h3>
     <div id="todoList" class="muted">Connexion requise…</div>
-  </section>
-  <section class="card">
-    <h2>🎵 Musique (Music Assistant)</h2>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">Les enceintes de Music Assistant que vous choisissez ici apparaissent dans la fenêtre Musique, derrière une icône en haut de la tablette. On y lance ses favoris, listes, radios et albums, on cherche un titre, on règle le volume, et on transfère la musique d'une enceinte à une autre. La première enceinte de la liste est proposée d'office. Sans enceinte choisie, l'icône n'apparaît pas.</p></details>
-    <h3 class="sub">Enceintes proposées</h3>
-    <div id="musicList" class="muted">Connexion requise…</div>
-    <h3 class="sub">File de lecture</h3>
-    <p class="muted">Pour afficher les titres à venir, la tablette interroge directement le serveur Music Assistant, qui demande un jeton. Créez-en un dans Music Assistant (Paramètres → votre profil → jetons d'accès) et collez-le ici. Sans jeton, tout le reste fonctionne.</p>
-    <div class="row">
-      <div style="flex:3"><label class="f" for="musicUrl">Serveur Music Assistant</label><input id="musicUrl" placeholder="http://192.168.1.20:8095"></div>
-      <div style="flex:3"><label class="f" for="musicToken">Jeton</label><input id="musicToken" type="password" autocomplete="new-password"></div>
-    </div>
-    <button id="saveMusic">Enregistrer</button> <span id="musicInfo" class="muted"></span>
   </section>
   <section class="card">
     <h2>Minuteries favorites</h2>
@@ -436,6 +409,50 @@ details.more>p{margin:6px 0 0}
     <div id="mSuggest" class="muted">Recherche…</div>
     <div class="row" style="margin-top:12px"><button id="addFeed" class="ghost">+ Autre flux (coller un lien RSS)</button><button id="addSource" class="ghost">+ Autre texte (choisir une entité)</button></div>
   </section>
+  <section class="card">
+    <h2>🏒 Sports</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Choisissez les capteurs de vos équipes (intégration TeamTracker de Home Assistant, un capteur par équipe). Quand l'une joue, commence dans les prochaines heures ou vient de finir, une icône apparaît en haut de la tablette : la toucher montre les deux logos et le pointage. Le pointage s'affiche aussi sur l'écran de veille, avec l'heure et la météo.</p></details>
+    <h3 class="sub">Équipes suivies</h3>
+    <div id="sportList" class="muted">Connexion requise…</div>
+  </section>
+  <h3 class="group">Médias</h3>
+  <section class="card">
+    <h2>🎵 Musique (Music Assistant)</h2>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Les enceintes de Music Assistant que vous choisissez ici apparaissent dans la fenêtre Musique, derrière une icône en haut de la tablette. On y lance ses favoris, listes, radios et albums, on cherche un titre, on règle le volume, et on transfère la musique d'une enceinte à une autre. La première enceinte de la liste est proposée d'office. Sans enceinte choisie, l'icône n'apparaît pas.</p></details>
+    <h3 class="sub">Enceintes proposées</h3>
+    <div id="musicList" class="muted">Connexion requise…</div>
+    <h3 class="sub">File de lecture</h3>
+    <p class="muted">Pour afficher les titres à venir, la tablette interroge directement le serveur Music Assistant, qui demande un jeton. Créez-en un dans Music Assistant (Paramètres → votre profil → jetons d'accès) et collez-le ici. Sans jeton, tout le reste fonctionne.</p>
+    <div class="row">
+      <div style="flex:3"><label class="f" for="musicUrl">Serveur Music Assistant</label><input id="musicUrl" placeholder="http://192.168.1.20:8095"></div>
+      <div style="flex:3"><label class="f" for="musicToken">Jeton</label><input id="musicToken" type="password" autocomplete="new-password"></div>
+    </div>
+    <button id="saveMusic">Enregistrer</button> <span id="musicInfo" class="muted"></span>
+  </section>
+  <section class="card">
+    <h2>🎵 En lecture</h2>
+    <p class="muted">Chaque haut-parleur et chaque télé d'une pièce a sa carte, sous les caméras et les raccourcis. Quand le lecteur joue, elle montre l'image, le titre et les contrôles ; quand il est éteint ou inactif, elle devient sobre, avec un bouton pour l'allumer. Pour la télé, l'image est l'affiche de l'émission ; pour la musique, c'est la photo de l'artiste.</p>
+    <label class="check"><input type="checkbox" id="npHeader"> Afficher aussi une icône de télé dans le bandeau du haut quand un lecteur joue (la toucher montre l'affiche)</label>
+    <h3 class="sub">Affiches</h3>
+    <label class="check"><input type="checkbox" id="posterSearch"> Chercher l'affiche sur Internet quand le lecteur n'en donne pas</label>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La carte montre l'image que donne Home Assistant quand il y en a une, et la vignette de la vidéo pour YouTube. Sinon, la tablette cherche le titre sur TVmaze (émissions) et iTunes (films, musique, balados) : le titre de ce qui joue est alors envoyé à ces sites. Une clé TMDB (gratuite, themoviedb.org → Paramètres → API) donne de meilleures affiches de films et de séries. Une clé de l'API YouTube Data (console Google Cloud) sert seulement quand le lecteur n'indique pas quelle vidéo joue. Les deux clés sont facultatives.</p></details>
+    <div class="row">
+      <div style="flex:3"><label class="f" for="tmdbKey">Clé TMDB (facultative)</label><input id="tmdbKey" type="password" autocomplete="new-password"></div>
+      <div style="flex:3"><label class="f" for="youtubeKey">Clé YouTube (facultative)</label><input id="youtubeKey" type="password" autocomplete="new-password"></div>
+    </div>
+    <button id="savePosterKeys">Enregistrer</button> <button id="testTmdb">Tester la clé TMDB</button> <span id="posterInfo" class="muted"></span>
+    <h3 class="sub">Chaînes de télé</h3>
+    <p class="muted">Télé Fibe indique la chaîne par un code, sans son numéro. Les codes déjà vus apparaissent ici : donnez-leur le nom et le numéro de chaîne à afficher sur la carte.</p>
+    <div id="fibeList" class="muted"></div>
+    <details class="more" id="playLogBox"><summary>Relevé : ce que les lecteurs annoncent</summary>
+      <p class="muted">Les derniers titres joués, tels que chaque lecteur les annonce, et d'où est venue l'affiche. Utile pour comprendre pourquoi une affiche manque. Le relevé reste sur la tablette.</p>
+      <div id="playLog" class="muted"></div>
+      <button id="playLogRefresh">Actualiser</button> <button id="playLogClear">Effacer</button>
+    </details>
+    <h3 class="sub">Lecteurs comptés dans le bandeau et sur l'écran de veille</h3>
+    <div id="npList" class="muted"></div>
+    <p class="muted">Les assistants vocaux sont décochés d'office : ils « jouent » à chaque réponse.</p>
+  </section>
 </main>
 <main class="panel" data-panel="display" hidden>
   <section class="card">
@@ -449,6 +466,11 @@ details.more>p{margin:6px 0 0}
       </select>
     </div>
     <div class="set">
+      <label class="f" for="layout">Disposition</label>
+      <select id="layout"><option value="classic">Classique</option><option value="side">Navigation latérale</option></select>
+    </div>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Classique : l'accueil montre les pièces et les outils sont en haut à droite. Navigation latérale : les pièces restent à gauche de l'écran, l'accueil montre vos favoris, les aperçus des outils et vos caméras, et dans une pièce la caméra et les lecteurs sont côte à côte, les lecteurs au repos sur une seule ligne. La skin et la disposition se choisissent séparément.</p></details>
+    <div class="set">
       <label class="f" for="skin">Skin (style d'affichage)</label>
       <select id="skin"></select>
     </div>
@@ -459,6 +481,17 @@ details.more>p{margin:6px 0 0}
       <div style="flex:1"><label class="f" for="nightSkinEnd">Fin</label><input type="time" id="nightSkinEnd"></div>
     </div>
     <p class="muted">La skin de nuit remplace la skin pendant la plage horaire (par exemple Papier le jour et Néon le soir).</p>
+  </section>
+  <section class="card">
+    <h2>Sections affichées</h2>
+    <p class="muted">Décochez ce que vous ne voulez pas voir sur la tablette. Une section masquée garde ses réglages : elle revient telle quelle quand vous la recochez.</p>
+    <div id="sectionList"></div>
+  </section>
+  <section class="card">
+    <h2>Tableau de bord</h2>
+    <label class="check"><input type="checkbox" id="group"> Regrouper les appareils par catégorie (Lumières, Climat…)</label>
+    <label class="check"><input type="checkbox" id="clock"> Afficher l'heure et la date</label>
+    <label class="check"><input type="checkbox" id="battery"> Afficher la batterie de la tablette à côté de l'heure</label>
   </section>
   <section class="card">
     <h2>Arrière-plan</h2>
@@ -494,12 +527,6 @@ details.more>p{margin:6px 0 0}
       </div>
       <p class="muted" id="photoInfo">La photo est envoyée à la tablette, réduite à la taille de l'écran et gardée seulement sur la tablette. Un voile est ajouté pour que le texte reste lisible, selon la skin.</p>
     </div>
-  </section>
-  <section class="card">
-    <h2>Tableau de bord</h2>
-    <label class="check"><input type="checkbox" id="group"> Regrouper les appareils par catégorie (Lumières, Climat…)</label>
-    <label class="check"><input type="checkbox" id="clock"> Afficher l'heure et la date</label>
-    <label class="check"><input type="checkbox" id="battery"> Afficher la batterie de la tablette à côté de l'heure</label>
   </section>
 </main>
 <main class="panel" data-panel="screen" hidden>
@@ -730,7 +757,7 @@ async function initI18n() {
 const LEADS = {
   rooms: "Les pièces de la maison, leurs appareils et ce qui s'affiche en haut d'une pièce.",
   home: "Ce que la page principale de la tablette affiche.",
-  tools: "Les icônes en haut de la tablette : listes, musique, minuteries et Ce matin.",
+  tools: "Les outils en haut de la tablette (listes, minuteries, Ce matin, pointage) et les médias (musique, affiches de ce qui joue).",
   display: "Le style, le fond et les options d'affichage du tableau de bord.",
   screen: "La luminosité, la mise en veille et ce que l'écran montre pendant la veille.",
   sound: "Les sons, les notifications et les alertes des caméras.",
@@ -1286,7 +1313,6 @@ async function loadSuggestions() {
   renderSuggestions();
 }
 
-$("showNowPlaying").onchange = () => saveSettings({showNowPlaying: $("showNowPlaying").checked});
 async function loadPlayLog(clear) {
   const b = $("playLog");
   let list = [];
@@ -1515,9 +1541,7 @@ function renderHome() {
       next => { S.settings.energySensors = next; saveSettings({energySensors: next}); renderHome(); },
       {offline: !list, first: t("pastille"), placeholder: t("Ajouter un capteur"), empty: t("Aucun capteur choisi.")});
   }
-  $("showNowPlaying").checked = S.settings.showNowPlaying !== false;
   $("npHeader").checked = S.settings.nowPlayingHeader !== false;
-  $("npHeader").disabled = S.settings.showNowPlaying === false;
   $("posterSearch").checked = S.settings.posterSearch !== false;
   // Chaînes de télé : une ligne par code vu ou déjà réglé ; nom et numéro s'enregistrent en quittant le champ.
   {
@@ -1561,7 +1585,7 @@ function renderHome() {
     else {
       b.className = "";
       const save = () => { S.settings.summaryHidden = hidden; S.settings.summaryShown = shown; saveSettings({summaryHidden: hidden, summaryShown: shown}); renderHome(); };
-      const kinds = [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")], ["cover", t("Stores et rideaux")]].filter(([k]) => all.some(x => x.kind === k));
+      const kinds = [["light", t("Lumières")], ["lock", t("Serrures")], ["door", t("Portes")], ["window", t("Fenêtres")], ["cover", t("Stores et rideaux")], ["smoke", t("Détecteurs de fumée")]].filter(([k]) => all.some(x => x.kind === k));
       if (!kinds.some(([k]) => k === sumKind)) sumKind = kinds[0][0];
       // Un filtre par type, avec son compte ; puis les appareils de ce type, pièce par pièce.
       b.append(el("div", {class: "pills"}, ...kinds.map(([k, title]) => {
@@ -1582,7 +1606,33 @@ function renderHome() {
       }
     }
   }
-  // Lecteurs des pièces : tous affichent la carte, sauf ceux qu'on décoche ici.
+  // Favoris et caméras de l'accueil (navigation latérale) : choisis parmi les appareils des pièces.
+  {
+    const devs = [], cams = [], skip = ["sensor", "binary_sensor", "camera", "media_player"];
+    for (const r of rooms) for (const e of r.entities) {
+      const it = {id: e.id, name: e.name || (catById[e.id] || {}).name || e.id, note: r.name}, d = e.id.split(".")[0];
+      if (d === "camera") { if (!cams.some(x => x.id === e.id)) cams.push(it); }
+      else if (!skip.includes(d) && !devs.some(x => x.id === e.id)) devs.push(it);
+    }
+    let pOff = S.settings.previewsOff || [];
+    pills($("previewList"), [{id: "lists", name: t("Listes d'épicerie et de tâches")}, {id: "timers", name: t("Minuteries")}, {id: "scores", name: t("Pointage")}], it => !pOff.includes(it.id), (it, on) => {
+      pOff = on ? pOff.filter(x => x !== it.id) : [...new Set([...pOff, it.id])];
+      S.settings.previewsOff = pOff; saveSettings({previewsOff: pOff}); renderHome();
+    });
+    let fav = S.settings.homeFavorites || [], hc = S.settings.homeCameras || [];
+    $("favSum").textContent = devs.length ? devs.filter(x => fav.includes(x.id)).length + " " + t("sur") + " " + devs.length : "";
+    if (!devs.length) { $("favList").className = "muted"; $("favList").textContent = t("Aucun appareil dans vos pièces pour l'instant."); }
+    else pills($("favList"), devs, it => fav.includes(it.id), (it, on) => {
+      fav = on ? [...fav, it.id] : fav.filter(x => x !== it.id);
+      S.settings.homeFavorites = fav; saveSettings({homeFavorites: fav}); renderHome();
+    });
+    if (!cams.length) { $("homeCamList").className = "muted"; $("homeCamList").textContent = t("Aucune caméra dans vos pièces."); }
+    else pills($("homeCamList"), cams, it => hc.includes(it.id), (it, on) => {
+      hc = on ? [...hc, it.id] : hc.filter(x => x !== it.id);
+      S.settings.homeCameras = hc; saveSettings({homeCameras: hc}); renderHome();
+    });
+  }
+  // Lecteurs des pièces : tous ont leur carte ; ceux qu'on décoche ici ne comptent pas pour le bandeau ni l'écran de veille.
   {
     const b = $("npList"), auto = S.settings.nowPlayingAuto || [];
     let hidden = S.settings.nowPlayingHidden || [], shown = S.settings.nowPlayingShown || [];
@@ -1596,7 +1646,7 @@ function renderHome() {
       shown = on && auto.includes(it.id) ? [...new Set([...shown, it.id])] : shown.filter(x => x !== it.id);
       S.settings.nowPlayingHidden = hidden; S.settings.nowPlayingShown = shown;
       saveSettings({nowPlayingHidden: hidden, nowPlayingShown: shown}); renderHome();
-    }, {disabled: S.settings.showNowPlaying === false, count: true});
+    }, {count: true});
   }
   renderPresets();
   for (const [id, key] of [["recycleCal", "recycleCalendar"], ["wasteCal", "wasteCalendar"]]) {
@@ -1656,6 +1706,7 @@ function renderSettings() {
     draw();
   }
   loadPhotoPreview(st);
+  $("layout").value = st.layout || "classic";
   const sk = $("skin");
   if (!sk.options.length) for (const [k, n] of S.skins || []) sk.append(el("option", {value: k, textContent: n}));
   sk.value = st.skin || "homekit";
@@ -1678,6 +1729,16 @@ function renderSettings() {
   $("language").value = st.language || "auto";
   w.disabled = !!st.theme;
   $("dim").value = String(st.dim);
+  {
+    const names = [["weather", t("Météo")], ["agenda", t("Agenda")], ["shortcuts", t("Raccourcis")], ["favorites", t("Favoris de l'accueil")], ["previews", t("Aperçus des outils")], ["cameras", t("Caméras de l'accueil")], ["energy", t("Électricité")], ["scores", t("Pointage")],
+      ["timers", t("Minuteries")], ["lists", t("Listes d'épicerie et de tâches")], ["music", t("Musique")], ["morning", t("Ce matin")]];
+    let hid = st.hiddenSections || [];
+    const draw = () => pills($("sectionList"), names.map(([id, name]) => ({id, name})), it => !hid.includes(it.id), (it, on) => {
+      hid = on ? hid.filter(x => x !== it.id) : [...new Set([...hid, it.id])];
+      S.settings.hiddenSections = hid; saveSettings({hiddenSections: hid}); draw();
+    });
+    draw();
+  }
   $("group").checked = st.group;
   $("clock").checked = st.clock;
   $("battery").checked = st.battery;
@@ -1777,6 +1838,7 @@ $("photoDelete").onclick = async () => {
 };
 $("theme").onchange = () => saveSettings({theme: $("theme").value});
 $("skin").onchange = () => saveSettings({skin: $("skin").value});
+$("layout").onchange = () => saveSettings({layout: $("layout").value});
 $("nightSkin").onchange = () => { dependents(); saveSettings({nightSkin: $("nightSkin").value}); };
 const minutesOf = v => { const [a, b] = (v || "0:0").split(":").map(Number); return a * 60 + b; };
 $("nightSkinStart").onchange = () => saveSettings({nightSkinStart: minutesOf($("nightSkinStart").value)});

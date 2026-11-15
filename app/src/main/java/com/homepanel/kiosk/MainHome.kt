@@ -56,11 +56,22 @@ internal fun MainActivity.showHome() {
     c.setEvents(if (cfg.calendars.isEmpty()) emptyList() else events)
     cards.addView(w, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f).apply { marginEnd = dp(12) })
     cards.addView(c, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
+    // Sections masquées dans les réglages : l'autre carte prend toute la largeur ; sans les deux, la rangée disparaît.
+    val showW = cfg.shows("weather"); val showC = cfg.shows("agenda")
+    w.visibility = if (showW) View.VISIBLE else View.GONE
+    c.visibility = if (showC) View.VISIBLE else View.GONE
+    if (!showC) (w.layoutParams as LinearLayout.LayoutParams).marginEnd = 0
+    cards.visibility = if (showW || showC) View.VISIBLE else View.GONE
     content.addView(cards, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
 
+    // Navigation latérale : les favoris viennent tout de suite sous la météo et l'agenda.
+    if (cfg.sideNav) addHomeFavorites()
     // Raccourcis : scripts, scènes, boutons
     addShortcuts(Shortcuts.forHome(cfg), dp(14))
 
+    updateRail()
+    // Navigation latérale : les pièces sont dans le rail, l'accueil ne les répète pas.
+    if (cfg.sideNav) { addHomeExtras(); if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData(); return }
     // Pièces regroupées par palier (étage) de Home Assistant
     val placed = HashSet<Int>()
     for (floor in cfg.floors) {
@@ -75,9 +86,110 @@ internal fun MainActivity.showHome() {
     if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData()
 }
 
+/** Pièce fictive des favoris de l'accueil : sans nom, pour que chaque appareil garde son nom complet. */
+internal val HOME_SHELF = Room("__shelf", "")
+
+/**
+ * Accueil en navigation latérale, sous la météo et l'agenda : les aperçus des outils (listes, minuteries, pointage),
+ * et les caméras choisies (les favoris sont placés plus haut, par [addHomeFavorites]). Chacun se masque dans « Sections affichées ».
+ */
+internal fun MainActivity.addHomeExtras() {
+    homePreviewBox = null
+    if (cfg.shows("previews")) {
+        homePreviewBox = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }.also { content.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
+        homePreviewKey = "?"
+        loadTodoPreviews()
+        updateHomePreviews()
+    }
+    fun entity(id: String) = cfg.rooms.firstNotNullOfOrNull { it.find(id) }
+    val cams = if (cfg.shows("cameras")) cfg.homeCameras.mapNotNull { entity(it) } else emptyList()
+    if (cams.isNotEmpty()) {
+        content.addView(label(17f, Skin.fg(0xE6), true, tr("Caméras")).apply { setPadding(dp(2), dp(18), 0, dp(10)) })
+        val grid = CameraGrid(this)
+        for (re in cams) {
+            val v = CameraTileView(this)
+            v.name = Present.displayName(re, app.ha.states[re.id], "")
+            v.setOnClickListener { openLive(re, HOME_SHELF) }
+            grid.addView(v)
+            cameraTiles[re.id] = v
+        }
+        content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        handler.post(snapshotTick)
+    }
+}
+
+/** Appareils favoris de l'accueil (navigation latérale), en tuiles, sous un titre marqué d'une étoile jaune. */
+internal fun MainActivity.addHomeFavorites() {
+    fun entity(id: String) = cfg.rooms.firstNotNullOfOrNull { it.find(id) }
+    val favs = if (cfg.shows("favorites")) cfg.homeFavorites.mapNotNull { entity(it) }.filter { Present.domain(it.id) != "camera" } else emptyList()
+    if (favs.isNotEmpty()) {
+        content.addView(label(17f, Skin.fg(0xE6), true, tr("Favoris")).apply {
+            // Une étoile jaune devant le titre.
+            getDrawable(R.drawable.ic_star)?.mutate()?.let { d -> d.setBounds(0, 0, dp(20), dp(20)); d.setTint(0xFFFFC107.toInt()); setCompoundDrawables(d, null, null, null); compoundDrawablePadding = dp(8) }
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(2), dp(16), 0, dp(10))
+        })
+        val grid = TileGrid(this)
+        for (re in favs) grid.addView(deviceTile(re, HOME_SHELF))
+        content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+    }
+}
+
+/** Articles des deux premières listes, pour leur aperçu sur l'accueil. */
+internal fun MainActivity.loadTodoPreviews() {
+    if (!cfg.shows("lists") || app.ha.status != HaClient.Status.CONNECTED && !app.ha.demo) return
+    for (id in cfg.todoLists.take(2)) Todos.load(app.ha, id) { items -> if (items != null) { todoPreview[id] = items; updateHomePreviews() } }
+}
+
+/**
+ * Aperçus des outils : ce qu'il reste sur les listes, les minuteries en cours, le match en cours. Une carte par outil,
+ * seulement quand il y a quelque chose à montrer ; la toucher ouvre l'outil.
+ */
+internal fun MainActivity.updateHomePreviews() {
+    val box = homePreviewBox ?: return
+    val lists = if (cfg.shows("lists") && cfg.previews("lists")) cfg.todoLists.take(2).mapNotNull { id -> todoPreview[id]?.filter { !it.done }?.takeIf { it.isNotEmpty() }?.let { id to it } } else emptyList()
+    val timers = if (cfg.shows("timers") && cfg.previews("timers")) KitchenTimers.list.sortedBy { it.remaining() }.take(4) else emptyList()
+    val game = if (cfg.previews("scores")) activeGames().firstOrNull() else null
+    val key = lists.joinToString("|") { (id, items) -> id + ":" + items.size + ":" + items.take(5).joinToString(",") { it.summary } } + "#" +
+        timers.joinToString("|") { it.title + KitchenTimers.format(it.remaining()) + it.paused } + "#" + (game?.let { Scores.line(it) } ?: "")
+    if (key == homePreviewKey) return
+    homePreviewKey = key
+    box.removeAllViews()
+    fun card(title: String, icon: Int, open: () -> Unit, fill: (LinearLayout) -> Unit) {
+        val c = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = Skin.card(this@updateHomePreviews, dpf(22))
+            setPadding(dp(18), dp(14), dp(18), dp(14))
+            isClickable = true
+            setOnClickListener { open() }
+        }
+        c.addView(label(15f, Skin.fg(0xB3), true, title).apply {
+            getDrawable(icon)?.mutate()?.let { d -> d.setBounds(0, 0, dp(18), dp(18)); d.setTint(Skin.fg(0xB3)); setCompoundDrawables(d, null, null, null); compoundDrawablePadding = dp(8) }
+            gravity = Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, dp(6)); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        fill(c)
+        // Hauteur du contenu : une carte en MATCH_PARENT à côté d'une case vide écraserait la rangée.
+        box.addView(c, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { if (box.childCount > 0) marginStart = dp(12) })
+    }
+    fun line(c: LinearLayout, text: String, strong: Boolean = false) = c.addView(label(15f, if (strong) Skin.ink else Skin.fg(0xD9), text = text).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; setPadding(0, dp(2), 0, dp(2)) })
+    for ((id, items) in lists) card(app.ha.states[id]?.name ?: id, R.drawable.ic_list, { openTodos() }) { c ->
+        for (it in items.take(5)) line(c, "•  " + it.summary)
+        if (items.size > 5) line(c, "+ ${items.size - 5}  " + tr("de plus"))
+    }
+    if (timers.isNotEmpty()) card(tr("Minuteries"), R.drawable.ic_timer, { openTimers() }) { c ->
+        for (t in timers) line(c, KitchenTimers.format(t.remaining()) + "  ·  " + t.title + if (t.paused) "  (" + tr("En pause") + ")" else "", strong = true)
+    }
+    if (game != null) card(tr("Pointage"), R.drawable.ic_trophy, { showScores() }) { c -> c.addView(scoreView(game, false)) }
+    // Toujours trois colonnes : une carte seule ne s'étire pas sur toute la largeur.
+    val n = box.childCount
+    box.visibility = if (n == 0) View.GONE else View.VISIBLE
+    (box.layoutParams as? LinearLayout.LayoutParams)?.topMargin = if (n == 0) 0 else dp(14)
+    repeat(3 - n) { box.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(12) }) }
+}
+
 /** Rangée de raccourcis (scripts, scènes, boutons) : sur l'accueil, ou en haut de la pièce à laquelle ils sont associés. */
 internal fun MainActivity.addShortcuts(ids: List<String>, top: Int) {
-    if (ids.isNotEmpty()) {
+    if (ids.isNotEmpty() && cfg.shows("shortcuts")) {
         val row = FlowLayout(this)
         for (id in ids) row.addView(HomeExtras.shortcut(this, id, app.ha.states[id]) { v ->
             if (haOffline()) return@shortcut
@@ -109,9 +221,7 @@ internal fun MainActivity.bindRoomTile(t: TileView, room: Room) {
 }
 
 /** Ce lecteur a-t-il sa carte dans sa pièce ? Si oui, il n'a pas de tuile : c'est l'un ou l'autre (réglage « En lecture »). */
-internal fun MainActivity.hasPlayerCard(id: String): Boolean =
-    cfg.showNowPlaying && id.startsWith("media_player.") &&
-        !Choices.hidden(id, cfg.nowPlayingHidden, cfg.nowPlayingShown, Choices.playerHiddenByDefault(id, app.ha.states[id]?.name ?: id))
+internal fun MainActivity.hasPlayerCard(id: String): Boolean = id.startsWith("media_player.")
 
 /**
  * Cartes des lecteurs, en haut d'une pièce : une par lecteur choisi dans les réglages, toujours affichée. Elle montre
@@ -129,6 +239,24 @@ internal fun MainActivity.updateNowPlaying() {
     if (key == nowPlayingKey) return
     nowPlayingKey = key
     box.removeAllViews()
+    if (cfg.sideNav) {
+        // Navigation latérale : ceux qui jouent d'abord, en carte complète ; les autres sur une ligne chacun.
+        // À côté de la caméra, un lecteur par rangée ; sinon deux.
+        val per = if (playersBesideCamera) 1 else 2
+        val (active, resting) = players.partition { it.state in setOf("playing", "paused", "buffering") }
+        var first = true
+        for (group in active.chunked(per) + resting.chunked(per)) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            group.forEachIndexed { i, e ->
+                val v = if (e in active) nowPlayingCard(e) else compactPlayerRow(e)
+                row.addView(v, LinearLayout.LayoutParams(0, if (group.size == 2 && e in active) MATCH_PARENT else WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(12) })
+            }
+            if (group.size < per) row.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f).apply { marginStart = dp(12) })
+            box.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(if (first && playersBesideCamera) 0 else 10) })
+            first = false
+        }
+        return
+    }
     // Chaque carte prend la moitié de la largeur : deux par rangée.
     for (pair in players.chunked(2)) {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
@@ -178,6 +306,44 @@ internal fun MainActivity.restingPlayerCard(e: EntityState): View {
     }
     card.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginStart = dp(16) })
     return card
+}
+
+/**
+ * Lecteur au repos sur une seule ligne (navigation latérale) : icône, nom, état, et les mêmes boutons que la carte
+ * sobre (allumer, applications, éteindre).
+ */
+internal fun MainActivity.compactPlayerRow(e: EntityState): View {
+    val offline = e.state == "unavailable" || e.state == "unknown"
+    val off = offline || e.state == "off" || e.state == "standby"
+    val tv = e.attrs.str("device_class") == "tv" || Posters.what(e).video || e.attrs.optJSONArray("source_list")?.let { it.length() > 4 } == true
+    val row = LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        background = android.graphics.drawable.GradientDrawable().apply { setColor(SLATE_FILL); cornerRadius = dpf(18); setStroke(dp(1), SLATE_EDGE) }
+        setPadding(dp(10), dp(8), dp(12), dp(8))
+        minimumHeight = dp(64)
+    }
+    row.addView(ImageView(this).apply {
+        scaleType = ImageView.ScaleType.CENTER
+        setImageResource(if (tv) R.drawable.ic_tv else R.drawable.ic_speaker)
+        imageTintList = android.content.res.ColorStateList.valueOf(Skin.fg(0x66))
+        background = roundRect(SLATE_WELL, dpf(10))
+    }, LinearLayout.LayoutParams(dp(60), dp(46)))
+    val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+    col.addView(label(16f, Skin.fg(0xD9), true, e.name).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+    val appName = e.attrs.str("app_name").ifEmpty { e.attrs.str("source") }
+    val state = if (offline) tr("Hors ligne") else if (off) tr("Éteint") else tr("Inactif")
+    col.addView(label(13f, Skin.fg(0x80), text = if (!off && appName.isNotEmpty() && appName != e.name) "$state  ·  $appName" else state).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+    row.addView(col, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+    if (!offline) {
+        fun btn(icon: Int, primary: Boolean = false, action: () -> Unit) = row.addView(roundIcon(icon, 44, if (primary) Skin.primary else Skin.soft, if (primary) Skin.onPrimary else Skin.ink) {
+            if (!haOffline()) action()
+        }.apply { layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(8) } })
+        val features = e.attrs.optInt("supported_features", 0)
+        if (off && features and 128 != 0) btn(R.drawable.ic_power, primary = true) { app.ha.callService("media_player", "turn_on", e.id) }
+        if (Posters.canSelectSource(e)) btn(R.drawable.ic_grid) { showSources(app.ha.states[e.id] ?: e) }
+        if (!off && Posters.canTurnOff(e)) btn(R.drawable.ic_power) { app.ha.callService("media_player", "turn_off", e.id) }
+    }
+    return row
 }
 
 /** Ton ardoise des cartes de lecteurs au repos : fond, contour et cadre de l'icône. Discret sur les skins sombres comme clairs. */
@@ -290,7 +456,7 @@ internal fun MainActivity.nowPlayingCard(e: EntityState): View {
     return card
 }
 
-/** Lecteurs des pièces qui ont droit à la carte « En lecture » (réglage de la page web), avec l'indice de leur pièce. */
+/** Lecteurs des pièces comptés dans le bandeau et sur l'écran de veille (réglage de la page web ; les assistants vocaux sont écartés d'office), avec l'indice de leur pièce. */
 internal fun MainActivity.playersInRooms(): List<Pair<EntityState, Int>> {
     val hidden = cfg.nowPlayingHidden; val shown = cfg.nowPlayingShown
     val out = ArrayList<Pair<EntityState, Int>>()
@@ -307,7 +473,7 @@ internal fun MainActivity.playersInRooms(): List<Pair<EntityState, Int>> {
 
 /** Icône « télé » du bandeau : visible quand un lecteur des pièces joue. La toucher montre l'affiche et le titre de tous ceux qui jouent. */
 internal fun MainActivity.updateHeaderPlaying() {
-    fun playing() = if (!cfg.nowPlayingHeader || !cfg.showNowPlaying) emptyList()
+    fun playing() = if (!cfg.nowPlayingHeader) emptyList()
         else playersInRooms().map { it.first }.filter { it.state == "playing" }.sortedByDescending { playStart[it.id] ?: 0L }
     headerPlaying.set(playing().size) { playing().takeIf { it.isNotEmpty() }?.let { showPlayingPosters(it) } }
 }
@@ -377,8 +543,8 @@ internal fun MainActivity.updateHomeHeader() {
     subtitleView.visibility = if (p.isEmpty()) View.GONE else View.VISIBLE
     // Vue d'ensemble : seulement ce qui est allumé, déverrouillé ou ouvert.
     val st = app.ha.states
-    updateChips(homeRoom(), only = setOf("light", "lock", "door", "window", "cover"), activeOnly = true,
-        extra = Energy.chips(cfg.energySensors, st, energyToday) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
+    updateChips(homeRoom(), only = setOf("light", "lock", "door", "window", "cover", "smoke"), activeOnly = true,
+        extra = (if (cfg.shows("energy")) Energy.chips(cfg.energySensors, st, energyToday) else emptyList()) + HomeExtras.peakChips(peaks) + HomeExtras.weatherChips(cfg.weatherAlerts, st) + collectChips + HomeExtras.customChips(cfg.customChips, st))
 }
 
 /** Prévisions (weather.get_forecasts) et agenda (API calendrier), rafraîchis toutes les 15 min. */
@@ -423,7 +589,7 @@ internal fun MainActivity.loadHomeData() {
 /** Icône « Ce matin » : pendant la plage horaire s'il y a du contenu ; point bleu tant que ce contenu n'a pas été ouvert. */
 internal fun MainActivity.updateMorningButton() {
     if (!morningReady) return
-    val visible = cfg.isMorningNow() && HomeExtras.hasMorning(cfg.morningSources, app.ha.states)
+    val visible = cfg.shows("morning") && cfg.isMorningNow() && HomeExtras.hasMorning(cfg.morningSources, app.ha.states)
     // Flux de nouvelles relus au besoin (gardés 20 min) : le point revient quand il y a du nouveau.
     if (visible) for (i in 0 until cfg.morningSources.length()) cfg.morningSources.optJSONObject(i)?.takeIf { HomeExtras.isFeed(it) }?.let { s ->
         val url = s.optString("url")

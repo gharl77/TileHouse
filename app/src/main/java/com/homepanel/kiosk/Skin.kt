@@ -335,7 +335,7 @@ object Skin {
         private set
 
     private fun def(key: String) = all.firstOrNull { it.key == key } ?: HomeKitSkin
-    fun signatureOf(cfg: ConfigStore) = def(cfg.activeSkin).let { it.key + if (it.usesTint) "|" + cfg.activeTheme + "|" + cfg.wallpaper + "|" + cfg.wallpaperRev else "" }
+    fun signatureOf(cfg: ConfigStore) = def(cfg.activeSkin).let { cfg.layout + "|" + it.key + if (it.usesTint) "|" + cfg.activeTheme + "|" + cfg.wallpaper + "|" + cfg.wallpaperRev else "" }
 
     fun load(cfg: ConfigStore) {
         cur = def(cfg.activeSkin)

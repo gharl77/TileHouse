@@ -8,7 +8,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * Affiche de ce qu'un lecteur joue. Dans l'ordre : l'image que donne Home Assistant, la vignette YouTube, puis une
+ * Affiche de ce qu'un lecteur joue. Pour la musique, la photo de l'artiste (Deezer). Sinon, dans l'ordre : l'image que donne Home Assistant, la vignette YouTube, puis une
  * recherche par titre sur Internet (TMDB si une clé est fournie, TVmaze, iTunes). La recherche se coupe dans les réglages.
  * Chaque titre n'est cherché qu'une fois ; une affiche introuvable est retenue aussi, pour ne pas redemander.
  */
@@ -97,6 +97,21 @@ object Posters {
         Regex("\"videoId\":\"([A-Za-z0-9_-]{11})\"|videoId\\\\x22:\\\\x22([A-Za-z0-9_-]{11})").find(html ?: "")
             ?.let { youtubeThumb(it.groupValues[1].ifEmpty { it.groupValues[2] }) }.orEmpty()
 
+    /** Premier artiste d'un crédit (« A, B », « A feat. B », « A & B ») : on essaie le nom entier, puis celui-là. */
+    fun artistNames(artist: String): List<String> =
+        listOf(artist.trim(), artist.split(Regex("\\s*[,;/]\\s*|\\s+(?:feat\\.?|ft\\.?|featuring|avec|with|x|&|et|and)\\s+", RegexOption.IGNORE_CASE))[0].trim()).filter { it.length >= 2 }.distinct()
+
+    /**
+     * Photo de l'artiste dans une réponse de recherche de Deezer : le premier résultat qui porte bien le nom [name]
+     * (la recherche est approximative) et qui a une vraie photo (Deezer renvoie une silhouette grise sinon).
+     */
+    fun fromDeezerArtist(text: String?, name: String): String = try {
+        val want = Sports.norm(name)
+        val r = JSONObject(text ?: "").optJSONArray("data") ?: JSONArray()
+        (0 until r.length()).mapNotNull { r.optJSONObject(it) }.firstOrNull { Sports.norm(it.optString("name")) == want }
+            ?.let { it.optString("picture_xl").ifEmpty { it.optString("picture_big") } }?.takeIf { "/artist//" !in it }.orEmpty()
+    } catch (_: Exception) { "" }
+
     /** Essai de la clé TMDB sur un film connu : [cb] reçoit le code HTTP (200 = clé acceptée) et si une affiche est revenue. */
     fun testTmdb(cb: (Int, Boolean) -> Unit) {
         val k = App.instance.config.tmdbKey
@@ -110,6 +125,30 @@ object Posters {
      */
     fun find(e: EntityState, cb: (String) -> Unit) {
         val w = what(e)
+        val cfg = App.instance.config
+        // Musique : la photo de l'artiste plutôt que la pochette ; sans photo trouvée, on retombe sur l'image habituelle.
+        if (!w.video && !w.youtube && w.artist.length >= 2 && cfg.posterSearch && !cfg.demo) {
+            val key = "a|" + w.artist.lowercase()
+            found[key]?.let { if (it.isNotEmpty()) { cb(it); return } else { cover(e, w, cb); return } }
+            pending[key]?.let { it.add { url -> if (url.isNotEmpty()) cb(url) else cover(e, w, cb) }; return }
+            pending[key] = arrayListOf({ url -> if (url.isNotEmpty()) cb(url) else cover(e, w, cb) })
+            val names = artistNames(w.artist)
+            fun next(i: Int) {
+                if (i >= names.size) { found[key] = ""; pending.remove(key)?.forEach { it("") }; return }
+                Covers.text("https://api.deezer.com/search/artist?limit=5&q=" + Uri.encode(names[i])) { text ->
+                    val url = fromDeezerArtist(text, names[i])
+                    if (url.isEmpty()) next(i + 1)
+                    else { if (found.size > 300) found.clear(); found[key] = url; PlayLog.record(e, w, tr("photo de l'artiste")); pending.remove(key)?.forEach { it(url) } }
+                }
+            }
+            next(0)
+            return
+        }
+        cover(e, w, cb)
+    }
+
+    /** L'image habituelle : celle de Home Assistant, la vignette YouTube, puis la recherche par titre. */
+    private fun cover(e: EntityState, w: What, cb: (String) -> Unit) {
         val pic = e.attrs.str("entity_picture")
         if (pic.isNotEmpty()) { PlayLog.record(e, w, "Home Assistant"); cb(pic); return }
         if (w.youtube) youtubeId(w.contentId)?.let { PlayLog.record(e, w, "YouTube"); cb(youtubeThumb(it)); return }

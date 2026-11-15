@@ -54,6 +54,26 @@ object Present {
         return false
     }
 
+    /** Règle la luminosité (0 éteint la lumière). */
+    fun setBrightness(ha: HaClient, id: String, pct: Int) {
+        if (pct <= 0) ha.callService("light", "turn_off", id)
+        else ha.callService("light", "turn_on", id, JSONObject().put("brightness_pct", pct.coerceAtMost(100)))
+    }
+
+    /** Un rideau s'ouvre sur les côtés ; un store, un volet ou une porte de garage monte et descend. */
+    fun isCurtain(id: String, e: EntityState?): Boolean {
+        val dc = e?.attrs?.str("device_class").orEmpty()
+        if (dc.isNotEmpty()) return dc == "curtain"
+        val t = (id + " " + (e?.name ?: "")).lowercase()
+        return listOf("rideau", "curtain", "drape").any { it in t }
+    }
+
+    /** Fonctions d'un store d'après supported_features (1 ouvrir, 2 fermer, 4 position, 8 arrêt) ; tout est permis si HA ne le dit pas. */
+    fun coverCan(e: EntityState?, bit: Int): Boolean = e?.attrs?.int("supported_features")?.let { it and bit != 0 } ?: true
+
+    /** Position d'un store, 0 fermé à 100 ouvert ; sans position annoncée, d'après l'état. */
+    fun coverPosition(e: EntityState?): Int = e?.attrs?.int("current_position") ?: if (e?.state == "open" || e?.state == "closing") 100 else 0
+
     fun status(e: EntityState?): String {
         if (e == null) return "…"
         val s = e.state
@@ -119,6 +139,7 @@ object Present {
         "occupancy", "presence" -> if (on) tr("Présence") else tr("Personne")
         "moisture" -> if (on) tr("Fuite détectée") else tr("Sec")
         "smoke" -> if (on) tr("Fumée détectée") else "OK"
+        "carbon_monoxide" -> if (on) tr("Monoxyde de carbone détecté") else "OK"
         "battery" -> if (on) tr("Batterie faible") else tr("Batterie OK")
         "connectivity" -> if (on) tr("Connecté") else tr("Déconnecté")
         "lock" -> if (on) tr("Déverrouillé") else tr("Verrouillé")
@@ -149,6 +170,24 @@ object Present {
         return listOfNotNull(cur, main).joinToString(" · ")
     }
 
+    /** Pastille d'un thermostat : « 19,5 °C → 21 °C », « 18,5 °C · Arrêt » quand il est arrêté. */
+    fun climateChip(e: EntityState): String {
+        val u = climateUnit(e)
+        val cur = e.attrs.dbl("current_temperature")?.let { degrees(it, u) }
+        if (e.state == "off") return listOfNotNull(cur, tr("Arrêt")).joinToString(" · ")
+        val target = e.attrs.dbl("temperature")?.let { degrees(it, u) }
+        return listOfNotNull(cur, target).joinToString(" → ").ifEmpty { hvacName(e.state) }
+    }
+
+    /** Température avec son unité (« 19,5 °C ») ; un simple « ° » quand l'unité n'est pas connue. */
+    fun degrees(v: Double, unit: String) = if (unit.isEmpty()) num(v) + "°" else num(v) + "\u00A0" + unit
+
+    /** Unité d'un thermostat : celle qu'il annonce, sinon d'après ses limites (plus de 50 = Fahrenheit). */
+    fun climateUnit(e: EntityState?): String {
+        val u = e?.attrs?.str("temperature_unit").orEmpty()
+        return if (u.isNotEmpty()) u else if ((e?.attrs?.dbl("max_temp") ?: 0.0) > 50) "°F" else "°C"
+    }
+
     /** Aspirateur robot : état + batterie (ex. « Sur sa base · 100 % »). */
     fun vacuumStatus(e: EntityState): String {
         val a = e.attrs
@@ -172,7 +211,7 @@ object Present {
             "switch" -> if (dc == "outlet") R.drawable.ic_outlet else R.drawable.ic_power
             "input_boolean" -> R.drawable.ic_toggle
             "fan" -> R.drawable.ic_fan
-            "cover" -> R.drawable.ic_blinds
+            "cover" -> if (isCurtain(id, e)) R.drawable.ic_curtain else R.drawable.ic_blinds
             "lock" -> if (e?.state == "locked") R.drawable.ic_lock else R.drawable.ic_lock_open
             "climate" -> R.drawable.ic_thermostat
             "sensor" -> when (dc) {
@@ -187,6 +226,7 @@ object Present {
                 "motion" -> R.drawable.ic_walk
                 "occupancy", "presence" -> R.drawable.ic_person
                 "moisture" -> R.drawable.ic_drop
+                "smoke", "carbon_monoxide" -> R.drawable.ic_smoke
                 else -> R.drawable.ic_sensor
             }
             "scene" -> R.drawable.ic_star
@@ -283,14 +323,15 @@ object Present {
 
     /** Pastille de l'en-tête : icône, texte, niveau (0 normal, 1 attention, 2 alerte). */
     /** [color] : couleur choisie pour une pastille personnalisée (sinon la couleur vient du niveau d'alerte et de la skin). */
-    data class Chip(val icon: Int, val text: String, val level: Int = 0, val kind: String = "", val iconTint: Int? = null, val color: Int? = null)
+    /** [entity] : pastille d'un seul appareil (thermostat) ; la toucher ouvre sa carte. */
+    data class Chip(val icon: Int, val text: String, val level: Int = 0, val kind: String = "", val iconTint: Int? = null, val color: Int? = null, val entity: String? = null)
 
     /** Type de pastille auquel contribue une entité (null si aucune). */
     fun chipKind(id: String, e: EntityState?): String? {
-        val dc = e?.attrs?.str("device_class") ?: return when (domain(id)) { "light" -> "light"; "lock" -> "lock"; "cover" -> "cover"; else -> null }
+        val dc = e?.attrs?.str("device_class") ?: return when (domain(id)) { "light" -> "light"; "lock" -> "lock"; "cover" -> "cover"; "climate" -> "climate"; else -> null }
         return when (domain(id)) {
             "sensor" -> when (dc) { "temperature" -> "temp"; "humidity" -> "hum"; else -> null }
-            "climate" -> null
+            "climate" -> "climate"
             "light" -> "light"
             "lock" -> "lock"
             // Stores, rideaux, volets ; une porte de garage ou un portail n'est pas un store.
@@ -301,6 +342,7 @@ object Present {
                 "motion" -> "motion"
                 "occupancy", "presence" -> "presence"
                 "moisture" -> "leak"
+                "smoke", "carbon_monoxide" -> "smoke"
                 else -> null
             }
             else -> null
@@ -310,24 +352,26 @@ object Present {
     /** Capteur résumé dans l'en-tête : il n'est pas affiché en tuile. */
     fun isHeaderSensor(id: String, e: EntityState?): Boolean {
         val d = domain(id)
-        return (d == "sensor" || d == "binary_sensor") && chipKind(id, e) != null
+        // Un thermostat est une pastille de sa pièce (qui ouvre sa carte), pas une tuile.
+        return d == "climate" || (d == "sensor" || d == "binary_sensor") && chipKind(id, e) != null
     }
 
     private fun plural(n: Int, one: String, many: String) = if (n == 1) one else "$n $many"
 
     /** Résumé de la pièce façon HomeKit : une pastille par type de capteur présent. */
     fun chips(room: Room, states: Map<String, EntityState>): List<Chip> {
-        var tSum = 0.0; var tN = 0
+        var tSum = 0.0; var tN = 0; var tUnit = ""
         var hSum = 0.0; var hN = 0
-        var cSum = 0.0; var cN = 0
+        val thermostats = ArrayList<Chip>()
         var lights = 0
         var locks = 0; var unlocked = 0; var jammed = 0
-        var doors = 0; var doorsOpen = 0
-        var windows = 0; var windowsOpen = 0
-        var coversOpen = 0
+        var doorsOpen = 0
+        var windowsOpen = 0
+        var coversOpen = 0; var curtainsOpen = 0
         var motion = 0; var motionOn = 0
         var presence = 0; var presenceOn = 0
         var leaks = 0; var leaksOn = 0
+        var smoke = 0; var smokeOn = 0; var coOn = 0
         for (re in room.entities) {
             val e = states[re.id] ?: continue
             if (e.state == "unavailable" || e.state == "unknown") continue
@@ -345,47 +389,51 @@ object Present {
                             if (listOf("congél", "congel", "frigo", "réfrig", "refrig", "freezer", "fridge", "four", "oven", "piscine", "spa").any { it in n }) continue
                             val c = if (e.attrs.str("unit_of_measurement") == "°F") (v - 32) / 1.8 else v
                             // Premier capteur de la pièce (ordre choisi par l'utilisateur).
-                            if (c > -40 && c < 45 && tN == 0) { tSum = v; tN = 1 }
+                            if (c > -40 && c < 45 && tN == 0) { tSum = v; tN = 1; tUnit = e.attrs.str("unit_of_measurement") }
                         }
                         "humidity" -> if (hN == 0) { hSum = v; hN = 1 }
                     }
                 }
-                "climate" -> if (cN == 0) e.attrs.dbl("current_temperature")?.let { cSum = it; cN = 1 }
+                "climate" -> thermostats.add(Chip(R.drawable.ic_thermostat, climateChip(e), kind = "climate", entity = e.id,
+                    iconTint = when (e.attrs.str("hvac_action")) { "heating" -> 0xFFFF7A00.toInt(); "cooling" -> 0xFF4DB8FF.toInt(); else -> null }))
                 "light" -> if (on) lights++
-                "cover" -> if (dc !in setOf("garage", "door", "gate") && active(e)) coversOpen++
+                "cover" -> if (dc !in setOf("garage", "door", "gate") && active(e)) { coversOpen++; if (isCurtain(e.id, e)) curtainsOpen++ }
                 "lock" -> {
                     locks++
                     if (e.state == "jammed") jammed++ else if (e.state != "locked" && e.state != "locking") unlocked++
                 }
                 "binary_sensor" -> when (dc) {
-                    "door", "garage_door", "opening" -> { doors++; if (on) doorsOpen++ }
-                    "window" -> { windows++; if (on) windowsOpen++ }
+                    "door", "garage_door", "opening" -> { if (on) doorsOpen++ }
+                    "window" -> { if (on) windowsOpen++ }
                     "motion" -> { motion++; if (on) motionOn++ }
                     "occupancy", "presence" -> { presence++; if (on) presenceOn++ }
                     "moisture" -> { leaks++; if (on) leaksOn++ }
+                    "smoke" -> { smoke++; if (on) smokeOn++ }
+                    "carbon_monoxide" -> { smoke++; if (on) coOn++ }
                 }
             }
         }
         val out = ArrayList<Chip>()
-        if (tN > 0) out.add(Chip(R.drawable.ic_thermostat, num(tSum / tN) + "°", kind = "temp"))
-        else if (cN > 0) out.add(Chip(R.drawable.ic_thermostat, num(cSum / cN) + "°", kind = "temp"))
+        if (tN > 0) out.add(Chip(R.drawable.ic_thermostat, degrees(tSum / tN, tUnit), kind = "temp"))
         if (hN > 0) out.add(Chip(R.drawable.ic_drop, num(hSum / hN) + " %", kind = "hum"))
-        if (lights > 0) out.add(Chip(R.drawable.ic_light, plural(lights, "1 " + tr("allumée"), tr("allumées")), kind = "light"))
+        // Une pastille par thermostat (température actuelle et consigne), après la température et l'humidité qui se suivent.
+        out.addAll(thermostats)
+        // Lumières, portes et fenêtres : rien à zéro ; sinon en jaune, pour ce qui est allumé ou ouvert.
+        if (lights > 0) out.add(Chip(R.drawable.ic_light, plural(lights, "1 " + tr("allumée"), tr("allumées")), 1, "light"))
         if (locks > 0) out.add(when {
             jammed > 0 -> Chip(R.drawable.ic_lock_open, tr("Serrure bloquée"), 2, "lock")
             unlocked > 0 -> Chip(R.drawable.ic_lock_open, if (locks == 1) tr("Déverrouillé") else plural(unlocked, "1 " + tr("déverrouillée"), tr("déverrouillées")), 1, "lock")
             else -> Chip(R.drawable.ic_lock, tr("Verrouillé"), kind = "lock")
         })
-        if (doors > 0) out.add(
-            if (doorsOpen > 0) Chip(R.drawable.ic_door, plural(doorsOpen, tr("Porte ouverte"), tr("portes ouvertes")), 1, "door")
-            else Chip(R.drawable.ic_door, if (doors == 1) tr("Porte fermée") else tr("Portes fermées"), kind = "door")
-        )
-        if (windows > 0) out.add(
-            if (windowsOpen > 0) Chip(R.drawable.ic_window, plural(windowsOpen, tr("Fenêtre ouverte"), tr("fenêtres ouvertes")), 1, "window")
-            else Chip(R.drawable.ic_window, if (windows == 1) tr("Fenêtre fermée") else tr("Fenêtres fermées"), kind = "window")
-        )
+        if (doorsOpen > 0) out.add(Chip(R.drawable.ic_door, plural(doorsOpen, tr("Porte ouverte"), tr("portes ouvertes")), 1, "door"))
+        if (windowsOpen > 0) out.add(Chip(R.drawable.ic_window, plural(windowsOpen, tr("Fenêtre ouverte"), tr("fenêtres ouvertes")), 1, "window"))
         // Comme les lumières : la pastille n'existe que s'il y a quelque chose d'ouvert.
-        if (coversOpen > 0) out.add(Chip(R.drawable.ic_blinds, plural(coversOpen, tr("1 store ouvert"), tr("stores ouverts")), kind = "cover"))
+        // Le texte dit ce qui est ouvert : des stores, des rideaux, ou les deux.
+        if (coversOpen > 0) out.add(when (curtainsOpen) {
+            0 -> Chip(R.drawable.ic_blinds, plural(coversOpen, tr("1 store ouvert"), tr("stores ouverts")), kind = "cover")
+            coversOpen -> Chip(R.drawable.ic_curtain, plural(coversOpen, tr("1 rideau ouvert"), tr("rideaux ouverts")), kind = "cover")
+            else -> Chip(R.drawable.ic_blinds, "$coversOpen " + tr("stores et rideaux ouverts"), kind = "cover")
+        })
         if (motion > 0) out.add(
             if (motionOn > 0) Chip(R.drawable.ic_walk, tr("Mouvement"), 1, "motion") else Chip(R.drawable.ic_walk, tr("Aucun mouvement"), kind = "motion")
         )
@@ -395,6 +443,12 @@ object Present {
         if (leaks > 0) out.add(
             if (leaksOn > 0) Chip(R.drawable.ic_drop, tr("Fuite d'eau !"), 2, "leak") else Chip(R.drawable.ic_drop, tr("Pas de fuite"), kind = "leak")
         )
+        // Détecteurs de fumée (et de monoxyde de carbone) : toujours là, en alerte dès qu'un seul sonne.
+        if (smoke > 0) out.add(when {
+            smokeOn > 0 -> Chip(R.drawable.ic_smoke, tr("Fumée détectée !"), 2, "smoke")
+            coOn > 0 -> Chip(R.drawable.ic_smoke, tr("Monoxyde de carbone !"), 2, "smoke")
+            else -> Chip(R.drawable.ic_smoke, tr("Aucune fumée"), kind = "smoke")
+        })
         return out
     }
 }

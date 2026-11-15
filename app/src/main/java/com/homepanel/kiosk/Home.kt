@@ -131,8 +131,9 @@ object HomeText {
             listOf("chambre", "bedroom", "nursery", "kid", "enfant", "bébé", "baby").any { it in n } -> R.drawable.ic_bed
             listOf("cuisine", "manger", "kitchen", "dining").any { it in n } -> R.drawable.ic_kitchen
             listOf("bureau", "office", "study").any { it in n } -> R.drawable.ic_desk
-            listOf("salon", "living", "lounge", "family", "tv").any { it in n } -> R.drawable.ic_tv
-            listOf("bain", "toilette", "bath", "toilet", "laundry", "lavage").any { it in n } -> R.drawable.ic_drop
+            listOf("salon", "living", "lounge", "family", "tv").any { it in n } -> R.drawable.ic_sofa
+            listOf("bain", "bath", "douche", "shower").any { it in n } -> R.drawable.ic_bath
+            listOf("toilette", "toilet", "laundry", "lavage").any { it in n } -> R.drawable.ic_drop
             listOf("entrée", "entree", "entry", "entrance", "hall", "foyer", "porch").any { it in n } -> R.drawable.ic_door
             listOf("extérieur", "exterieur", "jardin", "cour", "outdoor", "outside", "garden", "yard", "patio", "garage").any { it in n } -> R.drawable.ic_tree
             else -> R.drawable.ic_home

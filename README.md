@@ -75,7 +75,15 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - **Scores** of your teams (TeamTracker), with the two logos, in the top bar and on the screen saver.
 - **Kitchen timers**, **collection reminders** (recycling, garbage) and a **photo frame** screen saver (Immich).
 - **Quiet hours**: silent notifications and a black screen at night.
-- **Header chips** summarising temperature, humidity, motion, doors, windows, blinds and curtains, leaks and locks, tap for the details and quick actions.
+- **Two layouts** (*Appearance → Layout*): **Classic** — the home screen lists the rooms and the tools sit at the top right — or **Side navigation** — the rooms stay in a rail on the left, and in a room the camera and the players sit side by side, with idle players on a single line. Independent of the skin. With side navigation the home screen also shows previews of the tools (lists, running timers, the game in progress), your favourite devices as tiles and the cameras you choose (*Home → Home favourites*, *Tool previews* and *Home cameras* on the web page).
+
+  | Side navigation: home | Side navigation: a room |
+  |---|---|
+  | <img src="docs/screenshots/side-home.png" alt="Home screen with the room rail on the left"> | <img src="docs/screenshots/side-room.png" alt="A room with the camera and the player side by side"> |
+
+  <img src="docs/screenshots/side-home-extras.png" width="860" alt="Home screen with list previews, favourite devices and cameras">
+- **Sections shown**: hide what you do not use — weather, agenda, shortcuts, electricity chip, scores, timers, lists, Music, This morning — in the settings or on the web page (*Appearance → Sections shown*); a hidden section keeps its settings.
+- **Header chips** summarising temperature, humidity, motion, doors, windows, blinds and curtains, leaks, smoke detectors and locks, tap for the details and quick actions.
 - **Web configuration page** served by the tablet itself: set everything up comfortably from a computer or phone.
 - **MQTT discovery**: the tablet shows up in Home Assistant as a device (battery, charging, screen, brightness, theme, notifications, updates…).
 - **18 themes** for seasons and holidays, plus 5 wallpapers.
@@ -169,14 +177,14 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   sound, is kept on the tablet across restarts, and can be cancelled from the same window. A small bell marks the events
   that have a reminder.
 - **Music** (♪ next to the lists, needs the Music Assistant integration): pick the Music Assistant speakers you want on the web
-  page (*Header tools → Music*); the icon appears and turns to the accent colour while one of them plays music from Music Assistant (not when the speaker
+  page (*Tools & media → Music*); the icon appears and turns to the accent colour while one of them plays music from Music Assistant (not when the speaker
   is playing something else, such as AirPlay from a phone or the TV's sound; the window then marks it "Other source"). The window has the
   speakers on the left (**where to play**: tick one, or several to play together, each with its volume), the library on the
   right (favourites, playlists, radio, albums, and a search field) and what is playing at the bottom with shuffle, repeat
   (off, whole queue, one title), previous, pause and next, plus the title that comes next and the position in the queue
   ("Up next: … · 3 of 442"). A **progress bar** shows the position in the title; drag it to move. The **queue button** lists
   the titles to come (tap one to jump to it): Home Assistant does not expose the queue, so this asks the Music Assistant
-  server directly and needs a token from Music Assistant, pasted on the web page (*Header tools → Music → Queue*; the server
+  server directly and needs a token from Music Assistant, pasted on the web page (*Tools & media → Music → Queue*; the server
   address is guessed from Home Assistant's, port 8095, and can be changed there). Without a token everything else works.
   **Transfer** moves the music that is playing to another speaker, where it carries on from the same spot.
   When Music Assistant refuses a title, or a speaker accepts the music but does not start within ten seconds, the window says
@@ -186,11 +194,11 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   <img src="docs/screenshots/music.png" width="860" alt="Music window">
 
 - **Scores** (🏆 in the top bar, needs Home Assistant's TeamTracker integration): pick the sensors of your teams on the web page
-  (*Home → Sports*). The icon appears when one of them is playing (it turns to the accent colour), starts within twelve
+  (*Tools & media → Sports*). The icon appears when one of them is playing (it turns to the accent colour), starts within twelve
   hours or finished less than eight hours ago. Tap it for the two team logos with the score between them, the period and
   clock (or the start time, or "Final") and the last play. The **screen saver** shows the same score under the weather.
 - **Shopping and to-do lists** (☑ next to the timer): the Home Assistant to-do lists you choose on the web page
-  (*Header tools → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
+  (*Tools & media → Shopping and to-do lists*) open from a header icon that shows how many items are left. Tick an item, add one with
   the keyboard, remove the ticked ones; several lists become tabs. Changes made elsewhere (phone, voice assistant) show up, and
   the other way round. A grocery list is sorted **by aisle** (fruit & vegetables, dairy, meat, bakery, frozen, drinks, pantry,
   household), recognised from common French and English words; a list that isn't groceries stays as it is. **Long-press an
@@ -239,7 +247,7 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   stays on the home screen when it has no room (or when you pick *Home*). A scene that already has its tile in the room isn't
   shown twice.
 - **This morning** (☀️ next to the bell): during a time range (default 05:00–10:00), a sun icon appears at the top, with a blue
-  dot until you have read the content. Tap it to open a full-screen panel with the sources you choose (*Header tools → This morning* on
+  dot until you have read the content. Tap it to open a full-screen panel with the sources you choose (*Tools & media → This morning* on
   the web page):
   - **News feeds**: a title and the link of any RSS or Atom feed (XML). The tablet reads the feed itself (no Home Assistant
     integration needed) and shows the stories in two columns, with picture, title, start of the summary and time
@@ -277,29 +285,28 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 
 - Tap a room on the home screen to open it; the **←** arrow brings you back. **Swipe left/right** to move between rooms.
 - **Order of a room**: the cameras always come first, then the shortcuts of the room, then the player cards, then the tiles.
-- **Player cards**: each speaker or TV you tick on the web page (*Rooms → Now playing*) has a card in its room instead of a
-  tile — one or the other, never both. The card is always there: sober, in a quiet slate tone, when the player is off or
+- **Player cards**: every speaker or TV of a room has a card instead of a tile. The card is always there: sober, in a quiet slate tone, when the player is off or
   idle (with a button to turn it on, and its applications), and while it is playing it shows the **poster**, the title, the show or
   artist (with season and episode when the player gives them), the app, a progress bar you can drag when the player gives a
   duration, pause, previous, next, volume, an **applications** button for a player that lists them (an Apple TV: tap one to launch
   it) and, for a player that can be turned off, a power button. The card takes half the width of the room, so two players sit side
   by side. A **TV icon in the top bar** appears while a player is playing; tap it to see the poster in large with the title.
   When several players are playing, the icon shows how many and the window shows all their posters side by side, each with
-  its title and its player (up to four, the most recent first; turn the icon off on the web page, *Rooms → Now playing*). The image frame always has the same size, in the card and in the window; the image fills it, cropped at the edges when its shape differs (a portrait poster, a square cover); only a logo is shown whole. From TMDB the wide image of the show is preferred to the portrait poster. **Where the poster comes from**:
-  the image Home Assistant gives when there is one; for YouTube, the thumbnail of the video (when the player only gives the
+  its title and its player (up to four, the most recent first; turn the icon off on the web page, *Tools & media → Now playing*). The image frame always has the same size, in the card and in the window; the image fills it, cropped at the edges when its shape differs (a portrait poster, a square cover); only a logo is shown whole. From TMDB the wide image of the show is preferred to the portrait poster. **Where the picture comes from**:
+  for **music**, the **artist's photo**, looked up by name on Deezer's public search (the cover Home Assistant gives is used when no photo is found); for everything else, the image Home Assistant gives when there is one; for YouTube, the thumbnail of the video (when the player only gives the
   title and the channel, as an Apple TV does, the tablet looks them up on YouTube's search page and takes the first video;
   this is not an official interface and may stop working, and an optional YouTube Data API key makes it use the official
   search instead); for a **game**, when the title names two teams of the same league (NHL, NFL, NBA, MLB, MLS; English
   nicknames and the usual French ones), their **two logos** side by side, from ESPN's public team lists; otherwise a search
   by title on TVmaze (shows) and iTunes (films, music, podcasts). An optional TMDB key gives better film and series posters
   (test it with the button next to the field). **Live TV** (Bell Fibe TV on an Apple TV gives the programme title and the
-  channel code): the card shows the channel — and its number once you have typed it on the web page (*Rooms → Now playing → TV channels*:
+  channel code): the card shows the channel — and its number once you have typed it on the web page (*Tools & media → Now playing → TV channels*:
   Fibe gives a code, not the number; the codes already seen are listed there) —, the search also tries the part of the title before a dash ("Series - Episode"),
   and when nothing is found the **channel's logo** is shown, from a public collection of Canadian channel logos.
-  A **log** on the web page (*Rooms → Now playing → Log*) lists the last titles as each player reported them and where the
+  A **log** on the web page (*Tools & media → Now playing → Log*) lists the last titles as each player reported them and where the
   poster came from, to understand why one is missing; it stays on the tablet.
   A search by title can pick the wrong poster, or none; the card then keeps an icon. The search sends the title of what is
-  playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. The home screen doesn't show the cards. **You choose which players have a card** on the web page (*Rooms → Now playing*): every speaker and TV of your rooms is listed and ticked at first, except voice assistants, which "play" at every answer; untick one and it goes back to being a plain tile.
+  playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. The home screen doesn't show the cards. **You choose which players have a card** on the web page (*Tools & media → Now playing*): every speaker and TV of your rooms is listed and ticked at first, except voice assistants, which "play" at every answer; untick one and it goes back to being a plain tile.
 - Devices are shown as tiles, **grouped by category** (Cameras, Scenes, Lights, Climate, Blinds & shades, Media, Plugs & switches,
   Security, Sensors…), or in your own order if you turn grouping off.
 - A speaker or TV that is on but playing nothing (an Apple TV on its home screen) shows **Inactive**, which is why it has no
@@ -317,13 +324,25 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
 
 Long‑press a tile to open its control panel:
 
-| Light: brightness slider | Thermostat: target and mode |
+| Light: brightness slider | Thermostat: target in its arc, current temperature |
 |---|---|
 | <img src="docs/screenshots/light-dialog.png" alt="Light control"> | <img src="docs/screenshots/thermostat-dialog.png" alt="Thermostat control"> |
 
-- **Lights**: large vertical brightness slider and power button.
-- **Fans**: speed slider. **Covers**: position slider plus open / stop / close.
-- **Thermostats**: − / + buttons (step taken from the entity), current temperature and action, and HVAC mode pills.
+| Blind: comes down from the top | Curtain: closes from both sides |
+|---|---|
+| <img src="docs/screenshots/blind-dialog.png" alt="Blind control"> | <img src="docs/screenshots/curtain-dialog.png" alt="Curtain control"> |
+
+- **Lights**: large vertical brightness slider and power button. A dimmable light can also be set straight from its tile:
+  **slide left or right on the tile** and the level fills it; release to apply (all the way left turns it off).
+- **Fans**: speed slider.
+- **Blinds, shades, shutters and curtains**: a drawn window shows the real position: a blind comes down from the top, a
+  curtain closes from both sides (device class `curtain`, or a name with "rideau" / "curtain"). Drag in the drawing to
+  set the position; open / stop / close buttons below (up and down arrows for a blind, sideways arrows for a curtain).
+  Stop and the drag only appear when the cover supports them.
+- **Thermostats** are a chip at the top of their room (current temperature → target), not a tile, and are not shown on the home screen; a tap on the chip opens the card: the target in large inside an arc you can drag, a flame (or a snowflake) that
+  lights up while it really heats or cools, and an on/off button; on the right, the current temperature between the
+  two arrows that raise and lower the target (step taken from the entity). Mode pills are shown only when there is
+  more than one mode besides off.
 - **Media players**: volume slider, previous / play‑pause / next and power.
 - **Robot vacuums**: the tile shows the state and battery; tap it for Start / Resume, Pause, Stop and Return to base.
 
@@ -481,7 +500,7 @@ With a button:
 <img src="docs/screenshots/timers.png" width="860" alt="Kitchen timers">
 
 - Tap **⏱** next to the time, then a quick duration (1 min to 1 h) or set your own with − / + and **Start**.
-- **Favourite timers**: named timers started with one tap ("Pasta · 10 min"), set on the web page (*Header tools → Favourite
+- **Favourite timers**: named timers started with one tap ("Pasta · 10 min"), set on the web page (*Tools & media → Favourite
   timers*). The name shows in the list and on the card when it rings.
 - In Home Assistant: the sensors *Running timers* and *Next timer ends*, and the event *Timer finished* (with the timer's name),
   e.g. to announce on a speaker elsewhere that the pasta is ready.
@@ -524,8 +543,8 @@ permission when you turn it on.
 
 ### Header sensors
 
-Sensors don't take tile space: temperature, humidity, motion, presence, doors, windows, water leaks and locks are summarised as
-**chips under the room name**. Chips turn orange when something needs attention (door open, motion, leak, unlocked).
+Sensors don't take tile space: temperature, humidity, motion, presence, doors, windows, water leaks, smoke and carbon monoxide detectors and locks are summarised as
+**chips under the room name**. Chips turn orange when something needs attention (door open, motion, leak, unlocked). The chips for lights, doors and windows only appear when something is on or open.
 Tap any chip to see the individual devices.
 
 <img src="docs/screenshots/chip-detail.png" width="860" alt="Chip details">
@@ -641,12 +660,12 @@ Long explanations sit behind *Learn more*.
   groups the rooms by. **Now playing** (the card at the top of a room, the thumbnail in the top bar, the poster search and its optional keys, its
   players and what happens after a pause) is here too.
 - **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
-  **Information chips** (collections, electricity, weather alerts, custom chips) and **Shortcuts**.
-- **Header tools**: the icons at the top of the tablet — shopping and to-do lists, music (the Music Assistant speakers offered,
-  and the server token for the queue), favourite timers, and This morning.
+  **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity, weather alerts, custom chips) and **Shortcuts**.
+- **Tools & media**: **Tools** — shopping and to-do lists, favourite timers, This morning and sports — and **Media** — music (the Music Assistant
+  speakers offered, and the server token for the queue) and Now playing (posters, TV channels, log, which players count).
 
 **Tablet**
-- **Appearance**: language, skin and night skin, background (theme or wallpaper, your photo) and dashboard options.
+- **Appearance**: language, layout, skin and night skin, the sections shown, dashboard options and the background (theme or wallpaper, your photo).
 - **Screen & sleep**: brightness, sleep delay, wake on motion, and the screen saver (including the Immich photo frame).
 - **Alerts & sounds**: notification sounds and quiet hours, notification duration, and camera alerts.
 
@@ -661,9 +680,9 @@ the feed answered) that you drag to reorder and open to edit; suggestions are gr
   (the last six, without the token, the passwords or the PIN); download or restore one, or make one right away.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
 
-| Rooms | Header tools |
+| Rooms | Tools & media |
 |---|---|
-| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-tools.png" alt="Web page — header tools"> |
+| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-tools.png" alt="Web page — tools and media"> |
 
 | Appearance | Screen & sleep |
 |---|---|
@@ -813,7 +832,7 @@ TileHouse reopens by itself once the update is installed.
 
 - TileHouse talks to your Home Assistant, your MQTT broker and GitHub (to check for updates), plus the services you turn on
   yourself: your Immich server (photo frame), the feeds you add to This morning, and for music your Music Assistant server and
-  the servers that host the covers (usually your music service), and for posters TVmaze, iTunes, YouTube (search page and image server), ESPN (team lists and logos), GitHub (channel logos) and,
+  the servers that host the covers (usually your music service), and for posters and artist photos TVmaze, iTunes, Deezer, YouTube (search page and image server), ESPN (team lists and logos), GitHub (channel logos) and,
   with your keys, TMDB and the YouTube Data API. No analytics, no accounts.
 - The Home Assistant token, the MQTT password, the PIN, the Immich key, the Music Assistant token and the TMDB and YouTube keys are **encrypted at rest** with a key kept in the Android Keystore.
   They are never displayed again once saved, and never included in a backup unless you ask for it.

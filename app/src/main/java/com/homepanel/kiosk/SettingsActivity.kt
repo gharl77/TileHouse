@@ -99,6 +99,9 @@ class SettingsActivity : Activity(), HaClient.Listener {
 
         // ================= Affichage
         val display = section()
+        // Affichage est réparti en trois pages : Apparence (style), Accueil (ce qui est montré), Écran (luminosité et veille).
+        val homePage = section()
+        val screenPage = section()
         display.addView(groupLabel(tr("Apparence")))
         val look = Card(this).also { display.addView(it) }
         val langKeys = listOf("auto", "fr", "en")
@@ -108,6 +111,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
         }))
         look.addRow(settingRow(R.drawable.ic_grid, Ui.GREEN, tr("Skin"), tr("Façon d'afficher l'accueil, les pièces et les fenêtres"), choice(
             Skin.names, Skin.keys.indexOf(cfg.skin).coerceAtLeast(0)) { cfg.skin = Skin.keys[it]; app.notifyConfigChanged() }))
+        look.addRow(settingRow(R.drawable.ic_grid, Ui.TEAL, tr("Disposition"), tr("Classique : accueil avec les pièces. Navigation latérale : pièces à gauche, favoris et caméras sur l'accueil."), choice(
+            listOf(tr("Classique"), tr("Navigation latérale")), if (cfg.sideNav) 1 else 0) { cfg.layout = if (it == 1) "side" else "classic"; app.notifyConfigChanged() }))
         val nightKeys = listOf("") + Skin.keys
         val halfHours = (0 until 48).map { it * 30 }
         fun clock(m: Int) = "%02d:%02d".format(m / 60, m % 60)
@@ -160,19 +165,42 @@ class SettingsActivity : Activity(), HaClient.Listener {
         syncBackgroundRows()
         display.addView(footnote(tr("La photo peut aussi être envoyée depuis un ordinateur ou un téléphone, par la page web (section Apparence).")))
 
+        homePage.addView(groupLabel(tr("Sections affichées")))
+        val sections = Card(this).also { homePage.addView(it) }
+        val sectionRows = listOf(
+            Triple("weather", R.drawable.ic_globe, tr("Météo")), Triple("agenda", R.drawable.ic_clock, tr("Agenda")),
+            Triple("shortcuts", R.drawable.ic_play, tr("Raccourcis")),
+            Triple("favorites", R.drawable.ic_star, tr("Favoris de l'accueil")), Triple("previews", R.drawable.ic_list, tr("Aperçus des outils")),
+            Triple("cameras", R.drawable.ic_camera, tr("Caméras de l'accueil")), Triple("energy", R.drawable.ic_bolt, tr("Électricité")),
+            Triple("scores", R.drawable.ic_trophy, tr("Pointage")), Triple("timers", R.drawable.ic_timer, tr("Minuteries")),
+            Triple("lists", R.drawable.ic_list, tr("Listes d'épicerie et de tâches")), Triple("music", R.drawable.ic_music, tr("Musique")),
+            Triple("morning", R.drawable.ic_morning, tr("Ce matin")))
+        for ((key, icon, title) in sectionRows) sections.addRow(settingRow(icon, Ui.TEAL, title, trailing = toggle(cfg.shows(key)) { on ->
+            cfg.hiddenSections = if (on) cfg.hiddenSections - key else cfg.hiddenSections + key
+            app.notifyConfigChanged()
+        }))
+        homePage.addView(footnote(tr("Une section masquée garde ses réglages : elle revient telle quelle quand vous la réactivez.")))
+
+        homePage.addView(groupLabel(tr("Aperçus des outils")))
+        val prev = Card(this).also { homePage.addView(it) }
+        for ((key, icon, title) in listOf(Triple("lists", R.drawable.ic_list, tr("Listes d'épicerie et de tâches")), Triple("timers", R.drawable.ic_timer, tr("Minuteries")), Triple("scores", R.drawable.ic_trophy, tr("Pointage"))))
+            prev.addRow(settingRow(icon, Ui.INDIGO, title, trailing = toggle(cfg.previews(key)) { on ->
+                cfg.previewsOff = if (on) cfg.previewsOff - key else cfg.previewsOff + key
+                app.notifyConfigChanged()
+            }))
+        homePage.addView(footnote(tr("Cartes montrées sur l'accueil en navigation latérale, quand elles ont quelque chose à montrer.")))
+
         display.addView(groupLabel(tr("Tableau de bord")))
         val board = Card(this).also { display.addView(it) }
         board.addRow(settingRow(R.drawable.ic_grid, Ui.TEAL, tr("Regrouper par catégorie"), tr("Lumières, Climat, Médias…"),
             toggle(cfg.groupByCategory) { cfg.groupByCategory = it }))
         board.addRow(settingRow(R.drawable.ic_clock, Ui.INDIGO, tr("Afficher l'heure et la date"), trailing = toggle(cfg.showClock) { cfg.showClock = it }))
-        board.addRow(settingRow(R.drawable.ic_play, Ui.PINK, tr("Carte « En lecture »"), tr("En haut d'une pièce, quand un de ses haut-parleurs ou sa télé joue"),
-            toggle(cfg.showNowPlaying) { cfg.showNowPlaying = it; app.notifyConfigChanged() }))
         board.addRow(settingRow(R.drawable.ic_bolt, Ui.GREEN, tr("Afficher la batterie"), tr("Niveau de la batterie de la tablette, à côté de l'heure"),
             toggle(cfg.showBattery) { cfg.showBattery = it; app.notifyConfigChanged() }))
 
         // ---- Écran : luminosité, mise en veille, écran de veille (toujours dans Affichage, comme sur Android)
-        display.addView(groupLabel(tr("Écran")))
-        val sleepCard = Card(this).also { display.addView(it) }
+        screenPage.addView(groupLabel(tr("Écran")))
+        val sleepCard = Card(this).also { screenPage.addView(it) }
         val brightChoices = listOf(-1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
         sleepCard.addRow(settingRow(R.drawable.ic_light, Ui.ORANGE, tr("Luminosité"), tr("Luminosité de l'écran quand la tablette est active"), choice(
             brightChoices.map { if (it < 0) tr("Celle de la tablette") else "$it %" },
@@ -192,8 +220,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
                 tr("La caméra avant détecte quelqu'un devant la tablette et empêche ou annule la mise en veille. Les images ne sont ni enregistrées ni envoyées."), motionToggle))
         }
 
-        display.addView(groupLabel(tr("Écran de veille")))
-        val saver = Card(this).also { display.addView(it) }
+        screenPage.addView(groupLabel(tr("Écran de veille")))
+        val saver = Card(this).also { screenPage.addView(it) }
         val styleKeys = listOf("clock", "photos", "black")
         saver.addRow(settingRow(R.drawable.ic_clock, Ui.BLUE, tr("Écran de veille"), trailing = choice(
             listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
@@ -215,10 +243,10 @@ class SettingsActivity : Activity(), HaClient.Listener {
         })
         saver.addRow(dimLevelRow)
         updatePhotoRow()
-        display.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (section Écran et veille).")))
+        screenPage.addView(footnote(tr("L'adresse du serveur Immich et sa clé API se règlent dans la page web (section Écran et veille).")))
 
 
-        display.addView(footnote(tr("Le reste se règle dans la page web : météo, agenda, personnes et vue d'ensemble (section Accueil), listes d'épicerie et minuteries favorites (Outils du bandeau), lecteurs de la carte « En lecture » (Pièces).")))
+        homePage.addView(footnote(tr("Le reste se règle dans la page web : météo, agenda, personnes, favoris et caméras de l'accueil (section Accueil) ; listes, minuteries favorites, Ce matin, sports, musique et affiches (section Outils et médias).")))
 
         // ================= Sons et alertes
         val alertsPage = section()
@@ -363,10 +391,10 @@ class SettingsActivity : Activity(), HaClient.Listener {
         aboutPage.addView(footnote(tr("Logiciel libre sous licence MIT. TileHouse n'est affilié ni à Apple ni à Home Assistant.")))
 
         // --- Assemblage : en-tête et onglets fixes, contenu défilant
-        val all = listOf(rooms, display, alertsPage, conn, kiosk, aboutPage)
-        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Affichage"), tr("Sons et alertes"), tr("Connexion"), tr("Sécurité"), tr("À propos"))) { i ->
+        val all = listOf(rooms, display, homePage, screenPage, alertsPage, conn, kiosk, aboutPage)
+        val tabs = Segmented(this, listOf(tr("Pièces"), tr("Apparence"), tr("Accueil"), tr("Écran"), tr("Alertes"), tr("Connexion"), tr("Sécurité"), tr("À propos"))) { i ->
             pages.removeAllViews(); pages.addView(all[i])
-            if (i == 5) updateMemory()
+            if (all[i] === aboutPage) updateMemory()
             scroll?.scrollTo(0, 0)
         }
         val content = LinearLayout(this).apply {
@@ -383,7 +411,7 @@ class SettingsActivity : Activity(), HaClient.Listener {
             addView(centeredColumn(820, tabs), LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(4) })
             addView(sc, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f))
         }
-        tabs.select(if (cfg.isConfigured) 0 else 3)
+        tabs.select(if (cfg.isConfigured) 0 else all.indexOf(conn))
         setContentView(root)
     }
 

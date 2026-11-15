@@ -205,6 +205,7 @@ class WebServer(private val app: App) {
                 if (req.has("theme")) req.str("theme").let { k -> if (k == Themes.AUTO || Themes.get(k) != null) cfg.chooseTheme(k) else cfg.chooseWallpaper() }
                 if (req.has("photoVeilLevel")) cfg.photoVeilLevel = req.optInt("photoVeilLevel", 50)
                 req.optJSONArray("autoHolidays")?.let { a -> cfg.autoHolidays = (0 until a.length()).map { a.getString(it) }.filter { it in Themes.AUTO_HOLIDAYS }.toSet() }
+                if (req.has("layout")) cfg.layout = req.str("layout")
                 if (req.has("skin")) cfg.skin = req.str("skin").let { k -> if (k in Skin.keys) k else "homekit" }
                 if (req.has("nightSkin")) cfg.nightSkin = req.str("nightSkin").let { k -> if (k in Skin.keys) k else "" }
                 if (req.has("nightSkinStart")) cfg.nightSkinStart = req.optInt("nightSkinStart", 19 * 60)
@@ -241,6 +242,10 @@ class WebServer(private val app: App) {
                 req.optJSONArray("morningSources")?.let { cfg.morningSources = it }
                 req.optJSONArray("timerPresets")?.let { cfg.timerPresets = it }
                 if (!cfg.demo) req.optJSONArray("todoLists")?.let { a -> cfg.todoLists = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("todo.") }; app.ha.setEntities(cfg.allEntityIds()) }
+                if (!cfg.demo) req.optJSONArray("homeFavorites")?.let { a -> cfg.homeFavorites = (0 until a.length()).map { a.getString(it) } }
+                if (!cfg.demo) req.optJSONArray("previewsOff")?.let { a -> cfg.previewsOff = (0 until a.length()).map { a.getString(it) } }
+                if (!cfg.demo) req.optJSONArray("homeCameras")?.let { a -> cfg.homeCameras = (0 until a.length()).map { a.getString(it) } }
+                if (!cfg.demo) req.optJSONArray("hiddenSections")?.let { a -> cfg.hiddenSections = (0 until a.length()).map { a.getString(it) } }
                 if (!cfg.demo) req.optJSONArray("musicPlayers")?.let { a -> cfg.musicPlayers = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("media_player.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("sportSensors")?.let { a -> cfg.sportSensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
                 if (!cfg.demo) req.optJSONArray("energySensors")?.let { a -> cfg.energySensors = (0 until a.length()).map { a.getString(it) }.filter { it.startsWith("sensor.") }; app.ha.setEntities(cfg.allEntityIds()) }
@@ -475,12 +480,12 @@ class WebServer(private val app: App) {
                 .put("todoLists", JSONArray(cfg.todoLists)).put("showNowPlaying", cfg.showNowPlaying).put("nowPlayingHeader", cfg.nowPlayingHeader).put("posterSearch", cfg.posterSearch)
                 .put("fibeChannels", try { JSONObject(cfg.fibeChannels) } catch (_: Exception) { JSONObject() }).put("fibeSeen", fibeSeen())
                 .put("hasTmdbKey", cfg.tmdbKey.isNotEmpty()).put("hasYoutubeKey", cfg.youtubeKey.isNotEmpty()).put("nowPlayingHidden", JSONArray(cfg.nowPlayingHidden)).put("summaryHidden", JSONArray(cfg.summaryHidden)).put("summaryShown", JSONArray(cfg.summaryShown)).put("summaryDevices", summaryDevices())
-                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors)).put("musicPlayers", JSONArray(cfg.musicPlayers)).put("sportSensors", JSONArray(cfg.sportSensors))
+                .put("nowPlayingShown", JSONArray(cfg.nowPlayingShown)).put("hiddenSections", JSONArray(cfg.hiddenSections)).put("homeFavorites", JSONArray(cfg.homeFavorites)).put("homeCameras", JSONArray(cfg.homeCameras)).put("previewsOff", JSONArray(cfg.previewsOff)).put("nowPlayingPause", cfg.nowPlayingPause).put("nowPlayingAuto", JSONArray(autoHiddenPlayers())).put("energySensors", JSONArray(cfg.energySensors)).put("musicPlayers", JSONArray(cfg.musicPlayers)).put("sportSensors", JSONArray(cfg.sportSensors))
                 .put("activeTheme", cfg.activeTheme)
                 .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
                 .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
                 .put("theme", cfg.theme)
-                .put("skin", cfg.skin)
+                .put("skin", cfg.skin).put("layout", cfg.layout)
                 .put("nightSkin", cfg.nightSkin).put("nightSkinStart", cfg.nightSkinStart).put("nightSkinEnd", cfg.nightSkinEnd)
                 .put("language", cfg.language)
                 .put("dim", cfg.dimMinutes)
@@ -526,7 +531,7 @@ class WebServer(private val app: App) {
         for (room in app.config.rooms) for (re in room.entities) {
             val e = app.ha.states[re.id]
             val kind = Present.chipKind(re.id, e) ?: continue
-            if (kind !in setOf("light", "lock", "door", "window", "cover") || !seen.add(re.id)) continue
+            if (kind !in setOf("light", "lock", "door", "window", "cover", "smoke") || !seen.add(re.id)) continue
             out.put(JSONObject().put("id", re.id).put("name", Present.displayName(re, e, "")).put("room", room.name).put("kind", kind)
                 .put("auto", Choices.summaryHiddenByDefault(re.id, e?.name ?: "", kind)))
         }

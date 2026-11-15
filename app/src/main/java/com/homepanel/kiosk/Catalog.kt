@@ -157,7 +157,7 @@ object CatalogLoader {
         if (e.hidden) return false
         return when (e.domain) {
             "sensor" -> e.deviceClass == "temperature" || e.deviceClass == "humidity"
-            "binary_sensor" -> e.deviceClass in setOf("door", "window", "garage_door", "opening", "motion", "occupancy", "presence", "moisture", "smoke")
+            "binary_sensor" -> e.deviceClass in setOf("door", "window", "garage_door", "opening", "motion", "occupancy", "presence", "moisture", "smoke", "carbon_monoxide")
             // Les interrupteurs génériques sont souvent techniques (conteneurs, options d'appareils) :
             // seules les prises sont importées, le reste s'ajoute à la main.
             "switch" -> e.deviceClass == "outlet"

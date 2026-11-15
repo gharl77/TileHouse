@@ -41,7 +41,7 @@ import kotlin.math.abs
 /** Icône « Listes » : visible dès qu'une liste est choisie, avec le nombre d'articles restants. */
 internal fun MainActivity.updateTodoButton() {
     val lists = cfg.todoLists
-    todoButton.set(lists.isNotEmpty(), Todos.remaining(lists, app.ha.states))
+    todoButton.set(lists.isNotEmpty() && cfg.shows("lists"), Todos.remaining(lists, app.ha.states))
 }
 
 internal fun MainActivity.openTodos() {
@@ -57,7 +57,7 @@ internal fun MainActivity.openTodos() {
 internal fun MainActivity.updateMusicButton() {
     val players = cfg.musicPlayers
     // Teintée seulement pour de la musique lancée par Music Assistant, pas pour une enceinte qui joue autre chose (AirPlay, télé).
-    musicButton.set(players.isNotEmpty(), players.any { app.ha.states[it]?.let { e -> e.state == "playing" && Music.fromAssistant(e) } == true })
+    musicButton.set(players.isNotEmpty() && cfg.shows("music"), players.any { app.ha.states[it]?.let { e -> e.state == "playing" && Music.fromAssistant(e) } == true })
 }
 
 internal fun MainActivity.openMusic() {

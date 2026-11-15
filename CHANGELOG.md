@@ -2,6 +2,25 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.12
+
+- New setting *Layout* (on the tablet and on the web page, under *Appearance*): **Classic**, the screen as it was, or **Side navigation**. With side navigation the rooms stay in a rail on the left (one tap to change room, no trip back to the home screen; ten rooms per page, with an arrow at the bottom for the next ones), the tools stay at the top right, and in a room the camera and the players sit side by side, idle players on a single line. The skin and the layout are chosen separately; Classic stays the default.
+- Side navigation, home screen: under the weather and the agenda, previews of the tools (what is left on your lists, the running timers, the game in progress — tap one to open it), your **favourite devices** as tiles and the **cameras** you choose. Pick the favourites, the cameras and which previews you want (lists, timers, scores) on the web page (*Home → Home favourites*, *Tool previews*, *Home cameras*); each block can be hidden in *Sections shown*.
+- Settings regrouped. Web page: the *Header tools* section becomes *Tools & media* and now also holds *Sports* and *Now playing* (posters, TV channels, log), which were under *Home* and *Rooms*; the three cards of the side-navigation home screen have their own group; in *Appearance*, the background comes last. Tablet: the *Display* tab is split into *Appearance*, *Home* (sections shown, tool previews) and *Screen* (brightness, screen saver).
+- A dimmable light that is on shows its level as a soft fill across its tile, in both layouts.
+- Dimmable lights: slide left or right on the tile to set the brightness; the level fills the tile and is applied when you release (all the way left turns the light off). A tap still switches it, a long press still opens the slider.
+- Blinds and curtains: the control now draws the window with its blind or curtain at the real position. A blind comes down from the top, a curtain closes from both sides; drag in the drawing to set the position. The buttons match the movement (up / down, or open / close sideways), stop is shown only when the cover supports it, and curtains have their own tile icon.
+- Thermostats are now a chip at the top of their room ("19.5 °C → 21 °C", the icon turns orange while heating) instead of a tile; tap it to open the card. They are not shown on the home screen.
+- Thermostats: a new card with the target in large inside a coloured arc you can drag, a flame that lights up while it heats, an on/off button, and the current temperature between two arrows that raise and lower the target.
+- The chip for open blinds and curtains now says what is open: "2 blinds open", "1 curtain open" or "3 blinds & curtains open". As before, it only appears when at least one is open.
+- Chips for lights, doors and windows: nothing is shown when none is on or open (no more "Door closed" or "Window closed"); otherwise the chip is yellow.
+- Temperature chips show their unit ("19 °C"), and the temperature and humidity chips sit next to each other.
+- Room icons: a bathtub for bathrooms and a sofa for the living room.
+- New setting *Sections shown* (on the tablet and on the web page, under *Appearance*): hide the weather, the agenda, the shortcuts, the electricity chip, the scores, the timers, the lists, Music or This morning without losing their settings.
+- Smoke and carbon monoxide detectors are now a chip at the top ("No smoke", red when one goes off) instead of tiles, in their room and on the home screen; tap it to see each detector. Choose which ones count on the web page (*Home → Whole-house overview → Smoke detectors*).
+- Every speaker and TV of a room now has its player card: the choice between card and tile is gone. The list on the web page (*Tools & media → Now playing*) now only decides which players count for the TV icon in the top bar and for the screen saver.
+- Music: the card, the poster window and the screen saver show the artist's photo (found by name on Deezer) instead of the album cover; the cover is used when no photo is found. Nothing changes for TV.
+
 ## 2026.11.11
 
 - Screen saver redesigned: under the time and the date, a row of roomy panels for the weather, the score and what is playing, instead of stacked lines.

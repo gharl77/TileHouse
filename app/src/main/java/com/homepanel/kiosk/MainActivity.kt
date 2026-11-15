@@ -132,9 +132,10 @@ class MainActivity : Activity(), HaClient.Listener {
 
     internal fun buildUi() {
         root = FrameLayout(this)
+        val side = cfg.sideNav
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(28), dp(26), dp(28), 0)
+            setPadding(dp(if (side) 18 else 28), dp(26), dp(28), 0)
         }
 
         // En-tête : [‹] titre + sous-titre + pastilles, heure, menu
@@ -162,7 +163,7 @@ class MainActivity : Activity(), HaClient.Listener {
         dateView = label(14f, Skin.fg(0xB3)).apply { gravity = Gravity.END }
         // Heure, avec la batterie de la tablette à sa gauche (selon les réglages)
         batteryView = BatteryView(this)
-        val timeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END }
+        val heureRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL or Gravity.END }
         // Minuteries : icône toujours visible, temps restant de la plus proche quand une tourne.
         timerButton = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
@@ -176,6 +177,8 @@ class MainActivity : Activity(), HaClient.Listener {
             isClickable = true
             setOnClickListener { openTimers() }
         }
+        // Les outils restent en haut, à côté de l'heure, dans les deux dispositions.
+        val timeRow = heureRow
         scoresButton = ScoresButton(this).apply { setOnClickListener { showScores() } }
         timeRow.addView(scoresButton, LinearLayout.LayoutParams(dp(42), dp(40)).apply { marginEnd = dp(8) })
         headerPlaying = NowPlayingChip(this)
@@ -189,9 +192,9 @@ class MainActivity : Activity(), HaClient.Listener {
         timeRow.addView(morningButton, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(8) })
         bellView = BellView(this).apply { setOnClickListener { openCenter() } }
         timeRow.addView(bellView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
-        timeRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
-        timeRow.addView(clockView)
-        clockBox.addView(timeRow)
+        heureRow.addView(batteryView, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(14) })
+        heureRow.addView(clockView)
+        clockBox.addView(heureRow)
         clockBox.addView(dateView)
         header.addView(clockBox)
 
@@ -214,7 +217,19 @@ class MainActivity : Activity(), HaClient.Listener {
         content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, 0, 0, dp(28)) }
         scroll.addView(content)
         col.addView(scroll, LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f).apply { topMargin = dp(14) })
-        root.addView(col, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        railBox = null
+        if (side) {
+            // Rail des pièces : toujours là, à gauche. L'accueil, dix pièces par page, puis une flèche vers la page suivante.
+            val rail = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; weightSum = (RAIL_PAGE + 2).toFloat()
+                setPadding(dp(8), dp(14), dp(8), dp(10)); setBackgroundColor(Skin.fg(0x0D))
+            }
+            railBox = rail
+            val outer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            outer.addView(rail, LinearLayout.LayoutParams(dp(96), MATCH_PARENT))
+            outer.addView(col, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
+            root.addView(outer, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
+        } else root.addView(col, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
 
         emptyBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
         emptyText = label(20f, Skin.ink).apply { gravity = Gravity.CENTER }
@@ -231,6 +246,54 @@ class MainActivity : Activity(), HaClient.Listener {
         dimView = DimScreen(this)
         root.addView(dimView, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         setContentView(root)
+    }
+
+    internal var railBox: LinearLayout? = null
+    /** Page du rail affichée, et la pièce pour laquelle elle a été choisie (pour suivre la navigation sans défaire un toucher sur la flèche). */
+    internal var railPage = 0
+    internal var railRoom = Int.MIN_VALUE
+
+    /**
+     * Rail des pièces (navigation latérale) : l'accueil, puis [RAIL_PAGE] pièces par page, celle qui est affichée mise
+     * en évidence. S'il y en a plus, une flèche en bas passe à la page suivante (et revient à la première après la dernière).
+     */
+    internal fun updateRail() {
+        val box = railBox ?: return
+        box.removeAllViews()
+        fun item(icon: Int, name: String, selected: Boolean, go: () -> Unit): View = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
+            setPadding(dp(2), 0, dp(2), 0)
+            if (selected) background = roundRect(Skin.soft, dpf(14))
+            addView(ImageView(context).apply {
+                setImageResource(icon)
+                imageTintList = android.content.res.ColorStateList.valueOf(if (selected) Skin.accent else Skin.fg(0xA6))
+            }, LinearLayout.LayoutParams(dp(24), dp(24)))
+            if (name.isNotEmpty()) addView(label(11f, if (selected) Skin.ink else Skin.fg(0xB3), selected, name).apply {
+                gravity = Gravity.CENTER; maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; setLineSpacing(0f, 0.9f); includeFontPadding = false
+                setPadding(0, dp(2), 0, 0)
+            }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            isClickable = true
+            setOnClickListener { go() }
+        }
+        val lp = { LinearLayout.LayoutParams(MATCH_PARENT, 0, 1f).apply { bottomMargin = dp(2) } }
+        box.addView(item(R.drawable.ic_home, tr("Accueil"), roomIndex == HOME) { goHome() }.apply { contentDescription = tr("Accueil") }, lp())
+        if (!cfg.isConfigured) return
+        val pages = Rail.pages(cfg.rooms.size)
+        // On arrive dans une pièce d'une autre page (balayage, retour automatique) : le rail la suit.
+        if (roomIndex != railRoom) { railRoom = roomIndex; if (roomIndex != HOME) railPage = Rail.pageOf(roomIndex) }
+        railPage = railPage.coerceIn(0, pages - 1)
+        for (i in Rail.range(railPage, cfg.rooms.size)) {
+            val room = cfg.rooms[i]
+            box.addView(item(HomeText.roomIcon(room.name), room.name, roomIndex == i) { if (roomIndex != i) openRoom(i) }.apply { contentDescription = room.name }, lp())
+        }
+        if (pages > 1) {
+            val last = railPage == pages - 1
+            // Des cases vides gardent la flèche tout en bas sur une page incomplète.
+            repeat(RAIL_PAGE - Rail.range(railPage, cfg.rooms.size).count()) { box.addView(View(this), lp()) }
+            box.addView(item(if (last) R.drawable.ic_up else R.drawable.ic_down, "", false) { railPage = (railPage + 1) % pages; updateRail() }.apply {
+                contentDescription = if (last) tr("Premières pièces") else tr("Pièces suivantes")
+            }, lp())
+        }
     }
 
     /** Appelé quand la configuration change (page web, paliers HA). */
@@ -348,6 +411,8 @@ class MainActivity : Activity(), HaClient.Listener {
         updateMusicButton()
         updateHeaderPlaying()
         updateScoresButton()
+        timerButton.visibility = if (cfg.shows("timers")) View.VISIBLE else View.GONE
+        refreshMorningDot()
         clockView.visibility = if (cfg.showClock) View.VISIBLE else View.GONE
         dateView.visibility = clockView.visibility
         batteryView.visibility = if (cfg.showBattery) View.VISIBLE else View.GONE
@@ -363,6 +428,7 @@ class MainActivity : Activity(), HaClient.Listener {
             backBtn.visibility = View.GONE
             updateChips(null)
             clearContent()
+            updateRail()
             return
         }
         emptyBox.visibility = View.GONE
@@ -378,6 +444,7 @@ class MainActivity : Activity(), HaClient.Listener {
         weatherCard = null
         calendarCard = null
         nowPlayingBox = null
+        homePreviewBox = null
         handler.removeCallbacks(snapshotTick)
     }
 
@@ -437,6 +504,12 @@ class MainActivity : Activity(), HaClient.Listener {
     /** Carte(s) « En lecture » de la pièce affichée, et ce qu'elles montrent (pour ne redessiner que si ça change). */
     internal var nowPlayingBox: LinearLayout? = null
     internal var nowPlayingKey = ""
+    /** Aperçus des outils sur l'accueil (navigation latérale), et les articles des listes gardés pour eux. */
+    internal var homePreviewBox: LinearLayout? = null
+    internal var homePreviewKey = ""
+    internal val todoPreview = HashMap<String, List<Todos.Item>>()
+    /** Navigation latérale : les lecteurs sont dans une colonne à droite de la caméra (un par rangée). */
+    internal var playersBesideCamera = false
     internal val lastPlaying = HashMap<String, Long>()
     /** Moment où chaque lecteur s'est mis à jouer (vignette du bandeau : le dernier lancé). */
     internal val playStart = HashMap<String, Long>()
@@ -489,8 +562,8 @@ class MainActivity : Activity(), HaClient.Listener {
             }
             updateHeaderPlaying()
         }
-        if (cfg.sportSensors.any { it in ids }) updateScoresButton()
-        if (cfg.todoLists.any { it in ids }) { updateTodoButton(); todoPanel?.onEntities(ids) }
+        if (cfg.sportSensors.any { it in ids }) { updateScoresButton(); updateHomePreviews() }
+        if (cfg.todoLists.any { it in ids }) { updateTodoButton(); todoPanel?.onEntities(ids); if (homePreviewBox != null) loadTodoPreviews() }
         if (cfg.musicPlayers.any { it in ids }) { updateMusicButton(); musicPanel?.onEntities(ids) }
         // Une source de « Ce matin » a changé (ex. résumé publié à 5 h) : l'icône réapparaît avec son point.
         val ms = cfg.morningSources
@@ -500,6 +573,8 @@ class MainActivity : Activity(), HaClient.Listener {
             // Plusieurs capteurs changent souvent en rafale : un seul recalcul de l'en-tête pour le lot.
             handler.removeCallbacks(headerUpdate)
             handler.postDelayed(headerUpdate, 120)
+            // Favoris et caméras de l'accueil (navigation latérale).
+            for (id in ids) tiles[id]?.let { (t, re) -> bindTile(t, re, HOME_SHELF) }
             return
         }
         val room = cfg.rooms.getOrNull(roomIndex) ?: return
@@ -546,12 +621,13 @@ class MainActivity : Activity(), HaClient.Listener {
             if (dimmed) { undim(); swallow = true; return true }
             swallow = false
             swiping = false
+            TileView.anySliding = false
             downX = ev.rawX
             downY = ev.rawY
         }
         if (swallow) return true
         // Dans une pièce, balayer à gauche/droite passe à la pièce suivante/précédente.
-        if (action == MotionEvent.ACTION_MOVE && !swiping && roomIndex != HOME && cfg.rooms.size > 1) {
+        if (action == MotionEvent.ACTION_MOVE && !swiping && !TileView.anySliding && roomIndex != HOME && cfg.rooms.size > 1) {
             val dx = ev.rawX - downX
             val dy = ev.rawY - downY
             if (abs(dx) > dp(48) && abs(dx) > abs(dy) * 1.8f) {
@@ -612,7 +688,7 @@ class MainActivity : Activity(), HaClient.Listener {
         val style = cfg.effectiveDimStyle
         if (style != shownDimStyle) { shownDimStyle = style; applyDimBrightness() }
         // Avec l'heure et la météo : le pointage des matchs suivis et ce qui joue (à plusieurs, tour à tour).
-        val playing = if (!cfg.showNowPlaying) emptyList() else playersInRooms().map { it.first }.filter { it.state == "playing" }.sortedByDescending { playStart[it.id] ?: 0L }
+        val playing = playersInRooms().map { it.first }.filter { it.state == "playing" }.sortedByDescending { playStart[it.id] ?: 0L }
         dimView.update(style, app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() }, activeGames().filter { it.state != "PRE" || it.startsAt - System.currentTimeMillis() < 3 * 3_600_000L }, playing)
     }
 
@@ -651,6 +727,7 @@ class MainActivity : Activity(), HaClient.Listener {
         timerText.visibility = if (next == null) View.GONE else View.VISIBLE
         timerText.text = next?.let { KitchenTimers.format(it.remaining()) + if (KitchenTimers.list.size > 1) "  +${KitchenTimers.list.size - 1}" else "" } ?: ""
         timerButton.background = if (next == null) null else roundRect(0x33FFB300, dpf(18))
+        if (roomIndex == HOME) updateHomePreviews()
     }
 
     internal lateinit var bellView: BellView

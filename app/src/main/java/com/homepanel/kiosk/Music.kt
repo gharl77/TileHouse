@@ -778,7 +778,7 @@ class MusicPanel(private val act: MainActivity) : FrameLayout(act) {
         fun say(text: String) { status.text = text; status.visibility = View.VISIBLE }
         val id = current()
         val queueId = id?.let { ha.states[it]?.attrs?.str("active_queue") }.orEmpty()
-        if (cfg.musicToken.isEmpty()) { say(tr("Pour voir la file de lecture, ajoutez le jeton de Music Assistant dans la page de réglages (Outils de l'en-tête → Musique).")); return }
+        if (cfg.musicToken.isEmpty()) { say(tr("Pour voir la file de lecture, ajoutez le jeton de Music Assistant dans la page de réglages (Outils et médias → Musique).")); return }
         if (id == null || queueId.isEmpty() || !Music.active(ha.states[id])) { say(tr("Rien ne joue : la file est vide.")); return }
         say(tr("Chargement…"))
         ha.request(JSONObject().put("type", "call_service").put("domain", "music_assistant").put("service", "get_queue")

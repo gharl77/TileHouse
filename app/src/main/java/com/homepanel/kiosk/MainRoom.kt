@@ -41,13 +41,17 @@ import kotlin.math.abs
 internal fun MainActivity.showRoom() {
     clearContent()
     val room = cfg.rooms[roomIndex]
-    backBtn.visibility = View.VISIBLE
+    // Navigation latérale : le rail remplace la flèche de retour.
+    backBtn.visibility = if (cfg.sideNav) View.GONE else View.VISIBLE
+    updateRail()
     subtitleView.visibility = View.GONE
     titleView.text = room.name
 
     // Ordre d'une pièce : les caméras d'abord, puis les raccourcis, puis la carte « En lecture », puis les tuiles.
     // Les caméras ont toujours leur propre grille de grandes vignettes, en haut.
     val cams = room.entities.filter { Present.domain(it.id) == "camera" }
+    // Navigation latérale : la caméra à gauche, les lecteurs à droite, sur la même rangée.
+    playersBesideCamera = cfg.sideNav && cams.isNotEmpty() && room.entities.any { hasPlayerCard(it.id) }
     if (cams.isNotEmpty()) {
         val grid = CameraGrid(this)
         for (re in cams) {
@@ -57,14 +61,20 @@ internal fun MainActivity.showRoom() {
             grid.addView(v)
             cameraTiles[re.id] = v
         }
-        content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
+        if (playersBesideCamera) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+            row.addView(grid, LinearLayout.LayoutParams(dp(400), WRAP_CONTENT))
+            nowPlayingBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            row.addView(nowPlayingBox, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
+            content.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
+        } else content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
         handler.post(snapshotTick)
     }
     // Raccourcis associés à cette pièce (ceux sans pièce restent sur l'accueil).
     addShortcuts(Shortcuts.forRoom(cfg, room), dp(if (cams.isEmpty()) 4 else 12))
 
     // Cartes des lecteurs choisis dans les réglages : toujours là, sobres quand le lecteur est éteint.
-    nowPlayingBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also { content.addView(it) }
+    if (!playersBesideCamera) nowPlayingBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }.also { content.addView(it) }
     nowPlayingKey = "?"
     updateNowPlaying()
 
@@ -82,21 +92,29 @@ internal fun MainActivity.showRoom() {
             content.addView(label(17f, Skin.fg(0xE6), true, title).apply { setPadding(dp(2), dp(16), 0, dp(10)) })
         }
         val grid = TileGrid(this)
-        for (re in list) {
-            val t = TileView(this)
-            bindTile(t, re, room)
-            t.setOnClickListener { onTileTap(t, re, room) }
-            // Toujours consommer l'appui long : sinon il déclencherait un toucher (allumage) par erreur.
-            t.setOnLongClickListener { openDetail(re, room); true }
-            grid.addView(t)
-            tiles[re.id] = t to re
-        }
+        for (re in list) grid.addView(deviceTile(re, room))
         content.addView(grid, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(6) })
     }
     if (room.entities.isEmpty()) {
         content.addView(label(16f, Skin.fg(0xB3), text = tr("Cette pièce est vide. Ajoutez des appareils dans les réglages.")).apply { setPadding(0, dp(24), 0, 0) })
     }
     updateChips(room)
+}
+
+/** Tuile d'un appareil, avec son toucher, son appui long et son glissement ; elle est suivie dans [MainActivity.tiles]. */
+internal fun MainActivity.deviceTile(re: RoomEntity, room: Room): TileView {
+    val t = TileView(this)
+    bindTile(t, re, room)
+    t.setOnClickListener { onTileTap(t, re, room) }
+    // Toujours consommer l'appui long : sinon il déclencherait un toucher (allumage) par erreur.
+    t.setOnLongClickListener { openDetail(re, room); true }
+    // Lumière à intensité variable : glisser à gauche ou à droite sur la tuile règle la luminosité.
+    if (Present.domain(re.id) == "light") {
+        t.slideFrom = { app.ha.states[re.id]?.takeIf { Present.supportsBrightness(it) && !Present.unavailable(it) }?.let { Present.brightnessPct(it) ?: 0 } }
+        t.onSlide = { v -> if (!haOffline()) { Present.setBrightness(app.ha, re.id, v); t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) } }
+    }
+    tiles[re.id] = t to re
+    return t
 }
 
 internal fun MainActivity.refreshSnapshots() {
@@ -122,7 +140,9 @@ internal fun MainActivity.bindTile(t: TileView, re: RoomEntity, room: Room) {
         app.ha.status == HaClient.Status.CONNECTED -> tr("Introuvable")
         else -> "…"
     }
-    t.bind(Present.displayName(re, e, room.name), status, Present.active(e), Present.unavailable(e), Present.accent(e), Present.icon(re.id, e))
+    // Lumière à intensité variable allumée : son niveau remplit la tuile.
+    val level = e?.takeIf { it.domain == "light" && Present.supportsBrightness(it) }?.let { Present.brightnessPct(it) }
+    t.bind(Present.displayName(re, e, room.name), status, Present.active(e), Present.unavailable(e), Present.accent(e), Present.icon(re.id, e), level)
 }
 
 /** HA injoignable : on le dit plutôt que d'ignorer le toucher sans rien montrer. */

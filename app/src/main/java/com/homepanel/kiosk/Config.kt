@@ -15,6 +15,23 @@ class Room(val id: String, var name: String, var areaId: String? = null) {
 /** Palier (étage) de Home Assistant et ses zones. */
 class Floor(val id: String, val name: String, val areas: List<String>)
 
+/** Aperçus des outils qu'on peut choisir pour l'accueil. */
+val PREVIEWS = listOf("lists", "timers", "scores")
+
+/** Nombre de pièces par page du rail (navigation latérale). */
+const val RAIL_PAGE = 10
+
+/** Pagination du rail des pièces. */
+object Rail {
+    fun pages(rooms: Int) = maxOf(1, (rooms + RAIL_PAGE - 1) / RAIL_PAGE)
+    fun pageOf(room: Int) = room / RAIL_PAGE
+    /** Indices des pièces de la page [page]. */
+    fun range(page: Int, rooms: Int) = (page * RAIL_PAGE) until minOf(rooms, (page + 1) * RAIL_PAGE)
+}
+
+/** Sections qu'on peut masquer, dans l'ordre où les réglages les proposent. */
+val SECTIONS = listOf("weather", "agenda", "shortcuts", "favorites", "previews", "cameras", "energy", "scores", "timers", "lists", "music", "morning")
+
 class ConfigStore(ctx: Context) {
     private val p = ctx.getSharedPreferences("config", Context.MODE_PRIVATE)
 
@@ -94,6 +111,14 @@ class ConfigStore(ctx: Context) {
         if (theme.isNotEmpty()) { lastTheme = theme; theme = "" }
         if (key.isNotEmpty()) wallpaper = key
     }
+    /**
+     * Disposition de l'écran : "classic" (accueil avec les pièces, outils en haut) ou "side" (navigation latérale :
+     * pièces à gauche, caméra et lecteurs côte à côte).
+     */
+    var layout: String
+        get() = if (p.getString("layout", "classic") == "side") "side" else "classic"
+        set(v) = p.edit().putString("layout", if (v == "side") "side" else "classic").apply()
+    val sideNav get() = layout == "side"
     /** Skin : façon d'afficher l'app ("homekit", "epure", "papier"). */
     var skin: String
         get() = p.getString("skin", "homekit") ?: "homekit"
@@ -253,6 +278,29 @@ class ConfigStore(ctx: Context) {
         set(v) = p.edit().putString("todoLists", v.joinToString(",")).apply()
     /** Capteurs d'électricité (puissance, énergie) : le premier fait la pastille de l'accueil, tous sont dans la fenêtre Énergie. */
     /** Enceintes de Music Assistant proposées dans la fenêtre Musique (vide = pas d'icône). */
+    /**
+     * Sections masquées par choix (réglage « Sections affichées ») : leur configuration reste, seul l'affichage est coupé.
+     * Clés : weather, agenda, shortcuts, energy, scores, timers, lists, music, morning.
+     */
+    var hiddenSections: List<String>
+        get() = if (demo) emptyList() else csv("hiddenSections")
+        set(v) = p.edit().putString("hiddenSections", v.filter { it in SECTIONS }.distinct().joinToString(",")).apply()
+    fun shows(section: String) = section !in hiddenSections
+
+    /** Accueil en navigation latérale : appareils favoris (tuiles) et caméras (vignettes), choisis parmi ceux des pièces. */
+    var homeFavorites: List<String>
+        get() = if (demo) listOf("light.living_room_ceiling", "light.kitchen_ceiling", "lock.front_door", "cover.living_room_blinds", "light.bedside_right") else csv("homeFavorites")
+        set(v) = p.edit().putString("homeFavorites", v.distinct().joinToString(",")).apply()
+    /** Aperçus des outils décochés sur l'accueil : "lists", "timers", "scores". */
+    var previewsOff: List<String>
+        get() = if (demo) emptyList() else csv("previewsOff")
+        set(v) = p.edit().putString("previewsOff", v.filter { it in PREVIEWS }.distinct().joinToString(",")).apply()
+    fun previews(kind: String) = kind !in previewsOff
+
+    var homeCameras: List<String>
+        get() = if (demo) listOf("camera.front_door", "camera.driveway") else csv("homeCameras")
+        set(v) = p.edit().putString("homeCameras", v.filter { it.startsWith("camera.") }.distinct().joinToString(",")).apply()
+
     var musicPlayers: List<String>
         get() = if (demo) listOf("media_player.living_room_speaker", "media_player.kids_speaker") else csv("musicPlayers")
         set(v) = p.edit().putString("musicPlayers", v.joinToString(",")).apply()
@@ -540,7 +588,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
+                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("layout", layout).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
@@ -551,7 +599,7 @@ class ConfigStore(ctx: Context) {
                 .put("persons", JSONArray(persons)).put("recycleCalendar", recycleCalendar).put("wasteCalendar", wasteCalendar)
                 .put("peakCalendar", peakCalendar).put("peakReminder", peakReminder).put("weatherAlerts", JSONArray(weatherAlerts))
                 .put("shortcuts", JSONArray(shortcuts)).put("shortcutRooms", shortcutRooms).put("customChips", customChips).put("morningSources", morningSources).put("timerPresets", timerPresets).put("todoLists", JSONArray(todoLists)).put("showNowPlaying", showNowPlaying).put("nowPlayingHidden", JSONArray(nowPlayingHidden)).put("nowPlayingShown", JSONArray(nowPlayingShown)).put("nowPlayingPause", nowPlayingPause)
-                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors)).put("musicPlayers", JSONArray(musicPlayers)).put("sportSensors", JSONArray(sportSensors))
+                .put("summaryHidden", JSONArray(summaryHidden)).put("summaryShown", JSONArray(summaryShown)).put("energySensors", JSONArray(energySensors)).put("musicPlayers", JSONArray(musicPlayers)).put("hiddenSections", JSONArray(hiddenSections)).put("homeFavorites", JSONArray(homeFavorites)).put("homeCameras", JSONArray(homeCameras)).put("previewsOff", JSONArray(previewsOff)).put("sportSensors", JSONArray(sportSensors))
                 .put("morningStart", morningStart).put("morningEnd", morningEnd)
                 .put("recycleKeyword", recycleKeyword).put("wasteKeyword", wasteKeyword).put("floorOrder", JSONArray(floors.map { it.id })))
             .put("connection", JSONObject().put("url", url))
@@ -570,6 +618,7 @@ class ConfigStore(ctx: Context) {
         o.optJSONObject("display")?.let { d ->
             if (d.has("theme")) theme = d.str("theme")
             if (d.has("skin")) skin = d.str("skin")
+            if (d.has("layout")) layout = d.str("layout")
             if (d.has("photoVeilLevel")) photoVeilLevel = d.optInt("photoVeilLevel", 50)
             d.optJSONArray("autoHolidays")?.let { a -> autoHolidays = (0 until a.length()).map { a.getString(it) }.toSet() }
             if (d.has("nightSkin")) nightSkin = d.str("nightSkin")
@@ -628,6 +677,10 @@ class ConfigStore(ctx: Context) {
             h.optJSONArray("nowPlayingHidden")?.let { a -> nowPlayingHidden = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("energySensors")?.let { a -> energySensors = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("musicPlayers")?.let { a -> musicPlayers = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("hiddenSections")?.let { a -> hiddenSections = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("homeFavorites")?.let { a -> homeFavorites = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("homeCameras")?.let { a -> homeCameras = (0 until a.length()).map { a.getString(it) } }
+            h.optJSONArray("previewsOff")?.let { a -> previewsOff = (0 until a.length()).map { a.getString(it) } }
             h.optJSONArray("sportSensors")?.let { a -> sportSensors = (0 until a.length()).map { a.getString(it) } }
             if (h.has("morningStart")) morningStart = h.optInt("morningStart", 300)
             if (h.has("morningEnd")) morningEnd = h.optInt("morningEnd", 600)
