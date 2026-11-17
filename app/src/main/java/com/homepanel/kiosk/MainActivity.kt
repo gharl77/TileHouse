@@ -115,7 +115,7 @@ class MainActivity : Activity(), HaClient.Listener {
                 SystemClock.uptimeMillis() - lastTouch > 15_000) { recreate(); return }
             // Icône « Ce matin » : apparaît / disparaît à l'heure choisie ; pastille de pointe (« en cours ») à jour.
             updateMorningButton()
-            if (roomIndex == HOME && peaks.isNotEmpty()) updateHomeHeader()
+            if (roomIndex == HOME && peaks.isNotEmpty()) { updateHomeHeader(); if (Skin.gauges && cfg.weatherEntity.isNotEmpty()) weatherCard?.update(app.ha.states[cfg.weatherEntity]) }
             checkPeakReminder()
             checkReminders()
             // Messages pour la famille : ceux qui sont échus (minuit) s'effacent ; l'heure affichée suit.
@@ -157,11 +157,12 @@ class MainActivity : Activity(), HaClient.Listener {
         chipsView = FlowLayout(this)
         titles.addView(titleView)
         titles.addView(subtitleView)
-        titles.addView(chipsView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(10) })
+        // Tableau de bord : les voyants occupent toute la largeur, sous l'en-tête.
+        if (!Skin.gauges) titles.addView(chipsView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(10) })
         header.addView(titles, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
 
         val clockBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
-        clockView = label(30f, Skin.ink).apply { typeface = Skin.light }
+        clockView = ClockText(this).apply { textSize = 30f; setTextColor(Skin.ink); typeface = Skin.light }
         dateView = label(14f, Skin.fg(0xB3)).apply { gravity = Gravity.END }
         // Heure, avec la batterie de la tablette à sa gauche (selon les réglages)
         batteryView = BatteryView(this)
@@ -181,6 +182,13 @@ class MainActivity : Activity(), HaClient.Listener {
         }
         // Les outils restent en haut, à côté de l'heure, dans les deux dispositions.
         val timeRow = heureRow
+        cautionView = label(13f, 0xFFFFD0D0.toInt(), true, tr("Alerte").uppercase(I18n.locale)).apply {
+            letterSpacing = 0.1f; gravity = Gravity.CENTER; setPadding(dp(12), 0, dp(12), 0); visibility = View.GONE
+            background = android.graphics.drawable.GradientDrawable().apply { setColor(0xFFB3261E.toInt()); cornerRadius = dpf(4); setStroke(dp(1.5f), 0xFFFF6B60.toInt()) }
+            contentDescription = tr("Alerte"); isClickable = true
+            setOnClickListener { cautionAcked = cautionReds; updateCaution(cautionReds) }
+        }
+        timeRow.addView(cautionView, LinearLayout.LayoutParams(WRAP_CONTENT, dp(34)).apply { marginEnd = dp(12) })
         scoresButton = ScoresButton(this).apply { setOnClickListener { showScores() } }
         timeRow.addView(scoresButton, LinearLayout.LayoutParams(dp(42), dp(40)).apply { marginEnd = dp(8) })
         headerPlaying = NowPlayingChip(this)
@@ -210,6 +218,7 @@ class MainActivity : Activity(), HaClient.Listener {
         }
         header.addView(menu, LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(12) })
         col.addView(header)
+        if (Skin.gauges) col.addView(chipsView, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(8) })
 
         statusView = label(14f, Skin.ink).apply {
             setPadding(dp(14), dp(6), dp(14), dp(6))
@@ -378,6 +387,7 @@ class MainActivity : Activity(), HaClient.Listener {
         FamilyNotes.listeners.remove(onNotes)
         stopCleaning()
         handler.removeCallbacks(nightSummary)
+        handler.removeCallbacks(departSummary)
         safetyDialog?.dismiss(); safetyDialog = null
         app.onNoticeCleared = null
         app.notices.listeners.remove(onNoticesChanged)
@@ -532,6 +542,7 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var cleanDownY = 0f
     internal val cleanHold = Runnable { stopCleaning() }
     internal val nightSummary = Runnable { showNightSummary() }
+    internal val departSummary = Runnable { showNightSummary(leaving = true) }
     internal val onNotes: () -> Unit = { updateFamilyNotes() }
     /** Écran rouge de l'alarme fumée / monoxyde, tant qu'elle sonne. */
     internal var safetyDialog: android.app.Dialog? = null
@@ -562,6 +573,19 @@ class MainActivity : Activity(), HaClient.Listener {
     internal lateinit var headerPlaying: NowPlayingChip
     internal lateinit var scoresButton: ScoresButton
     internal lateinit var morningButton: HomeExtras.MorningButton
+    /** Voyant d'alerte principal (tableau de bord) : clignote tant qu'une alerte rouge n'a pas été vue ; un toucher l'acquitte. */
+    internal lateinit var cautionView: TextView
+    internal var cautionReds: Set<String> = emptySet()
+    internal var cautionAcked: Set<String> = emptySet()
+    internal fun updateCaution(reds: Set<String>) {
+        cautionReds = reds
+        val (on, still) = Present.caution(reds, cautionAcked)
+        cautionAcked = still
+        if (on == (cautionView.visibility == View.VISIBLE)) return
+        cautionView.clearAnimation()
+        cautionView.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) cautionView.startAnimation(android.view.animation.AlphaAnimation(1f, 0.3f).apply { duration = 650; repeatMode = android.view.animation.Animation.REVERSE; repeatCount = android.view.animation.Animation.INFINITE })
+    }
     internal val morningReady get() = ::morningButton.isInitialized
 
     internal val reminded = HashSet<Long>()
@@ -623,7 +647,8 @@ class MainActivity : Activity(), HaClient.Listener {
         val ms = cfg.morningSources
         if ((0 until ms.length()).any { ms.optJSONObject(it)?.optString("entity") in ids }) updateMorningButton()
         if (roomIndex == HOME) {
-            if (ids.contains(cfg.weatherEntity)) weatherCard?.update(app.ha.states[cfg.weatherEntity])
+            // Le cadran de puissance du tableau de bord suit aussi le capteur d'électricité.
+            if (ids.contains(cfg.weatherEntity) || (Skin.gauges && cfg.weatherEntity.isNotEmpty() && cfg.energySensors.any { it in ids })) weatherCard?.update(app.ha.states[cfg.weatherEntity])
             // Plusieurs capteurs changent souvent en rafale : un seul recalcul de l'en-tête pour le lot.
             handler.removeCallbacks(headerUpdate)
             handler.postDelayed(headerUpdate, 120)

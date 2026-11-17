@@ -145,8 +145,12 @@ internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
 
 /** Met à jour les pastilles seulement si leur contenu a changé. */
 internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false, extra: List<Present.Chip> = emptyList()) {
-    val chips = (if (room == null) emptyList() else Present.chips(room, app.ha.states)
-        .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light" || it.kind == "cover" || it.kind == "smoke") }) + extra
+    val chips = ((if (room == null) emptyList() else Present.chips(room, app.ha.states)
+        .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light" || it.kind == "cover" || it.kind == "smoke") }) + extra)
+        // Tableau de bord, sur l'accueil : les voyants des systèmes de la maison restent en place, éteints quand tout va bien.
+        .let { list -> if (Skin.gauges && activeOnly && room != null) Present.standing(list, room.entities.mapNotNull { Present.chipKind(it.id, app.ha.states[it.id]) }.toSet()) else list }
+    // Tableau de bord : les alertes rouges de la maison allument le voyant d'alerte principal.
+    if (Skin.gauges && activeOnly && room != null) updateCaution(chips.filter { it.level == 2 }.map { it.text }.toSet())
     if (chips == lastChips && chipsRoom === room) return
     lastChips = chips; chipsRoom = room
     chipsView.removeAllViews()

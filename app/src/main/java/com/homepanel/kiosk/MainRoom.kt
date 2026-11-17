@@ -91,7 +91,7 @@ internal fun MainActivity.showRoom() {
 
     for ((title, list) in groups) {
         if (title != null && (groups.size > 1 || cams.isNotEmpty())) {
-            content.addView(label(17f, Skin.fg(0xE6), true, title).apply { setPadding(dp(2), dp(16), 0, dp(10)) })
+            content.addView(sectionLabel(title).apply { setPadding(dp(2), dp(16), 0, dp(10)) })
         }
         val grid = TileGrid(this)
         for (re in list) grid.addView(deviceTile(re, room))
@@ -144,7 +144,8 @@ internal fun MainActivity.bindTile(t: TileView, re: RoomEntity, room: Room) {
     }
     // Lumière à intensité variable allumée : son niveau remplit la tuile.
     val level = e?.takeIf { it.domain == "light" && Present.supportsBrightness(it) }?.let { Present.brightnessPct(it) }
-    t.bind(Present.displayName(re, e, room.name), status, Present.active(e), Present.unavailable(e), Present.accent(e), Present.icon(re.id, e), level)
+    t.bind(Present.displayName(re, e, room.name), status, Present.active(e), Present.unavailable(e), Present.accent(e), Present.icon(re.id, e), level,
+        switchable = Present.domain(re.id) in setOf("light", "switch", "input_boolean", "fan"))
 }
 
 /** HA injoignable : on le dit plutôt que d'ignorer le toucher sans rien montrer. */
@@ -164,7 +165,7 @@ internal fun MainActivity.onTileTap(t: TileView, re: RoomEntity, room: Room) {
         confirmUnlock(Present.displayName(re, e, room.name)) { if (!haOffline() && Present.tap(app.ha, re.id, app.ha.states[re.id])) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
         return
     }
-    if (Present.tap(app.ha, re.id, e)) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+    if (Present.tap(app.ha, re.id, e)) { t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); maybeLaunch(re.id) }
     else if (Present.hasDetail(re.id, e)) openDetail(re, room)
 }
 

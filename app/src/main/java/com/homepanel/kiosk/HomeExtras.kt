@@ -182,6 +182,13 @@ object HomeExtras {
         compoundDrawablePadding = ctx.dp(10)
         setPadding(ctx.dp(18), ctx.dp(14), ctx.dp(22), ctx.dp(14))
         background = Skin.card(ctx, ctx.dpf(18))
+        if (Skin.gauges) {
+            // Tableau de bord : un gros bouton carré, étiquette en majuscules sur deux lignes au plus.
+            text = text.toString().uppercase(I18n.locale); typeface = Skin.bold; textSize = 14f; letterSpacing = 0.06f
+            gravity = Gravity.CENTER; maxLines = 2; setCompoundDrawables(null, null, null, null)
+            width = ctx.dp(132); height = ctx.dp(74); setPadding(ctx.dp(10), ctx.dp(6), ctx.dp(10), ctx.dp(6))
+            background = Skin.chip(ctx, 0).first; setTextColor(Skin.ink)
+        }
         isClickable = true
         setOnClickListener { onTap(this) }
     }

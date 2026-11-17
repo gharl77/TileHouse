@@ -107,7 +107,7 @@ internal fun MainActivity.addHomeExtras() {
     fun entity(id: String) = cfg.rooms.firstNotNullOfOrNull { it.find(id) }
     val cams = if (cfg.shows("cameras")) cfg.homeCameras.mapNotNull { entity(it) } else emptyList()
     if (cams.isNotEmpty()) {
-        content.addView(label(17f, Skin.fg(0xE6), true, tr("Caméras")).apply { setPadding(dp(2), dp(18), 0, dp(10)) })
+        content.addView(sectionLabel(tr("Caméras")).apply { setPadding(dp(2), dp(18), 0, dp(10)) })
         val grid = CameraGrid(this)
         for (re in cams) {
             val v = CameraTileView(this)
@@ -126,7 +126,7 @@ internal fun MainActivity.addHomeFavorites() {
     fun entity(id: String) = cfg.rooms.firstNotNullOfOrNull { it.find(id) }
     val favs = if (cfg.shows("favorites")) cfg.homeFavorites.mapNotNull { entity(it) }.filter { Present.domain(it.id) != "camera" } else emptyList()
     if (favs.isNotEmpty()) {
-        content.addView(label(17f, Skin.fg(0xE6), true, tr("Favoris")).apply {
+        content.addView(sectionLabel(tr("Favoris")).apply {
             // Une étoile jaune devant le titre.
             getDrawable(R.drawable.ic_star)?.mutate()?.let { d -> d.setBounds(0, 0, dp(20), dp(20)); d.setTint(0xFFFFC107.toInt()); setCompoundDrawables(d, null, null, null); compoundDrawablePadding = dp(8) }
             gravity = Gravity.CENTER_VERTICAL
@@ -201,6 +201,9 @@ internal fun MainActivity.addShortcuts(ids: List<String>, top: Int) {
                 v.animate().alpha(0.5f).setDuration(120).withEndAction { v.animate().alpha(1f).setDuration(300).start() }.start()
                 // « Bonne nuit » : dix secondes plus tard (le temps que le script agisse), ce qui reste à régler.
                 if (HomeCare.isNightShortcut(cfg.nightShortcut, id, app.ha.states[id]?.name.orEmpty())) { handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
+                // « Avant de partir » : la même liste de vérification après le raccourci de départ choisi.
+                else if (id == cfg.departShortcut) { handler.removeCallbacks(departSummary); handler.postDelayed(departSummary, 10_000) }
+                maybeLaunch(id)
             }
         })
         content.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = top })
@@ -208,7 +211,7 @@ internal fun MainActivity.addShortcuts(ids: List<String>, top: Int) {
 }
 
 internal fun MainActivity.addFloorSection(title: String, indexes: List<Int>) {
-    content.addView(label(17f, Skin.fg(0xE6), true, title).apply { setPadding(dp(2), dp(22), 0, dp(10)) })
+    content.addView(sectionLabel(title).apply { setPadding(dp(2), dp(22), 0, dp(10)) })
     val grid = TileGrid(this)
     for (i in indexes) {
         val t = TileView(this)

@@ -110,7 +110,7 @@ class NewFeaturesTest {
         assertFalse(Choices.summaryHiddenByDefault("binary_sensor.porte_entree_avant", "Porte Entrée Avant", "door"))
         assertFalse(Choices.summaryHiddenByDefault("binary_sensor.porte_patio", "Porte-Patio", "door"))
         // Seules les portes sont concernées : une serrure reste une serrure.
-        assertFalse(Choices.summaryHiddenByDefault("lock.serrure_entree_avant", "Serrure entrée avant", "lock"))
+        assertFalse(Choices.summaryHiddenByDefault("lock.front_door", "Serrure entrée avant", "lock"))
     }
 
     @Test fun voiceAssistantsMakeNoCardByDefault() {
@@ -501,6 +501,7 @@ class NewFeaturesTest {
         assertEquals("calendar.famille", HomeCare.birthdayCalendar("calendar.famille", cals))
         // Raccourci du soir : reconnu à son nom en automatique, ou choisi, ou jamais.
         assertTrue(HomeCare.isNightShortcut("", "script.bonne_nuit", "Bonne nuit")); assertFalse(HomeCare.isNightShortcut("", "scene.match_de_hockey", "Match de hockey"))
+        assertTrue(HomeCare.isNightShortcut("", "script.goodnight", "Good night")); assertFalse(HomeCare.isNightShortcut("", "scene.movie_night", "Soirée cinéma"))
         assertFalse(HomeCare.isNightShortcut("none", "script.bonne_nuit", "Bonne nuit")); assertTrue(HomeCare.isNightShortcut("scene.x", "scene.x", "Cinéma"))
         // Ce qui reste à régler.
         fun e(id: String, st: String, dc: String = "") = EntityState(id, st, JSONObject().apply { if (dc.isNotEmpty()) put("device_class", dc) })
@@ -542,5 +543,147 @@ class NewFeaturesTest {
         assertTrue(Health.wearChip(list)!!.text.contains("2")); assertTrue(Health.wearChip(list.filter { it.device == "Léon" })!!.text.endsWith("Léon"))
         assertNull(Health.wearChip(emptyList())); assertTrue(Health.parseWear(null).isEmpty())
         assertTrue("<= 10" in Health.wearTemplate(10))
+    }
+
+    @Test fun cockpitSkinIsListedAndCutsItsCorners() {
+        assertTrue("cockpit" in Skin.keys)
+        Skin.use("cockpit"); assertTrue(Skin.tileCut > 0f); assertTrue(Skin.gauges)
+        Skin.use("homekit"); assertEquals(0f, Skin.tileCut); assertFalse(Skin.gauges)
+    }
+
+    @Test fun dialsPlaceValuesOnTheirScales() {
+        assertEquals(0f, Dial.temperature(null, "°C")); assertEquals(0.5f, Dial.temperature(5.0, "°C"), 0.001f); assertEquals(0.5f, Dial.temperature(41.0, "°F"), 0.001f)
+        assertEquals(1f, Dial.temperature(60.0, "°C")); assertEquals(0f, Dial.temperature(-50.0, "°C"))
+        assertEquals(2.4, Dial.kilowatts(2400.0, "W")!!, 0.001); assertEquals(2.4, Dial.kilowatts(2.4, "kW")!!, 0.001); assertNull(Dial.kilowatts(null, "W"))
+        assertEquals(0.24f, Dial.level(2.4, 0.0, 10.0), 0.001f); assertEquals(1f, Dial.level(250.0, 0.0, 100.0)); assertEquals(0f, Dial.level(null, 0.0, 1.0))
+        assertEquals(150f, Dial.angle(0f)); assertEquals(270f, Dial.angle(0.5f)); assertEquals(390f, Dial.angle(2f))
+    }
+
+    @Test fun cockpitTilesDrawASwitchOnlyWhenTheSkinAsks() {
+        Skin.use("cockpit"); assertTrue(Skin.tile(true, 0).toggle); assertTrue(Skin.tile(false, 0).toggle); assertTrue(Skin.tile(true, 0).dot != 0)
+        Skin.use("homekit"); assertFalse(Skin.tile(true, 0).toggle)
+    }
+
+    @Test fun launchSequenceReadsEveryActionOfAScript() {
+        assertTrue(Launch.applies("scene.x")); assertTrue(Launch.applies("script.x")); assertFalse(Launch.applies("light.x"))
+        val scene = EntityState("scene.x", "on", org.json.JSONObject().put("entity_id", org.json.JSONArray(listOf("light.a", "cover.b"))))
+        assertEquals(listOf("light.a", "cover.b"), Launch.targets(scene)); assertTrue(Launch.targets(null).isEmpty())
+        val script = org.json.JSONObject("""{"alias":"Bonne nuit","sequence":[
+            {"if":[{"condition":"state","entity_id":"media_player.tv","state":"on"}],"then":[{"action":"media_player.turn_off","target":{"entity_id":["media_player.tv"]}}]},
+            {"action":"light.turn_off","target":{"entity_id":["light.a","light.b"],"area_id":"sous_sol","label_id":["nuit"]}},
+            {"service":"lock.lock","data":{"entity_id":"lock.c, lock.d"}},
+            {"service":"homeassistant.turn_off","entity_id":"group.tout","target":{"floor_id":"etage","device_id":"abc123"}},
+            {"choose":[{"sequence":[{"action":"cover.close_cover","target":{"entity_id":"cover.e"}}]}],"default":[{"action":"scene.turn_on","target":{"entity_id":"scene.soir"}}]},
+            {"repeat":{"sequence":[{"action":"switch.turn_on","target":{"entity_id":"switch.f"}},{"delay":{"seconds":20}}],"until":[{"condition":"state","entity_id":"switch.zzz","state":"on"}]}},
+            {"action":"script.fermer_garage"},{"action":"script.turn_on","target":{"entity_id":"script.autre"}},
+            {"action":"light.turn_off","target":{"entity_id":"{{ states.light | map(attribute='entity_id') | list }}"}},
+            {"action":"{{ 'light.turn_on' }}","target":{"entity_id":"light.modele"}},
+            {"action":"notify.mobile","data":{"message":"x","data":{"tag":"y"}}}]}""")
+        val calls = Launch.calls(script)
+        // L'ordre des branches d'un même bloc n'est pas garanti : on compare sans ordre.
+        assertEquals(listOf("media_player.turn_off", "light.turn_off", "lock.lock", "homeassistant.turn_off", "cover.close_cover", "scene.turn_on", "switch.turn_on",
+            "script.fermer_garage", "script.turn_on", "light.turn_off", "notify.mobile").sorted(), calls.map { it.domain + "." + it.service }.sorted())
+        fun call(name: String, pick: (Launch.Call) -> Boolean = { true }) = calls.first { it.domain + "." + it.service == name && pick(it) }
+        val lights = call("light.turn_off") { !it.empty }
+        assertEquals(listOf("light.a", "light.b"), lights.entities); assertEquals(listOf("sous_sol"), lights.areas); assertEquals(listOf("nuit"), lights.labels)
+        assertEquals(listOf("lock.c", "lock.d"), call("lock.lock").entities)
+        val all = call("homeassistant.turn_off")
+        assertEquals(listOf("group.tout"), all.entities); assertEquals(listOf("etage"), all.floors); assertEquals(listOf("abc123"), all.devices)
+        assertEquals(listOf("scene.soir"), call("scene.turn_on").scenes)
+        // Les conditions ne sont pas des actions, et une cible calculée par un modèle ne donne rien.
+        assertTrue(calls.none { "switch.zzz" in it.entities || "light.modele" in it.entities || "media_player.zzz" in it.entities })
+        assertTrue(call("light.turn_off") { it.empty }.empty); assertTrue(call("notify.mobile").empty)
+        assertEquals(setOf("script.fermer_garage", "script.autre"), calls.flatMap { it.scripts }.toSet())
+        assertTrue(Launch.calls(null).isEmpty()); assertTrue(Launch.calls(org.json.JSONObject("""{"sequence":[]}""")).isEmpty())
+    }
+
+    @Test fun launchSequenceKnowsTheWantedStateOfCommonServices() {
+        assertEquals("off", Launch.expected("light", "turn_off")); assertEquals("on", Launch.expected("switch", "turn_on")); assertEquals("locked", Launch.expected("lock", "lock"))
+        assertEquals("closed", Launch.expected("cover", "close_cover")); assertEquals("", Launch.expected("light", "toggle")); assertEquals("", Launch.expected("scene", "turn_on"))
+        assertEquals("", Launch.expected("climate", "set_temperature"))
+        assertTrue(Launch.reached("off", "off")); assertTrue(Launch.reached("off", "standby")); assertFalse(Launch.reached("off", "on")); assertFalse(Launch.reached("off", "unavailable"))
+        assertTrue(Launch.reached("on", "on")); assertTrue(Launch.reached("on", "playing")); assertFalse(Launch.reached("on", "off")); assertFalse(Launch.reached("on", "unavailable"))
+        assertTrue(Launch.reached("locked", "locked")); assertFalse(Launch.reached("locked", "locking")); assertFalse(Launch.reached("", "on"))
+    }
+
+    @Test fun launchSequenceBuildsOneTemplateAndMergesItsAnswer() {
+        assertEquals("", Launch.template(emptyList())); assertEquals("", Launch.template(listOf(Launch.Call("notify", "mobile", emptyList()), Launch.Call("script", "turn_on", listOf("script.x")))))
+        val t = Launch.template(listOf(Launch.Call("light", "turn_off", listOf("light.a"), areas = listOf("salon")), Launch.Call("scene", "turn_on", listOf("scene.soir")),
+            Launch.Call("homeassistant", "turn_off", listOf("group.tout"))))
+        assertTrue(t.contains("""'e':["light.a"]""")); assertTrue(t.contains("""'a':["salon"]""")); assertTrue(t.contains("'x':'off'")); assertTrue(t.contains("""'m':"^light\\.""""))
+        assertTrue(t.contains("""'s':["scene.soir"]""")); assertTrue(t.contains("""'e':["group.tout"]""")); assertTrue(t.contains("area_entities")); assertTrue(t.endsWith("{{ ns.r | tojson }}"))
+        val rows = Launch.parseRows("""[["light.a","Plafonnier","on","255/None/None","off"],["lock.b","Serrure","locked","None/None/None","locked"],
+            ["light.a","Plafonnier","on","255/None/None","on"],["cover.c","","open","None/60/None",""]]""")
+        assertEquals(listOf("light.a", "lock.b", "cover.c"), rows.map { it.id })
+        assertEquals("", rows[0].expect); assertEquals("locked", rows[1].expect); assertEquals("cover.c", rows[2].name); assertEquals("open#None/60/None", rows[2].print)
+        assertTrue(Launch.parseRows(null).isEmpty()); assertTrue(Launch.parseRows("pas du json").isEmpty())
+        // Même empreinte que le modèle pour un appareil que la tablette suit déjà.
+        assertEquals("on#255/None/None", Launch.print(EntityState("light.a", "on", org.json.JSONObject().put("brightness", 255).put("current_position", org.json.JSONObject.NULL))))
+        assertEquals("open#None/60/None", Launch.print(EntityState("cover.c", "open", org.json.JSONObject().put("current_position", 60))))
+        assertEquals(listOf("a", "b"), Launch.rows(listOf("a", "b")))
+        val many = Launch.rows((1..15).map { "n$it" })
+        assertEquals(Launch.MAX_ROWS, many.size); assertTrue(many.last().startsWith("+ 4"))
+        assertTrue(Launch.litAt(1) > Launch.litAt(0)); assertTrue(Launch.total(6) > Launch.litAt(5)); assertTrue(Launch.total(0) < 2000)
+    }
+
+    @Test fun radarPlacesRoomsInsideTheCircleAndFadesBehindTheSweep() {
+        for (n in 1..15) for (i in 0 until n) { val (a, d) = Radar.place(i, n); assertTrue(a in 0f..360f); assertTrue(d in 0.4f..0.9f) }
+        assertTrue(Radar.place(0, 4).first != Radar.place(1, 4).first)
+        assertEquals(1f, Radar.glow(90f, 90f), 0.001f); assertTrue(Radar.glow(90f, 100f) > Radar.glow(90f, 300f)); assertTrue(Radar.glow(90f, 80f) >= 0.3f)
+    }
+
+    @Test fun radarCountsWhatIsOnOpenAndUnlocked() {
+        val room = Room("r", "Salon").apply { entities.addAll(listOf(RoomEntity("light.a"), RoomEntity("lock.b"), RoomEntity("binary_sensor.c"))) }
+        val calm = Room("q", "Bureau").apply { entities.add(RoomEntity("light.z")) }
+        fun st(id: String, s: String, dc: String = "") = id to EntityState(id, s, org.json.JSONObject().put("device_class", dc))
+        val states = mapOf(st("light.a", "on"), st("lock.b", "unlocked"), st("binary_sensor.c", "on", "door"), st("light.z", "off"))
+        val s = Radar.scan(listOf(room, calm), states)
+        assertEquals(1, s.lights); assertEquals(1, s.open); assertEquals(1, s.unlocked); assertEquals(1, s.locks)
+        assertEquals(listOf("Salon"), s.blips.map { it.name }); assertTrue(s.blips[0].alert)
+        assertEquals(3, Radar.lines(s).size)
+        val quiet = Radar.scan(listOf(calm), states)
+        assertTrue(quiet.blips.isEmpty()); assertEquals(1, Radar.lines(quiet).size)
+    }
+
+    @Test fun dashboardKeepsTheHouseSystemsInPlace() {
+        val lock = Present.Chip(1, "Verrouillé", kind = "lock"); val power = Present.Chip(2, "2,4 kW", kind = "energy"); val window = Present.Chip(3, "Fenêtre ouverte", 1, "window")
+        val out = Present.standing(listOf(power, window, lock), setOf("light", "lock", "door", "window"))
+        assertEquals(listOf("light", "lock", "door", "window", "energy"), out.map { it.kind })
+        assertEquals(0, out[0].level); assertEquals(1, out[3].level); assertEquals("Verrouillé", out[1].text)
+        // Une maison sans porte suivie n'a pas de voyant « Portes » ; sans détecteur, pas de voyant de fumée inventé.
+        assertEquals(listOf("lock", "energy"), Present.standing(listOf(power, lock), setOf("lock", "smoke")).map { it.kind })
+        // Tout est verrouillé : la pastille « Verrouillé » est filtrée sur l'accueil, mais le voyant « Serrures » reste, éteint.
+        assertEquals(listOf("lock", "energy"), Present.standing(listOf(power), setOf("lock")).map { it.kind }); assertEquals(0, Present.standing(listOf(power), setOf("lock"))[0].level)
+        assertTrue(Present.standing(emptyList(), emptySet()).isEmpty())
+    }
+
+    @Test fun segmentDigitsLightTheRightBars() {
+        assertEquals(0b0000110, Segments.mask('1')); assertEquals(0b1111111, Segments.mask('8')); assertEquals(0b0111111, Segments.mask('0')); assertEquals(0, Segments.mask(':'))
+        assertEquals(10, ('0'..'9').map { Segments.mask(it) }.distinct().size)
+        assertTrue(Segments.width(':') < Segments.width('8'))
+    }
+
+    @Test fun radarAddsScoresAndWhatIsPlaying() {
+        val g = Scores.Game("IN", Scores.Side("MTL", "Canadiens", "", "2"), Scores.Side("TOR", "Maple Leafs", "", "1"), "12:04", 0L, "NHL", "")
+        val lines = Radar.extras(listOf(g, g, g), "Blue in Green · Miles Davis")
+        assertEquals(3, lines.size); assertTrue(lines[0].startsWith("MTL 2 – 1 TOR")); assertTrue(lines[2].endsWith("Blue in Green · Miles Davis"))
+        assertTrue(Radar.extras(emptyList(), " ").isEmpty())
+    }
+
+    @Test fun masterCautionLightsForUnseenRedAlertsOnly() {
+        assertEquals(false to emptySet<String>(), Present.caution(emptySet(), emptySet()))
+        assertEquals(true to emptySet<String>(), Present.caution(setOf("Serrure bloquée"), emptySet()))
+        // Vue : le voyant s'éteint tant que rien de nouveau n'arrive.
+        assertEquals(false to setOf("Serrure bloquée"), Present.caution(setOf("Serrure bloquée"), setOf("Serrure bloquée")))
+        assertEquals(true to setOf("Serrure bloquée"), Present.caution(setOf("Serrure bloquée", "Fumée détectée"), setOf("Serrure bloquée")))
+        // L'alerte disparaît puis revient : elle rallume le voyant.
+        val (_, still) = Present.caution(emptySet(), setOf("Serrure bloquée")); assertTrue(still.isEmpty())
+        assertTrue(Present.caution(setOf("Serrure bloquée"), still).first)
+    }
+
+    @Test fun powerDialKnowsWhenAPeakIsRunning() {
+        val peaks = listOf(1000L to 2000L, 5000L to 6000L)
+        assertFalse(Dial.inPeak(peaks, 999)); assertTrue(Dial.inPeak(peaks, 1000)); assertTrue(Dial.inPeak(peaks, 1999)); assertFalse(Dial.inPeak(peaks, 2000))
+        assertTrue(Dial.inPeak(peaks, 5500)); assertFalse(Dial.inPeak(emptyList(), 1500))
     }
 }

@@ -69,7 +69,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 - **Camera alerts**: the live view pops up when a camera sees a person or when someone rings the doorbell.
 - **Notifications from Home Assistant** in a card in the middle of the screen, with title, icon, colour and camera snapshot, and a
   **notification center** (bell with an unread counter) for the ones nobody confirmed.
-- **Screen saver** with the time and weather (or a black screen), and optional **wake on motion** with the tablet's front camera.
+- **Screen saver** with the time and weather, a radar sweep of the house, a photo frame or a black screen, and optional **wake on motion** with the tablet's front camera.
 - **Robot vacuums**: state, battery, start / pause / stop / return to base.
 - **Music** with Music Assistant: favourites, playlists, radio and albums, on the speakers you choose, with volume, shuffle,
   repeat, queue and transfer to another speaker.
@@ -325,6 +325,23 @@ the home screen only while it is working ("Washer: Washing · 25 min left"). Idl
 **Good-night summary.** Ten seconds after the *Good night* shortcut is tapped on the tablet, a window lists what is still on,
 unlocked or open, with *Turn off*, *Lock* and *Fix everything*. If nothing is left it says so and closes by itself. The shortcut
 is recognised by its name, or chosen on the web page (*Home → Shortcuts*).
+
+The automatic detection needs the full *Good night* in the name (or *Bonne nuit*, *dodo*, *coucher*), so a scene called *Movie night*
+does not open it. The same window can follow a **leaving shortcut** of your choice, titled *Before leaving* (*Home → Shortcuts*).
+
+**Launch sequence** (off by default; web page, *Home → Shortcuts*). After a scene or a script is tapped, a short full screen lists
+the devices concerned and follows their **real state**: a line turns to *OK* when the device is in the wanted state (off, locked,
+closed…), whether it just got there or already was, then *Ready*. When the action does not say the wanted state (a scene, a
+temperature), the line lights when the device changes, and reads *already done* otherwise. Devices that have not arrived after ten
+seconds are marked *pending* — a slow lock, for example. A tap closes the sequence at any time.
+
+For a script, TileHouse reads its content in Home Assistant and resolves every action: the devices it names, but also those of an
+**area**, a **device**, a **label** or a **floor**, the members of a **group**, the devices of a **scene** it activates and the
+content of the **scripts it calls** (two levels). An action on an area only lists the devices of the action's type (a
+`light.turn_off` on the kitchen lists the kitchen lights). A target computed by a template cannot be guessed and is not listed.
+One box per shortcut chooses which ones get the sequence.
+
+<img src="docs/screenshots/launch-sequence.png" width="860" alt="Launch sequence of a scene: its devices listed, two of them already OK, and a progress bar">
 
 **Birthday banner.** On the day of an event in your birthday calendar, a banner shows at the top of the home screen: an event named
 with a first name gives "Happy birthday, Léa"; a title that already mentions a birthday is shown as is. The calendar is found by
@@ -588,7 +605,7 @@ With a button:
 Everything here is in the tablet's **Sleep & sounds** tab and on the web page (*Display*).
 
 **Screen saver:** after the idle delay the screen shows the **time, date and current weather** (moving a little every
-minute so nothing burns in, at a brightness you choose, 1–60 %), a **photo frame**, or a **black screen**. A touch wakes it.
+minute so nothing burns in, at a brightness you choose, 1–60 %), a **radar**, a **photo frame**, or a **black screen**. A touch wakes it.
 Under the time and the date, a row of roomy panels shows the weather, the **score** of the teams you follow (the two logos, up to two games) and **what
 is playing** (a small image, the title, the player, the app and the channel), and when several players are playing they take turns every ten seconds.
 The photo frame shows an **Immich** album or your favourites, changing photo every 30 seconds (10 s to 5 min), with the time and
@@ -596,6 +613,13 @@ weather in a corner. TileHouse talks to Immich directly with its own API key: on
 frame*) enter the Immich address (e.g. `http://192.168.1.20:2283`) and an API key (Immich → *Account settings → API keys*; read
 access to albums and assets is enough), then pick the album. The key is encrypted on the tablet and never shown again. Only photos
 are shown (videos are skipped), in Immich's "preview" size.
+
+The **radar** is a slow sweep on a black screen: each room with something on or open is a dot — amber for lights, red for an open
+door or window or an unlocked lock — that brightens as the sweep passes. Beside it: the time, the weather, the house's status lines
+(lights on, doors or windows open, locks), the score of the teams you follow and what is playing. The dots are spread around the
+circle in room order; it is not a floor plan.
+
+<img src="docs/screenshots/screensaver-radar.png" width="860" alt="Radar screen saver: a sweep with one dot per room, the time, the weather and the house's status lines">
 
 **Notification sounds:** turn it off and no notification makes a sound, at any time. Timers still ring, since you
 started them yourself.
@@ -661,7 +685,7 @@ Nothing is animated, so themes cost nothing in battery or CPU.
 ### Skins
 
 A skin changes **how everything is drawn**: tiles, chips, cards, control windows, notifications, timers and *This morning*.
-The structure stays the same, and so do the theme and wallpaper you chose. The tablet's settings screens are not affected.
+The structure stays the same (only Cockpit moves the chips under the header and redraws the weather card), and so do the theme and wallpaper you chose. The tablet's settings screens are not affected.
 
 - **HomeKit** (default): glass tiles; a device that is on turns its tile white.
 - **Minimal**: no filled tiles, thin lines under each device, light typography; a device that is on gets a coloured icon and
@@ -672,6 +696,15 @@ The structure stays the same, and so do the theme and wallpaper you chose. The t
   text. Warning chips use soft orange and red.
 - **Neon**: a very dark background, outlined tiles and cards; a device that is on glows in the theme's colour (e.g. orange for
   Halloween or Autumn). Monospaced clock and temperatures, easy to read in the evening.
+- **Cockpit**: an instrument panel. The chips become a panel of **warning lamps** in identical cells across the full width:
+  *Lights*, *Locks*, *Doors*, *Windows* and *Smoke* always keep their place, unlit when all is well, amber or red otherwise. The
+  weather card shows three **needle dials**: outside temperature, the home's power in kW (the wind when no power sensor is chosen)
+  and humidity. Lights, plugs and fans are **toggle switches** with an indicator lamp; the clock uses **seven-segment digits**;
+  scenes and scripts are large square buttons; cards and tiles have cut corners, amber for what is on and cyan for the rest. In
+  control windows, a light, a blind or the volume is set with a **lever** in a graduated slot, and a thermostat with a graduated
+  scale and a pointer. Two extras belong to this skin: a red **Alert** lamp blinks in the header as soon as a red warning appears
+  (tap it to acknowledge; a new one lights it again), and during an electricity peak the power dial has a **red zone** above a
+  threshold you choose (*Home → Electricity*, 5 kW by default).
 - **Compact**: the HomeKit look, smaller, with more devices per row (7 instead of 5 on a 10" tablet), for rooms with many devices.
   Long statuses are shortened (a thermostat shows `20.5° → 21°`).
 - **Large print**: the HomeKit look with very large, high-contrast text and 3 tiles per row, readable from across the room.
@@ -690,6 +723,14 @@ Pastel and Neon follow the active theme (or wallpaper): changing it changes thei
 | Compact | Large print |
 |---|---|
 | <img src="docs/screenshots/skin-compact.png" alt="Compact skin"> | <img src="docs/screenshots/skin-confort.png" alt="Large print skin"> |
+
+| Cockpit: home screen | Cockpit: a room |
+|---|---|
+| <img src="docs/screenshots/skin-cockpit.png" alt="Cockpit skin: warning lamps, three needle dials and a seven-segment clock"> | <img src="docs/screenshots/cockpit-room.png" alt="Cockpit skin in a room: toggle switches with indicator lamps"> |
+
+| Cockpit: a light | Cockpit: a thermostat |
+|---|---|
+| <img src="docs/screenshots/cockpit-light.png" alt="Cockpit skin: a light set with a lever in a graduated slot"> | <img src="docs/screenshots/cockpit-thermostat.png" alt="Cockpit skin: a thermostat with a graduated scale and a pointer"> |
 
 Choose it in the tablet's settings (*Display → Appearance*), on the web page (*Appearance*), or with the **Skin** select in
 Home Assistant.
@@ -735,7 +776,7 @@ Long explanations sit behind *Learn more*.
   groups the rooms by. **Now playing** (the card at the top of a room, the thumbnail in the top bar, the poster search and its optional keys, its
   players and what happens after a pause) is here too.
 - **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
-  **Messages** (family messages), **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity, weather alerts and radar, custom chips) and **Shortcuts** (with the good-night summary). The birthday calendar is chosen in the *Calendar* card.
+  **Messages** (family messages), **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity with the Cockpit dial's red zone, weather alerts and radar, custom chips) and **Shortcuts** (with the launch sequence, the good-night summary and the *Before leaving* checklist). The birthday calendar is chosen in the *Calendar* card.
 - **Devices & health**: **Tracked appliances** (3D printer, washer, oven…) and **Home health** (the low-battery, offline and vacuum-maintenance chips).
 - **Tools & media**: **Tools** — shopping and to-do lists, favourite timers, This morning and sports — and **Media** — music (the Music Assistant
   speakers offered, and the server token for the queue) and Now playing (posters, TV channels, log, which players count).
@@ -838,7 +879,7 @@ The entities follow Home Assistant's conventions: what you use every day is show
 | Veil on the wallpaper photo | number (0–100 %) | |
 | Group by category, Show clock, Show battery | switches | |
 | Dim after | number (min) | |
-| Screen saver, Screen saver brightness | select, number | time and weather, photo frame or black screen; its brightness |
+| Screen saver, Screen saver brightness | select, number | time and weather, radar, photo frame or black screen; its brightness |
 | Notification sounds, Quiet hours | switches | all notification sounds on or off; quiet hours on or off (e.g. on holidays) |
 | Notification duration | number (s) | how long a notification stays on screen |
 | TileHouse | update | installed / latest version, **Install** button |

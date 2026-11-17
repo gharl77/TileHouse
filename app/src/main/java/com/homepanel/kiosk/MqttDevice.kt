@@ -139,7 +139,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             }
             "voile_photo" -> v.toDoubleOrNull()?.toInt()?.let { cfg.photoVeilLevel = it; configChanged = true }
             "veille" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimMinutes = it.coerceIn(0, 240); configChanged = true }
-            "veille_style" -> { cfg.dimStyle = when (v) { tr("Écran noir") -> "black"; tr("Cadre photo") -> "photos"; else -> "clock" }; configChanged = true }
+            "veille_style" -> { cfg.dimStyle = when (v) { tr("Écran noir") -> "black"; tr("Cadre photo") -> "photos"; tr("Radar") -> "radar"; else -> "clock" }; configChanged = true }
             "heures_calmes" -> { cfg.quietEnabled = v == "ON"; configChanged = true }
             "sons" -> { cfg.soundsEnabled = v == "ON"; configChanged = true }
             "veille_luminosite" -> v.toDoubleOrNull()?.toInt()?.let { cfg.dimBrightness = it.coerceIn(1, 100); configChanged = true }
@@ -183,7 +183,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
         st(sel("fond"), Wallpapers.names.getOrNull(Wallpapers.keys.indexOf(c.wallpaper)) ?: Wallpapers.names[0])
         st("veille", c.dimMinutes.toString())
         st("luminosite", effectiveBrightness().toString())
-        st(sel("veille_style"), when (c.dimStyle) { "black" -> tr("Écran noir"); "photos" -> tr("Cadre photo"); else -> tr("Heure et météo") })
+        st(sel("veille_style"), when (c.dimStyle) { "black" -> tr("Écran noir"); "photos" -> tr("Cadre photo"); "radar" -> tr("Radar"); else -> tr("Heure et météo") })
         st("heures_calmes", if (c.quietEnabled) "ON" else "OFF")
         st("sons", if (c.soundsEnabled) "ON" else "OFF")
         st("veille_luminosite", c.dimBrightness.toString())
@@ -384,7 +384,7 @@ class MqttDevice(private val app: App) : MqttClient.Listener {
             put("device_class", "duration"); put("unit_of_measurement", "min"); put("mode", "slider")
         }
         entity("select", "veille_style", tr("Écran de veille"), "mdi:sleep", "config") {
-            both("veille_style", sel("veille_style")); put("options", JSONArray(listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir"))))
+            both("veille_style", sel("veille_style")); put("options", JSONArray(listOf(tr("Heure et météo"), tr("Radar"), tr("Cadre photo"), tr("Écran noir"))))
         }
         entity("number", "veille_luminosite", tr("Luminosité en veille"), "mdi:brightness-4", "config") {
             both("veille_luminosite"); put("min", 1); put("max", 60); put("step", 1); put("unit_of_measurement", "%"); put("mode", "slider")

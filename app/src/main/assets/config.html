@@ -374,6 +374,8 @@ details.more>p{margin:6px 0 0}
       <div style="flex:2"><label class="f" for="peakCal">Calendrier des pointes (Hydro-Québec)</label><select id="peakCal"></select></div>
       <div style="flex:1"><label class="f" for="peakReminder">Rappel</label>
         <select id="peakReminder"><option value="0">Aucun</option><option value="30">30 min avant</option><option value="60">1 h avant</option><option value="120">2 h avant</option><option value="180">3 h avant</option></select></div>
+      <div style="flex:1"><label class="f" for="peakPowerLimit">Zone rouge du cadran</label>
+        <select id="peakPowerLimit"><option value="0">Aucune</option><option value="30">Au-delà de 3 kW</option><option value="40">Au-delà de 4 kW</option><option value="50">Au-delà de 5 kW</option><option value="60">Au-delà de 6 kW</option><option value="80">Au-delà de 8 kW</option></select></div>
     </div>
     <h3 class="sub">Capteurs de puissance ou d'énergie</h3>
     <div id="energyList" class="muted">Connexion requise…</div>
@@ -399,9 +401,15 @@ details.more>p{margin:6px 0 0}
     <details class="more"><summary>En savoir plus</summary><p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p></details>
     <h3 class="sub">Raccourcis choisis</h3>
     <div id="scList" class="muted">Connexion requise…</div>
+    <h3 class="sub">Séquence de lancement</h3>
+    <label class="check"><input type="checkbox" id="launchSequence"> Afficher une séquence de lancement après une scène ou un script</label>
+    <p class="muted">Un court plein écran liste les appareils de la scène ou du script et suit leur état réel : une ligne passe à « OK » quand l'appareil est dans l'état voulu, puis « Prêt ». Fonctionne avec les zones, groupes, étiquettes, scènes et scripts appelés ; une cible calculée par un modèle n'est pas listée. Un toucher ferme la séquence.</p>
+    <div id="launchSkipBox" hidden><p class="muted" style="margin-bottom:6px">Raccourcis avec la séquence (décochez ceux qui n'en ont pas besoin) :</p><div id="launchList"></div></div>
     <h3 class="sub">Résumé du soir</h3>
     <div class="set"><label class="f" for="nightShortcut">Résumé du soir après le raccourci</label><select id="nightShortcut"></select></div>
     <p class="muted">Dix secondes après ce raccourci touché sur la tablette, une fenêtre montre ce qui reste allumé, déverrouillé ou ouvert, avec un bouton pour tout régler.</p>
+    <div class="set"><label class="f" for="departShortcut">Liste « Avant de partir » après le raccourci</label><select id="departShortcut"></select></div>
+    <p class="muted">La même fenêtre, pour un raccourci de départ : ce qui reste allumé, déverrouillé ou ouvert avant de quitter la maison.</p>
   </section>
 </main>
 <datalist id="allEnts"></datalist>
@@ -524,7 +532,7 @@ details.more>p{margin:6px 0 0}
       <label class="f" for="skin">Skin (style d'affichage)</label>
       <select id="skin"></select>
     </div>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">La skin change la façon de dessiner l'accueil, les pièces et les fenêtres. HomeKit : tuiles en verre. Épuré : lignes fines et texte léger. Papier : papier clair et titres à empattements. Pastel : grandes cartes douces aux couleurs du thème. Néon : contours lumineux de la couleur du thème. Compact : plus d'appareils par ligne. Grand confort : très gros texte, 3 tuiles par ligne. Le thème et le fond d'écran restent respectés. Les réglages de la tablette ne changent pas.</p></details>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">La skin change la façon de dessiner l'accueil, les pièces et les fenêtres. HomeKit : tuiles en verre. Épuré : lignes fines et texte léger. Papier : papier clair et titres à empattements. Pastel : grandes cartes douces aux couleurs du thème. Néon : contours lumineux de la couleur du thème. Cockpit : coins coupés, ambre et cyan, chiffres à chasse fixe. Compact : plus d'appareils par ligne. Grand confort : très gros texte, 3 tuiles par ligne. Le thème et le fond d'écran restent respectés. Les réglages de la tablette ne changent pas.</p></details>
     <div class="row">
       <div style="flex:2"><label class="f" for="nightSkin">Skin de nuit</label><select id="nightSkin"></select></div>
       <div style="flex:1"><label class="f" for="nightSkinStart">Début</label><input type="time" id="nightSkinStart"></div>
@@ -612,7 +620,7 @@ details.more>p{margin:6px 0 0}
     <h2>Écran de veille</h2>
     <div class="set">
       <label class="f" for="dimStyle">Affichage pendant la veille</label>
-      <select id="dimStyle"><option value="clock">Heure et météo</option><option value="photos">Cadre photo</option><option value="black">Écran noir</option></select>
+      <select id="dimStyle"><option value="clock">Heure et météo</option><option value="radar">Radar</option><option value="photos">Cadre photo</option><option value="black">Écran noir</option></select>
     </div>
     <div id="photoRow">
       <div class="row">
@@ -1088,6 +1096,21 @@ function renderHomeExtras(ex, h) {
   ns.value = st0.nightShortcut || "";
   if (ns.value !== (st0.nightShortcut || "")) ns.value = "";
   ns.onchange = () => { st0.nightShortcut = ns.value; saveSettings({nightShortcut: ns.value}); };
+  const ds = $("departShortcut"), scName = id => ((ex.all || []).find(e => e.id === id) || {name: id}).name;
+  ds.replaceChildren(el("option", {value: "", textContent: t("— Aucun —")}));
+  for (const id of (h.shortcuts || [])) ds.append(el("option", {value: id, textContent: scName(id)}));
+  ds.value = st0.departShortcut || "";
+  if (ds.value !== (st0.departShortcut || "")) ds.value = "";
+  ds.onchange = () => { st0.departShortcut = ds.value; saveSettings({departShortcut: ds.value}); };
+  // Séquence de lancement : une case par raccourci (scène ou script) ; décochée = pas de séquence.
+  const ll = $("launchList"), skip = new Set(st0.launchSkip || []);
+  const launchable = (h.shortcuts || []).filter(id => id.startsWith("scene.") || id.startsWith("script."));
+  $("launchSkipBox").hidden = !st0.launchSequence || !launchable.length;
+  ll.replaceChildren(...launchable.map(id => {
+    const box = el("input", {type: "checkbox", checked: !skip.has(id)});
+    box.onchange = () => { box.checked ? skip.delete(id) : skip.add(id); st0.launchSkip = [...skip]; saveSettings({launchSkip: st0.launchSkip}); };
+    return el("label", {class: "check"}, box, " " + scName(id));
+  }));
   // Pointes
   const pc = $("peakCal");
   pc.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
@@ -1096,6 +1119,8 @@ function renderHomeExtras(ex, h) {
   pc.onchange = () => saveSettings({peakCalendar: pc.value});
   $("peakReminder").value = String(h.peakReminder);
   $("peakReminder").onchange = () => saveSettings({peakReminder: +$("peakReminder").value});
+  $("peakPowerLimit").value = String(st0.peakPowerLimit ?? 50);
+  $("peakPowerLimit").onchange = () => { st0.peakPowerLimit = +$("peakPowerLimit").value; saveSettings({peakPowerLimit: st0.peakPowerLimit}); };
   // Alertes météo
   if (ex.alerts) tokens($("alertList"), ex.alerts.map(a => ({id: a.id, name: a.name, note: a.id})), h.weatherAlerts,
     next => { h.weatherAlerts = next; saveSettings({weatherAlerts: next}); renderHomeExtras(ex, h); },
@@ -1917,6 +1942,7 @@ function renderSettings() {
   $("smokeAlarm").checked = st.smokeAlarm;
   $("leakAlarm").checked = st.leakAlarm;
   $("confirmUnlock").checked = st.confirmUnlock;
+  $("launchSequence").checked = !!st.launchSequence;
   $("batteryLow").value = String(st.batteryLow);
   $("maintenanceLow").value = String(st.maintenanceLow);
   $("offlineChip").checked = st.offlineChip;
@@ -2047,6 +2073,7 @@ function renderNotes(notes, authors) {
 $("quietBlack").onchange = () => saveSettings({quietBlack: $("quietBlack").checked});
 $("leakAlarm").onchange = () => saveSettings({leakAlarm: $("leakAlarm").checked});
 $("confirmUnlock").onchange = () => saveSettings({confirmUnlock: $("confirmUnlock").checked});
+$("launchSequence").onchange = () => { $("launchSkipBox").hidden = !$("launchSequence").checked || !$("launchList").children.length; saveSettings({launchSequence: $("launchSequence").checked}); };
 $("smokeAlarm").onchange = () => saveSettings({smokeAlarm: $("smokeAlarm").checked});
 $("maintenanceLow").onchange = () => saveSettings({maintenanceLow: +$("maintenanceLow").value});
 $("batteryLow").onchange = () => saveSettings({batteryLow: +$("batteryLow").value});

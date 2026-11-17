@@ -23,6 +23,7 @@ import kotlin.random.Random
  *  - "black"  : noir complet ;
  *  - "clock"  : l'heure (sans secondes) et la date, puis une rangée de panneaux aérés — météo, pointage des matchs
  *               suivis, ce qui joue —, le tout déplacé un peu chaque minute (anti-marquage) ;
+ *  - "radar"  : balayage radar, heure, météo et voyants de la maison ([RadarView]) ;
  *  - "photos" : cadre photo (album Immich…) avec les mêmes éléments en plus petit dans un coin.
  */
 class DimScreen(ctx: Context) : FrameLayout(ctx) {
@@ -33,6 +34,7 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
         background = GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP, intArrayOf(0xCC000000.toInt(), 0x00000000))
     }
     private val box = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+    private val radar = RadarView(ctx).apply { visibility = View.GONE }
     private val time = ctx.label(150f, WHITE).apply {
         typeface = Skin.clockFace
         includeFontPadding = false
@@ -74,6 +76,7 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
         }
         box.addView(cards, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { gravity = Gravity.CENTER_HORIZONTAL })
         addView(box, LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
+        addView(radar, LayoutParams(MATCH_PARENT, MATCH_PARENT))
     }
 
     private fun photoView(ctx: Context) = ImageView(ctx).apply {
@@ -91,13 +94,27 @@ class DimScreen(ctx: Context) : FrameLayout(ctx) {
         }
         playingAll = playing; lastWeather = weatherState; lastGames = games
         if (style != this.style) setStyle(style)
-        box.visibility = if (style == "black") View.GONE else View.VISIBLE
+        box.visibility = if (style == "black" || style == "radar") View.GONE else View.VISIBLE
+        radar.visibility = if (style == "radar") View.VISIBLE else View.GONE
         if (style == "black") return
         val now = Date()
         val t = SimpleDateFormat("HH:mm", I18n.locale).format(now)
         time.text = t
         date.text = SimpleDateFormat(if (I18n.english) "EEEE, MMMM d" else "EEEE d MMMM", I18n.locale).format(now)
             .replaceFirstChar { it.uppercase() }
+        if (style == "radar") {
+            val app = App.instance
+            val sky = weatherState?.let { w -> listOfNotNull(w.attrs.dbl("temperature")?.let { Present.num(Math.round(it).toDouble()) + "°" }, HomeText.condition(w.state, HomeText.nightNow())).joinToString("  ") }.orEmpty()
+            // Léger déplacement à chaque nouvelle minute (anti-marquage).
+            if (t != lastMinute) {
+                lastMinute = t
+                radar.shiftX = (Random.nextFloat() - 0.5f) * width * 0.05f
+                radar.shiftY = (Random.nextFloat() - 0.5f) * height * 0.06f
+            }
+            val now0 = playing.firstOrNull()?.let { p -> Posters.what(p).let { w -> listOf(w.title.ifEmpty { w.series }, w.artist).filter { it.isNotEmpty() }.joinToString(" · ") } }.orEmpty()
+            radar.set(t, date.text.toString(), sky, Radar.scan(app.config.rooms, app.ha.states), Radar.extras(games, now0))
+            return
+        }
         updateCards(weatherState, games)
         // Horloge seule : léger déplacement à chaque nouvelle minute (anti-marquage), sans jamais sortir de l'écran.
         if (style == "clock" && t != lastMinute) {

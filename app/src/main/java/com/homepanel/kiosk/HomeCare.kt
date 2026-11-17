@@ -48,7 +48,8 @@ object HomeCare {
     /** Le raccourci [id] (nommé [name]) déclenche-t-il le résumé du soir ? "" = automatique (« Bonne nuit », « Good night »), "none" = jamais. */
     fun isNightShortcut(choice: String, id: String, name: String): Boolean = when (choice) {
         "none" -> false
-        "" -> listOf("nuit", "night", "dodo", "coucher").any { it in plain("$id $name") }
+        // « Bonne nuit » en entier : « Soirée cinéma » (scene.movie_night) n'est pas un coucher.
+        "" -> plain("$id $name").replace('_', ' ').let { t -> listOf("bonne nuit", "good night", "goodnight", "dodo", "coucher").any { it in t } }
         else -> choice == id
     }
 
@@ -148,11 +149,12 @@ internal fun MainActivity.updateBirthdayBanner() {
     for (title in birthdays.take(3)) {
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            background = roundRect(0xFFFBEAF0.toInt(), dpf(16))
+            background = if (Skin.gauges) Skin.chip(this@updateBirthdayBanner, 1).first else roundRect(0xFFFBEAF0.toInt(), dpf(16))
             setPadding(dp(18), dp(11), dp(22), dp(11))
         }
-        row.addView(label(24f, 0xFF4B1528.toInt(), text = "🎂"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
-        row.addView(label(19f, 0xFF4B1528.toInt(), true, HomeCare.birthdayText(title)))
+        val ink = if (Skin.gauges) Skin.accent else 0xFF4B1528.toInt()
+        row.addView(label(24f, ink, text = "🎂"), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = dp(12) })
+        row.addView(label(19f, ink, true, HomeCare.birthdayText(title)))
         box.addView(row, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(4); bottomMargin = dp(10) })
     }
 }
@@ -181,7 +183,7 @@ internal fun MainActivity.loadBirthdays() {
 // ------------------------------------------------------------ résumé « Bonne nuit »
 
 /** Après le raccourci « Bonne nuit » : ce qui est encore allumé, déverrouillé ou ouvert, et un bouton pour tout régler. */
-internal fun MainActivity.showNightSummary() {
+internal fun MainActivity.showNightSummary(leaving: Boolean = false) {
     if (isFinishing || cleanBox != null) return
     val d = android.app.Dialog(this)
     d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -190,7 +192,7 @@ internal fun MainActivity.showNightSummary() {
         setPadding(dp(30), dp(24), dp(30), dp(24))
         background = Skin.panelBg(this@showNightSummary, dpf(22))
     }
-    box.addView(label(24f, Skin.ink, true, "🌙  " + tr("Bonne nuit")).apply { setPadding(0, 0, 0, dp(10)) })
+    box.addView(label(24f, Skin.ink, true, if (leaving) "🚪  " + tr("Avant de partir") else "🌙  " + tr("Bonne nuit")).apply { setPadding(0, 0, 0, dp(10)) })
     val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     box.addView(MaxHeightScrollView(this, (resources.displayMetrics.heightPixels * 0.55f).toInt()).apply { addView(rows) })
     val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }

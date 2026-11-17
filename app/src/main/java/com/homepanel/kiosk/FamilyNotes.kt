@@ -154,13 +154,13 @@ internal fun MainActivity.updateFamilyNotes() {
         chunk.forEachIndexed { i, n ->
             val card = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                background = roundRect(NOTE_PAPER, dpf(16))
+                background = if (Skin.gauges) Skin.card(this@updateFamilyNotes, dpf(16)) else roundRect(NOTE_PAPER, dpf(16))
                 setPadding(dp(18), dp(12), dp(18), dp(12))
                 isClickable = true
                 setOnClickListener { showFamilyNote(n) }
             }
-            card.addView(label(18f, NOTE_INK, true, n.text).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END })
-            card.addView(label(13.5f, NOTE_MUTE, text = listOf(n.author, FamilyNotes.whenText(n.at, now)).filter { it.isNotEmpty() }.joinToString("  ·  ")).apply { setPadding(0, dp(3), 0, 0) })
+            card.addView(label(18f, if (Skin.gauges) Skin.accent else NOTE_INK, true, n.text).apply { maxLines = 2; ellipsize = TextUtils.TruncateAt.END })
+            card.addView(label(13.5f, if (Skin.gauges) Skin.mute else NOTE_MUTE, text = listOf(n.author, FamilyNotes.whenText(n.at, now)).filter { it.isNotEmpty() }.joinToString("  ·  ")).apply { setPadding(0, dp(3), 0, 0) })
             // Hauteur selon le contenu : MATCH_PARENT ferait s'effondrer la rangée (voir les aperçus de l'accueil).
             row.addView(card, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { if (i > 0) marginStart = dp(12) })
         }

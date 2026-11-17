@@ -222,9 +222,9 @@ class SettingsActivity : Activity(), HaClient.Listener {
 
         screenPage.addView(groupLabel(tr("Écran de veille")))
         val saver = Card(this).also { screenPage.addView(it) }
-        val styleKeys = listOf("clock", "photos", "black")
+        val styleKeys = listOf("clock", "radar", "photos", "black")
         saver.addRow(settingRow(R.drawable.ic_clock, Ui.BLUE, tr("Écran de veille"), trailing = choice(
-            listOf(tr("Heure et météo"), tr("Cadre photo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
+            listOf(tr("Heure et météo"), tr("Radar"), tr("Cadre photo"), tr("Écran noir")), styleKeys.indexOf(cfg.dimStyle).coerceAtLeast(0)) {
             cfg.dimStyle = styleKeys[it]; app.notifyConfigChanged(); updatePhotoRow()
         }))
         // Cadre photo : album Immich (adresse et clé API sur la page web)

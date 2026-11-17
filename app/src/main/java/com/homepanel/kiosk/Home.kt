@@ -149,6 +149,7 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
     private val details = ctx.label(14f, Skin.fg(0xB3))
     private val days = LinearLayout(ctx).apply { orientation = HORIZONTAL }
     private val dayFmt = SimpleDateFormat("EEE", I18n.locale)
+    private val dials = List(3) { DialView(ctx) }
 
     init {
         orientation = VERTICAL
@@ -156,15 +157,20 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
         setPadding(ctx.dp(22), ctx.dp(18), ctx.dp(22), ctx.dp(18))
         val top = LinearLayout(ctx).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         top.addView(emoji, LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginEnd = ctx.dp(14) })
-        top.addView(LinearLayout(ctx).apply { orientation = VERTICAL; addView(temp); addView(cond) })
+        if (Skin.gauges) {
+            // Tableau de bord : trois cadrans à aiguille (extérieur, puissance ou vent, humidité), les conditions dessous.
+            for (d in dials) top.addView(d, LayoutParams(0, ctx.dp(132), 1f))
+            emoji.visibility = View.GONE
+        } else top.addView(LinearLayout(ctx).apply { orientation = VERTICAL; addView(temp); addView(cond) })
         addView(top)
+        if (Skin.gauges) addView(cond, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = ctx.dp(6) })
         addView(details, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = ctx.dp(8) })
         addView(days, LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = ctx.dp(14) })
         cond.text = tr("Météo")
     }
 
     fun update(e: EntityState?) {
-        if (e == null) { cond.text = tr("Météo non configurée"); temp.text = ""; emoji.text = "🌡️"; details.text = ""; return }
+        if (e == null) { cond.text = tr("Météo non configurée"); temp.text = ""; emoji.text = "🌡️"; details.text = ""; if (Skin.gauges) updateDials(org.json.JSONObject()); return }
         val a = e.attrs
         val night = HomeText.nightNow()
         emoji.text = HomeText.emoji(e.state, night)
@@ -173,7 +179,26 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
         val parts = ArrayList<String>()
         a.dbl("humidity")?.let { parts.add("${tr("Humidité")} ${Present.num(it)} %") }
         a.dbl("wind_speed")?.let { parts.add("${tr("Vent")} ${Math.round(it)} ${a.str("wind_speed_unit").ifEmpty { "km/h" }}") }
+        // Tableau de bord : les cadrans donnent déjà l'humidité, et le vent quand aucun capteur de puissance n'est choisi.
+        if (Skin.gauges) { val windOnDial = updateDials(a); parts.removeAll { it.startsWith(tr("Humidité")) || (windOnDial && it.startsWith(tr("Vent"))) }; details.visibility = if (parts.isEmpty()) View.GONE else View.VISIBLE }
         details.text = parts.joinToString("  ·  ")
+    }
+
+    /** Cadrans : température extérieure, puissance de la maison (si un capteur de puissance est choisi, sinon le vent), humidité. Retourne vrai si le vent est sur un cadran. */
+    private fun updateDials(a: org.json.JSONObject): Boolean {
+        val t = a.dbl("temperature")
+        dials[0].set(tr("Extérieur"), t?.let { Present.num(Math.round(it).toDouble()) + "°" } ?: "—", Dial.temperature(t, a.str("temperature_unit")))
+        val app = App.instance
+        val power = app.config.energySensors.asSequence().mapNotNull { app.ha.states[it] }.firstOrNull { it.attrs.str("device_class") == "power" }
+        val kw = power?.let { Dial.kilowatts(it.state.toDoubleOrNull(), it.attrs.str("unit_of_measurement")) }
+        // Pendant une pointe, la zone au-delà du seuil choisi passe au rouge.
+        val limit = app.config.peakPowerLimit / 10.0
+        val peak = limit > 0 && Dial.inPeak((context as? MainActivity)?.peaks.orEmpty().map { it.start to it.end }, System.currentTimeMillis())
+        if (kw != null) dials[1].set(tr("Puissance") + " kW", Present.num(Math.round(kw * 10) / 10.0), Dial.level(kw, 0.0, 10.0), if (peak) Dial.level(limit, 0.0, 10.0) else null)
+        else a.dbl("wind_speed").let { w -> dials[1].set(tr("Vent") + " " + a.str("wind_speed_unit").ifEmpty { "km/h" }, w?.let { Math.round(it).toString() } ?: "—", Dial.level(w, 0.0, 80.0)) }
+        val h = a.dbl("humidity")
+        dials[2].set(tr("Humidité") + " %", h?.let { Math.round(it).toString() } ?: "—", Dial.level(h, 0.0, 100.0))
+        return kw == null
     }
 
     /** Prévisions quotidiennes renvoyées par weather.get_forecasts. */
@@ -263,3 +288,68 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
 
 /** Couleurs des calendriers (dans l'ordre de la configuration). */
 val CALENDAR_COLORS = intArrayOf(0xFF34C759.toInt(), 0xFF0A84FF.toInt(), 0xFFFF9F0A.toInt(), 0xFFFF453A.toInt(), 0xFFBF5AF2.toInt(), 0xFF64D2FF.toInt())
+
+/** Calculs des cadrans du tableau de bord : place de la valeur sur l'échelle, de 0 à 1 (0 si inconnue). */
+object Dial {
+    fun level(v: Double?, min: Double, max: Double): Float = if (v == null) 0f else ((v - min) / (max - min)).toFloat().coerceIn(0f, 1f)
+    /** Température sur une échelle de −30 à +40 °C (ou l'équivalent en °F). */
+    fun temperature(t: Double?, unit: String): Float = level(t?.let { if (unit.contains("F")) (it - 32) / 1.8 else it }, -30.0, 40.0)
+    /** Puissance en kW, que le capteur parle en W ou en kW ; null si illisible. */
+    fun kilowatts(v: Double?, unit: String): Double? = v?.let { if (unit.trim().equals("kW", true)) it else it / 1000.0 }
+    /** Une pointe est-elle en cours à l'instant [now] ? [peaks] : débuts et fins, en millisecondes. */
+    fun inPeak(peaks: List<Pair<Long, Long>>, now: Long) = peaks.any { now >= it.first && now < it.second }
+    /** Angle de l'aiguille (degrés, 0 = vers la droite, sens horaire) : de 150° (minimum) à 390° (maximum). */
+    fun angle(level: Float) = START + SWEEP * level.coerceIn(0f, 1f)
+    const val START = 150f
+    const val SWEEP = 240f
+}
+
+/** Cadran à aiguille : arc gradué, portion colorée jusqu'à la valeur, aiguille, valeur chiffrée et étiquette gravée. */
+class DialView(ctx: Context) : View(ctx) {
+    private var label = ""
+    private var value = ""
+    private var level = 0f
+    /** Début de la zone rouge sur l'échelle (0 à 1), ou null. */
+    private var danger: Float? = null
+    private val arc = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { style = android.graphics.Paint.Style.STROKE; strokeCap = android.graphics.Paint.Cap.BUTT }
+    private val fill = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private val text = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textAlign = android.graphics.Paint.Align.CENTER }
+    private val oval = android.graphics.RectF()
+    private companion object { const val RED = 0xFFFF5A52.toInt() }
+
+    fun set(label: String, value: String, level: Float, danger: Float? = null) {
+        this.label = label.uppercase(I18n.locale); this.value = value; this.level = level; this.danger = danger
+        contentDescription = "$label $value"
+        invalidate()
+    }
+
+    override fun onDraw(c: android.graphics.Canvas) {
+        val labelH = context.dpf(18)
+        val r = minOf(width / 2f, (height - labelH) / 1.62f) - context.dpf(6)
+        if (r <= 0f) return
+        val cx = width / 2f; val cy = context.dpf(4) + r
+        oval.set(cx - r, cy - r, cx + r, cy + r)
+        arc.strokeWidth = context.dpf(3); arc.color = Skin.fg(0x33)
+        c.drawArc(oval, Dial.START, Dial.SWEEP, false, arc)
+        val over = danger?.let { level >= it } == true
+        danger?.let { d -> arc.strokeWidth = context.dpf(4); arc.color = 0x99FF453A.toInt(); c.drawArc(oval, Dial.START + Dial.SWEEP * d, Dial.SWEEP * (1f - d), false, arc) }
+        arc.strokeWidth = context.dpf(4); arc.color = if (over) RED else Skin.accent
+        if (level > 0f) c.drawArc(oval, Dial.START, Dial.SWEEP * level, false, arc)
+        // Graduations : une tous les huitièmes de l'échelle.
+        arc.strokeWidth = context.dpf(1.5f); arc.color = Skin.fg(0x66)
+        for (k in 0..8) {
+            val a = Math.toRadians((Dial.START + Dial.SWEEP * k / 8f).toDouble())
+            val cs = Math.cos(a).toFloat(); val sn = Math.sin(a).toFloat()
+            c.drawLine(cx + cs * (r - context.dpf(9)), cy + sn * (r - context.dpf(9)), cx + cs * (r - context.dpf(3)), cy + sn * (r - context.dpf(3)), arc)
+        }
+        val a = Math.toRadians(Dial.angle(level).toDouble())
+        arc.strokeWidth = context.dpf(2.5f); arc.color = if (over) RED else Skin.ink
+        c.drawLine(cx, cy, cx + Math.cos(a).toFloat() * (r - context.dpf(12)), cy + Math.sin(a).toFloat() * (r - context.dpf(12)), arc)
+        fill.color = Skin.ink; c.drawCircle(cx, cy, context.dpf(4.5f), fill)
+        text.typeface = Skin.light; text.color = if (over) RED else Skin.ink; text.textSize = r * 0.44f
+        c.drawText(value, cx, cy + r * 0.62f, text)
+        text.typeface = Skin.bold; text.color = Skin.mute; text.textSize = context.dpf(11.5f); text.letterSpacing = 0.08f
+        c.drawText(label, cx, height - context.dpf(4), text)
+        text.letterSpacing = 0f
+    }
+}

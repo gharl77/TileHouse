@@ -400,7 +400,37 @@ object Present {
         return d == "climate" || (d == "sensor" || d == "binary_sensor") && chipKind(id, e) != null
     }
 
-    private fun plural(n: Int, one: String, many: String) = if (n == 1) one else "$n $many"
+    fun plural(n: Int, one: String, many: String) = if (n == 1) one else "$n $many"
+
+    /**
+     * Voyant d'alerte principal du tableau de bord. [reds] : les alertes rouges du moment ; [acked] : celles déjà vues.
+     * Rend s'il faut l'allumer (une alerte pas encore vue) et la liste des alertes vues encore en cours : une alerte
+     * qui disparaît puis revient rallume le voyant.
+     */
+    fun caution(reds: Set<String>, acked: Set<String>): Pair<Boolean, Set<String>> {
+        val still = acked intersect reds
+        return (reds - still).isNotEmpty() to still
+    }
+
+    /** Systèmes toujours présents sur le panneau de voyants du tableau de bord, dans cet ordre. */
+    val STANDING = listOf("light", "lock", "door", "window", "smoke")
+
+    /**
+     * Panneau de voyants : les systèmes de [STANDING] que la maison possède ([present]) gardent toujours leur case, en tête
+     * et dans le même ordre, éteinte quand il n'y a rien à signaler ; les autres pastilles suivent.
+     */
+    fun standing(chips: List<Chip>, present: Set<String>): List<Chip> {
+        val head = STANDING.mapNotNull { k ->
+            chips.firstOrNull { it.kind == k } ?: if (k !in present) null else when (k) {
+                "light" -> Chip(R.drawable.ic_light, tr("Lumières"), kind = k)
+                "lock" -> Chip(R.drawable.ic_lock, tr("Serrures"), kind = k)
+                "door" -> Chip(R.drawable.ic_door, tr("Portes"), kind = k)
+                "window" -> Chip(R.drawable.ic_window, tr("Fenêtres"), kind = k)
+                else -> null
+            }
+        }
+        return head + chips.filter { it.kind !in STANDING }
+    }
 
     /** Résumé de la pièce façon HomeKit : une pastille par type de capteur présent. */
     fun chips(room: Room, states: Map<String, EntityState>): List<Chip> {

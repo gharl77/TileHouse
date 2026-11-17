@@ -104,7 +104,7 @@ object Demo {
         st("light.living_room_ceiling", "on", n("Plafonnier", "Ceiling Light"), DIM, bri(70)),
         st("light.floor_lamp", "off", n("Lampe sur pied", "Floor Lamp"), DIM),
         st("light.tv_backlight", "on", n("Rétroéclairage TV", "TV Backlight"), RGB, bri(55), "rgb_color" to listOf(120, 90, 255)),
-        st("scene.movie_night", "2026-11-01T20:00:00+00:00", n("Soirée cinéma", "Movie Night")),
+        st("scene.movie_night", "2026-11-01T20:00:00+00:00", n("Soirée cinéma", "Movie Night"), "entity_id" to listOf("light.living_room_ceiling", "light.tv_backlight", "cover.living_room_blinds", "media_player.living_room_speaker")),
         st("cover.living_room_blinds", "open", n("Stores", "Blinds"), "current_position" to 60, "device_class" to "blind"),
         st("media_player.living_room_speaker", "playing", n("Haut-parleur", "Speaker"),
             "media_title" to "Blue in Green", "media_artist" to "Miles Davis", "volume_level" to 0.35),

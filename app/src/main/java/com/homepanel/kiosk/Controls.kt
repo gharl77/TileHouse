@@ -195,10 +195,30 @@ class ThermostatDial(ctx: Context) : View(ctx) {
 
     private fun radius() = minOf(width, height) / 2f - thick
 
+    /** Tableau de bord : une échelle graduée fine et un index qui pointe la consigne, comme sur un instrument. */
+    private fun drawInstrument(c: Canvas, cx: Float, cy: Float, rad: Float, f: Float) {
+        p.strokeWidth = context.dpf(3); p.color = Skin.fg(0x33)
+        c.drawArc(oval, ControlMath.ARC_START, ControlMath.ARC_SWEEP, false, p)
+        if (f > 0f) { p.strokeWidth = context.dpf(5); p.color = ControlMath.mix(low, high, f); c.drawArc(oval, ControlMath.ARC_START, ControlMath.ARC_SWEEP * f, false, p) }
+        p.strokeWidth = context.dpf(1.5f); p.color = Skin.fg(0x66)
+        for (k in 0..12) {
+            val a = Math.toRadians((ControlMath.ARC_START + ControlMath.ARC_SWEEP * k / 12f).toDouble())
+            val len = context.dpf(if (k % 3 == 0) 14 else 8)
+            c.drawLine(cx + (rad - len) * cos(a).toFloat(), cy + (rad - len) * sin(a).toFloat(), cx + (rad - context.dpf(4)) * cos(a).toFloat(), cy + (rad - context.dpf(4)) * sin(a).toFloat(), p)
+        }
+        if (lit && fraction != null) {
+            val a = Math.toRadians((ControlMath.ARC_START + ControlMath.ARC_SWEEP * f).toDouble())
+            p.strokeWidth = context.dpf(5); p.color = Skin.ink; p.strokeCap = Paint.Cap.ROUND
+            c.drawLine(cx + (rad - context.dpf(30)) * cos(a).toFloat(), cy + (rad - context.dpf(30)) * sin(a).toFloat(), cx + (rad + context.dpf(8)) * cos(a).toFloat(), cy + (rad + context.dpf(8)) * sin(a).toFloat(), p)
+            p.strokeCap = Paint.Cap.BUTT
+        }
+    }
+
     override fun onDraw(c: Canvas) {
         val cx = width / 2f; val cy = height / 2f; val rad = radius()
         oval.set(cx - rad, cy - rad, cx + rad, cy + rad)
         val f = if (lit) fraction ?: 0f else 0f
+        if (Skin.gauges) { drawInstrument(c, cx, cy, rad, f); return }
         val seg = ControlMath.ARC_SWEEP / STEPS
         for (i in 0 until STEPS) {
             val t = (i + 0.5f) / STEPS

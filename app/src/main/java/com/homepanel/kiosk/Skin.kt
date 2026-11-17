@@ -28,6 +28,9 @@ class TileLook(
     val name: Int,
     val status: Int,
     val nameFace: Typeface? = null,
+    val statusFace: Typeface? = null,
+    /** Interrupteur à bascule dessiné à la place de l'icône, pour les appareils qui s'allument et s'éteignent. */
+    val toggle: Boolean = false,
     val dot: Int = 0,              // point à droite quand l'appareil est allumé (0 = aucun)
 )
 
@@ -56,6 +59,10 @@ open class SkinDef(val key: String, private val frName: String) {
     open val nameSize = 15f
     open val statusSize = 13f
     open val tileRadius = 18f
+    /** Coins coupés (haut gauche et bas droit) à la place des coins arrondis, en dp ; 0 = arrondis. */
+    open val tileCut = 0f
+    /** Tableau de bord : cadrans à aiguille dans la carte météo et pastilles en voyants d'alerte. */
+    open val gauges = false
     /** Coins des vignettes de caméra et du grand curseur. */
     open val mediaRadius = 18f
     open val sliderRadius = 30f
@@ -92,6 +99,9 @@ open class SkinDef(val key: String, private val frName: String) {
     // ---- surfaces
     open fun card(ctx: Context, radius: Float): Drawable = roundRect(GLASS, radius)
     open fun panelRadius(radius: Float) = radius
+    open fun panelBg(ctx: Context, radius: Float): Drawable = GradientDrawable().apply {
+        setColor(panel); cornerRadius = panelRadius(radius); setStroke(ctx.dp(1), panelStroke)
+    }
     open fun softRect(ctx: Context, radius: Float): Drawable = roundRect(soft, radius)
     /** Pastille de l'en-tête selon son niveau (0 neutre, 1 attention, 2 alerte) : fond et couleur du texte. */
     open fun chip(ctx: Context, level: Int): Pair<Drawable, Int> =
@@ -315,11 +325,87 @@ private object NeonSkin : SkinDef("neon", "Néon") {
     override val photoVeil = 0xBF000000.toInt()
 }
 
+/** Trace dans [path] un rectangle dont le coin haut gauche et le coin bas droit sont coupés de [cut] pixels. */
+fun cutPath(path: android.graphics.Path, l: Float, t: Float, r: Float, b: Float, cut: Float) {
+    val c = minOf(cut, (b - t) / 3f, (r - l) / 3f)
+    path.rewind()
+    path.moveTo(l + c, t); path.lineTo(r, t); path.lineTo(r, b - c); path.lineTo(r - c, b); path.lineTo(l, b); path.lineTo(l, t + c); path.close()
+}
+
+/** Surface à coins coupés (cartes, pastilles et boutons de la skin Cockpit) : fond et contour facultatifs. */
+class CutDrawable(private val fill: Int, private val stroke: Int, private val strokePx: Float, private val cutPx: Float) : Drawable() {
+    private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private val path = android.graphics.Path()
+    override fun draw(c: android.graphics.Canvas) {
+        val b = bounds
+        val i = if (stroke != 0) strokePx / 2f else 0f
+        cutPath(path, b.left + i, b.top + i, b.right - i, b.bottom - i, cutPx)
+        if (fill != 0) { paint.style = android.graphics.Paint.Style.FILL; paint.color = fill; c.drawPath(path, paint) }
+        if (stroke != 0) { paint.style = android.graphics.Paint.Style.STROKE; paint.strokeWidth = strokePx; paint.color = stroke; c.drawPath(path, paint) }
+    }
+    override fun setAlpha(alpha: Int) {}
+    override fun setColorFilter(cf: android.graphics.ColorFilter?) {}
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
+}
+
+/** Poste de pilotage : fond très sombre, surfaces à coins coupés, ambre pour ce qui est allumé, cyan pour le reste, chiffres à chasse fixe. */
+private object CockpitSkin : SkinDef("cockpit", "Cockpit") {
+    private const val AMBER = 0xFFFFB020.toInt()
+    private const val CYAN = 0xFF3FD0E0.toInt()
+    private const val INK = 0xFFD6ECF2.toInt()
+    private const val DARK = 0xCC0A121C.toInt()
+    private const val EDGE = 0xFF2A4A66.toInt()
+    private const val NIGHT = 0xFF070B12.toInt()
+    private fun cut(ctx: Context, fill: Int, stroke: Int, cutDp: Int = 10, strokeDp: Float = 1f) = CutDrawable(fill, stroke, ctx.dpf(strokeDp), ctx.dpf(cutDp))
+    override val tileCut = 10f
+    override val gauges = true
+    override val mediaRadius = 4f
+    override val sliderRadius = 8f
+    override val ink = INK
+    override val mute = 0xFF7F9CB0.toInt()
+    override val lineAlpha = 0x26
+    override val soft get() = a(CYAN, 0x26)
+    override val accent get() = AMBER
+    override val panel get() = 0xF7070B12.toInt()
+    override val panelStroke get() = a(CYAN, 0x80)
+    override val primary get() = AMBER
+    override val onPrimary = 0xFF0A0E14.toInt()
+    override val sliderTrack get() = 0x592A4A66
+    override val sliderFill get() = a(AMBER, 0xD9)
+    override val bold: Typeface get() = Typeface.create("sans-serif-condensed", Typeface.BOLD)
+    override val medium: Typeface get() = Typeface.create("sans-serif-condensed", Typeface.NORMAL)
+    override val light: Typeface get() = Typeface.MONOSPACE
+    override val clockFace: Typeface get() = Typeface.MONOSPACE
+    override fun card(ctx: Context, radius: Float): Drawable = cut(ctx, DARK, a(CYAN, 0x59), 12)
+    override fun panelBg(ctx: Context, radius: Float): Drawable = cut(ctx, panel, panelStroke, 16)
+    override fun softRect(ctx: Context, radius: Float): Drawable = cut(ctx, a(CYAN, 0x14), a(CYAN, 0x80), 8)
+    /** Voyants d'alerte : rouge ou ambre allumé, sinon éteint (cadre sombre, texte discret). */
+    private fun lamp(ctx: Context, fill: Int, stroke: Int) = GradientDrawable().apply { setColor(fill); cornerRadius = ctx.dpf(3); setStroke(ctx.dp(1.5f), stroke) }
+    override fun chip(ctx: Context, level: Int): Pair<Drawable, Int> = when (level) {
+        2 -> lamp(ctx, 0xFF4A1212.toInt(), 0xFFFF4D4D.toInt()) to 0xFFFFA3A3.toInt()
+        1 -> lamp(ctx, 0xFF3A2A08.toInt(), AMBER) to AMBER
+        else -> lamp(ctx, 0xFF0E1824.toInt(), EDGE) to 0xFF8FB3C4.toInt()
+    }
+    override fun chipColored(ctx: Context, color: Int): Pair<Drawable, Int> = lamp(ctx, Skin.mix(color, NIGHT, 0.28f), color) to Skin.mix(color, Color.WHITE, 0.45f)
+    override fun pill(ctx: Context, selected: Boolean): Pair<Drawable, Int> =
+        if (selected) cut(ctx, AMBER, 0, 8) to onPrimary else cut(ctx, 0, a(CYAN, 0x99), 8) to CYAN
+    override fun tile(active: Boolean, accent: Int): TileLook =
+        if (active) TileLook(fill = 0xD92A1E08.toInt(), stroke = AMBER, strokeDp = 1.5f, iconCircle = 0, iconTint = AMBER, iconScale = 0.6f,
+            name = 0xFFFFD98A.toInt(), status = AMBER, statusFace = Typeface.MONOSPACE, toggle = true, dot = AMBER)
+        else TileLook(fill = DARK, stroke = EDGE, iconCircle = 0, iconTint = a(CYAN, 0xB3), iconScale = 0.6f,
+            name = INK, status = a(CYAN, 0xCC), statusFace = Typeface.MONOSPACE, toggle = true)
+    override fun bgColors(colors: IntArray) =
+        intArrayOf(Skin.mix(colors[0], NIGHT, 0.14f), Skin.mix(colors.getOrElse(1) { colors[0] }, NIGHT, 0.09f), Skin.mix(colors.last(), NIGHT, 0.05f))
+    override val decorAlpha = 24
+    override val photoVeil = 0xCC000000.toInt()
+}
+
 // ------------------------------------------------------------ façade
 
 /** Skin en cours : ce que les écrans utilisent. */
 object Skin {
-    private val all: List<SkinDef> = listOf(HomeKitSkin, EpureSkin, PapierSkin, PastelSkin, NeonSkin, CompactSkin, ConfortSkin)
+    private val all: List<SkinDef> = listOf(HomeKitSkin, EpureSkin, PapierSkin, PastelSkin, NeonSkin, CockpitSkin, CompactSkin, ConfortSkin)
     val keys = all.map { it.key }
     val names get() = all.map { it.name }
 
@@ -375,6 +461,8 @@ object Skin {
     val nameSize get() = cur.nameSize
     val statusSize get() = cur.statusSize
     val tileRadius get() = cur.tileRadius
+    val tileCut get() = cur.tileCut
+    val gauges get() = cur.gauges
     val mediaRadius get() = cur.mediaRadius
     val sliderRadius get() = cur.sliderRadius
     val chipRows get() = cur.chipRows
@@ -407,9 +495,7 @@ object Skin {
 
     // surfaces
     fun card(ctx: Context, radius: Float) = cur.card(ctx, radius)
-    fun panelBg(ctx: Context, radius: Float): Drawable = GradientDrawable().apply {
-        setColor(cur.panel); cornerRadius = cur.panelRadius(radius); setStroke(ctx.dp(1), cur.panelStroke)
-    }
+    fun panelBg(ctx: Context, radius: Float): Drawable = cur.panelBg(ctx, radius)
     fun softRect(ctx: Context, radius: Float) = cur.softRect(ctx, radius)
     fun chip(ctx: Context, level: Int) = cur.chip(ctx, level)
     fun chipColored(ctx: Context, color: Int) = cur.chipColored(ctx, color)

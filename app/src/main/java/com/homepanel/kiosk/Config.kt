@@ -152,10 +152,10 @@ class ConfigStore(ctx: Context) {
     var dimMinutes: Int
         get() = p.getInt("dim", 0)
         set(v) = p.edit().putInt("dim", v).apply()
-    /** Écran de veille : "black" (noir), "clock" (heure + météo) ou "photos" (cadre photo). */
+    /** Écran de veille : "black" (noir), "clock" (heure + météo), "radar" (balayage et voyants) ou "photos" (cadre photo). */
     var dimStyle: String
         get() = p.getString("dimStyle", "clock") ?: "clock"
-        set(v) = p.edit().putString("dimStyle", if (v in setOf("black", "photos")) v else "clock").apply()
+        set(v) = p.edit().putString("dimStyle", if (v in setOf("black", "photos", "radar")) v else "clock").apply()
     /** Style réellement affiché : noir pendant les heures calmes. */
     val effectiveDimStyle: String get() = if (quietBlack && isQuietNow()) "black" else dimStyle
     /** Écran de veille noir pendant les heures calmes (décoché : les heures calmes ne coupent que le son). */
@@ -240,6 +240,22 @@ class ConfigStore(ctx: Context) {
         get() = p.getString("birthdayCalendar", "") ?: ""
         set(v) = p.edit().putString("birthdayCalendar", v).apply()
     /** Raccourci qui ouvre le résumé du soir : "" = automatique (« Bonne nuit »), "none" = aucun, sinon l'entité. */
+    /** Séquence de lancement plein écran après une scène ou un script (voir [Launch]). */
+    var launchSequence: Boolean
+        get() = p.getBoolean("launchSequence", false)
+        set(v) = p.edit().putBoolean("launchSequence", v).apply()
+    /** Raccourcis qui n'ont pas de séquence de lancement (par défaut, tous en ont une quand elle est activée). */
+    var launchSkip: List<String>
+        get() = if (demo) emptyList() else csv("launchSkip")
+        set(v) = p.edit().putString("launchSkip", v.distinct().joinToString(",")).apply()
+    /** Raccourci suivi de la liste de vérification « Avant de partir » (ce qui reste allumé, ouvert ou déverrouillé) ; "" = aucun. */
+    var departShortcut: String
+        get() = if (demo) "" else p.getString("departShortcut", "") ?: ""
+        set(v) = p.edit().putString("departShortcut", v).apply()
+    /** Seuil du cadran de puissance pendant une pointe, en dixièmes de kW (50 = 5 kW) ; 0 = pas de zone rouge. */
+    var peakPowerLimit: Int
+        get() = p.getInt("peakPowerLimit", 50)
+        set(v) = p.edit().putInt("peakPowerLimit", v.coerceIn(0, 100)).apply()
     var nightShortcut: String
         get() = if (demo) "" else p.getString("nightShortcut", "") ?: ""
         set(v) = p.edit().putString("nightShortcut", v).apply()
@@ -662,7 +678,7 @@ class ConfigStore(ctx: Context) {
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
                 .put("immichUrl", immichUrl).put("musicUrl", musicUrl).put("nowPlayingHeader", nowPlayingHeader).put("posterSearch", posterSearch).put("fibeChannels", try { JSONObject(fibeChannels) } catch (_: Exception) { JSONObject() }).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert)
-                .put("quietBlack", quietBlack).put("smokeAlarm", smokeAlarm).put("trackers", trackers).put("radarCamera", radarCamera).put("maintenanceLow", maintenanceLow).put("birthdayCalendar", birthdayCalendar).put("nightShortcut", nightShortcut).put("leakAlarm", leakAlarm).put("confirmUnlock", confirmUnlock).put("batteryLow", batteryLow).put("offlineChip", offlineChip)
+                .put("launchSequence", launchSequence).put("launchSkip", JSONArray(launchSkip)).put("departShortcut", departShortcut).put("peakPowerLimit", peakPowerLimit).put("quietBlack", quietBlack).put("smokeAlarm", smokeAlarm).put("trackers", trackers).put("radarCamera", radarCamera).put("maintenanceLow", maintenanceLow).put("birthdayCalendar", birthdayCalendar).put("nightShortcut", nightShortcut).put("leakAlarm", leakAlarm).put("confirmUnlock", confirmUnlock).put("batteryLow", batteryLow).put("offlineChip", offlineChip)
                 .put("wakeSensors", JSONArray(wakeSensors)).put("ambientLights", JSONArray(ambientLights)).put("darkBrightness", darkBrightness)
                 .put("scoreBefore", scoreBefore).put("scoreAfter", scoreAfter))
             .put("home", JSONObject()
@@ -730,6 +746,10 @@ class ConfigStore(ctx: Context) {
             if (d.has("radarCamera")) radarCamera = d.str("radarCamera")
             if (d.has("maintenanceLow")) maintenanceLow = d.optInt("maintenanceLow", 10)
             if (d.has("nightShortcut")) nightShortcut = d.str("nightShortcut")
+            if (d.has("launchSequence")) launchSequence = d.optBoolean("launchSequence", false)
+            d.optJSONArray("launchSkip")?.let { a -> launchSkip = (0 until a.length()).map { a.optString(it) } }
+            if (d.has("departShortcut")) departShortcut = d.str("departShortcut")
+            if (d.has("peakPowerLimit")) peakPowerLimit = d.optInt("peakPowerLimit", 50)
             if (d.has("confirmUnlock")) confirmUnlock = d.optBoolean("confirmUnlock", true)
             if (d.has("batteryLow")) batteryLow = d.optInt("batteryLow", 15)
             if (d.has("offlineChip")) offlineChip = d.optBoolean("offlineChip", true)
