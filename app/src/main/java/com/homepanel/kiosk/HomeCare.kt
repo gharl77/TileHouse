@@ -53,6 +53,28 @@ object HomeCare {
         else -> choice == id
     }
 
+    /**
+     * Marque de la dernière activation d'un raccourci : l'état d'une scène ou d'un bouton est l'heure de son dernier
+     * lancement ; pour un script, c'est son attribut `last_triggered`. "" si elle est inconnue.
+     */
+    fun activation(id: String, e: EntityState): String {
+        val mark = if (Present.domain(id) == "script") e.attrs.str("last_triggered") else e.state
+        return if (mark == "unknown" || mark == "unavailable" || mark == "null") "" else mark
+    }
+
+    /** Le raccourci vient-il d'être lancé ? Oui si sa marque a changé depuis la dernière connue ([prev] null = première lecture, qui ne compte pas). */
+    fun activated(prev: String?, now: String) = prev != null && now.isNotEmpty() && prev != now
+
+    /**
+     * La vérification suit-elle le raccourci [id] ? Oui s'il est activé à la main ([on]), non s'il est coupé à la main ([off]) ;
+     * sinon selon les anciens réglages : le raccourci de départ choisi ([depart]), ou « Bonne nuit » reconnu par son nom ([night]).
+     */
+    fun checkAfter(on: List<String>, off: List<String>, night: String, depart: String, id: String, name: String): Boolean = when (id) {
+        in on -> true
+        in off -> false
+        else -> (depart.isNotEmpty() && id == depart) || isNightShortcut(night, id, name)
+    }
+
     /** Ce qu'il reste à régler avant la nuit : lumières allumées, serrures déverrouillées, portes et fenêtres ouvertes. */
     class Night(val lights: List<RoomEntity>, val locks: List<RoomEntity>, val openings: List<RoomEntity>) {
         val clear get() = lights.isEmpty() && locks.isEmpty() && openings.isEmpty()
@@ -183,7 +205,7 @@ internal fun MainActivity.loadBirthdays() {
 // ------------------------------------------------------------ résumé « Bonne nuit »
 
 /** Après le raccourci « Bonne nuit » : ce qui est encore allumé, déverrouillé ou ouvert, et un bouton pour tout régler. */
-internal fun MainActivity.showNightSummary(leaving: Boolean = false) {
+internal fun MainActivity.showNightSummary(title: String = "") {
     if (isFinishing || cleanBox != null) return
     val d = android.app.Dialog(this)
     d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
@@ -192,7 +214,7 @@ internal fun MainActivity.showNightSummary(leaving: Boolean = false) {
         setPadding(dp(30), dp(24), dp(30), dp(24))
         background = Skin.panelBg(this@showNightSummary, dpf(22))
     }
-    box.addView(label(24f, Skin.ink, true, if (leaving) "🚪  " + tr("Avant de partir") else "🌙  " + tr("Bonne nuit")).apply { setPadding(0, 0, 0, dp(10)) })
+    box.addView(label(24f, Skin.ink, true, title.ifEmpty { "🌙  " + tr("Bonne nuit") }).apply { setPadding(0, 0, 0, dp(10)) })
     val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     box.addView(MaxHeightScrollView(this, (resources.displayMetrics.heightPixels * 0.55f).toInt()).apply { addView(rows) })
     val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }

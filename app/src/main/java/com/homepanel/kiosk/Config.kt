@@ -248,7 +248,19 @@ class ConfigStore(ctx: Context) {
     var launchSkip: List<String>
         get() = if (demo) emptyList() else csv("launchSkip")
         set(v) = p.edit().putString("launchSkip", v.distinct().joinToString(",")).apply()
-    /** Raccourci suivi de la liste de vérification « Avant de partir » (ce qui reste allumé, ouvert ou déverrouillé) ; "" = aucun. */
+    /**
+     * Vérification après un raccourci (fenêtre de ce qui reste allumé, ouvert ou déverrouillé) : raccourcis où elle est
+     * activée à la main, et ceux où elle est coupée à la main. Pour les autres, voir [HomeCare.checkAfter].
+     */
+    var summaryOn: List<String>
+        get() = if (demo) emptyList() else csv("summaryOn")
+        set(v) = p.edit().putString("summaryOn", v.distinct().joinToString(",")).apply()
+    var summaryOff: List<String>
+        get() = if (demo) emptyList() else csv("summaryOff")
+        set(v) = p.edit().putString("summaryOff", v.distinct().joinToString(",")).apply()
+    /** La vérification suit-elle le raccourci [id], nommé [name] ? */
+    fun checksAfter(id: String, name: String) = HomeCare.checkAfter(summaryOn, summaryOff, nightShortcut, departShortcut, id, name)
+    /** Ancien réglage (2026.11.14), encore lu : raccourci suivi de la liste « Avant de partir » (ce qui reste allumé, ouvert ou déverrouillé) ; "" = aucun. */
     var departShortcut: String
         get() = if (demo) "" else p.getString("departShortcut", "") ?: ""
         set(v) = p.edit().putString("departShortcut", v).apply()
@@ -678,7 +690,7 @@ class ConfigStore(ctx: Context) {
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
                 .put("immichUrl", immichUrl).put("musicUrl", musicUrl).put("nowPlayingHeader", nowPlayingHeader).put("posterSearch", posterSearch).put("fibeChannels", try { JSONObject(fibeChannels) } catch (_: Exception) { JSONObject() }).put("brightness", brightness)
                 .put("language", language).put("personAlert", personAlert).put("alertSeconds", alertSeconds).put("alertTrigger", alertTrigger).put("doorbellAlert", doorbellAlert)
-                .put("launchSequence", launchSequence).put("launchSkip", JSONArray(launchSkip)).put("departShortcut", departShortcut).put("peakPowerLimit", peakPowerLimit).put("quietBlack", quietBlack).put("smokeAlarm", smokeAlarm).put("trackers", trackers).put("radarCamera", radarCamera).put("maintenanceLow", maintenanceLow).put("birthdayCalendar", birthdayCalendar).put("nightShortcut", nightShortcut).put("leakAlarm", leakAlarm).put("confirmUnlock", confirmUnlock).put("batteryLow", batteryLow).put("offlineChip", offlineChip)
+                .put("launchSequence", launchSequence).put("launchSkip", JSONArray(launchSkip)).put("departShortcut", departShortcut).put("summaryOn", JSONArray(summaryOn)).put("summaryOff", JSONArray(summaryOff)).put("peakPowerLimit", peakPowerLimit).put("quietBlack", quietBlack).put("smokeAlarm", smokeAlarm).put("trackers", trackers).put("radarCamera", radarCamera).put("maintenanceLow", maintenanceLow).put("birthdayCalendar", birthdayCalendar).put("nightShortcut", nightShortcut).put("leakAlarm", leakAlarm).put("confirmUnlock", confirmUnlock).put("batteryLow", batteryLow).put("offlineChip", offlineChip)
                 .put("wakeSensors", JSONArray(wakeSensors)).put("ambientLights", JSONArray(ambientLights)).put("darkBrightness", darkBrightness)
                 .put("scoreBefore", scoreBefore).put("scoreAfter", scoreAfter))
             .put("home", JSONObject()
@@ -749,6 +761,8 @@ class ConfigStore(ctx: Context) {
             if (d.has("launchSequence")) launchSequence = d.optBoolean("launchSequence", false)
             d.optJSONArray("launchSkip")?.let { a -> launchSkip = (0 until a.length()).map { a.optString(it) } }
             if (d.has("departShortcut")) departShortcut = d.str("departShortcut")
+            d.optJSONArray("summaryOn")?.let { a -> summaryOn = (0 until a.length()).map { a.optString(it) } }
+            d.optJSONArray("summaryOff")?.let { a -> summaryOff = (0 until a.length()).map { a.optString(it) } }
             if (d.has("peakPowerLimit")) peakPowerLimit = d.optInt("peakPowerLimit", 50)
             if (d.has("confirmUnlock")) confirmUnlock = d.optBoolean("confirmUnlock", true)
             if (d.has("batteryLow")) batteryLow = d.optInt("batteryLow", 15)

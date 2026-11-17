@@ -199,10 +199,10 @@ internal fun MainActivity.addShortcuts(ids: List<String>, top: Int) {
             if (Present.tap(app.ha, id, app.ha.states[id])) {
                 v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                 v.animate().alpha(0.5f).setDuration(120).withEndAction { v.animate().alpha(1f).setDuration(300).start() }.start()
-                // « Bonne nuit » : dix secondes plus tard (le temps que le script agisse), ce qui reste à régler.
-                if (HomeCare.isNightShortcut(cfg.nightShortcut, id, app.ha.states[id]?.name.orEmpty())) { handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
-                // « Avant de partir » : la même liste de vérification après le raccourci de départ choisi.
-                else if (id == cfg.departShortcut) { handler.removeCallbacks(departSummary); handler.postDelayed(departSummary, 10_000) }
+                // Vérification après : dix secondes plus tard (le temps que le raccourci agisse), ce qui reste à régler, sous le nom du raccourci.
+                val name = app.ha.states[id]?.name.orEmpty()
+                shortcutTapped[id] = android.os.SystemClock.uptimeMillis()
+                if (cfg.checksAfter(id, name)) { summaryTitle = name; handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
                 maybeLaunch(id)
             }
         })

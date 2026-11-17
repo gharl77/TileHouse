@@ -564,58 +564,21 @@ class NewFeaturesTest {
         Skin.use("homekit"); assertFalse(Skin.tile(true, 0).toggle)
     }
 
-    @Test fun launchSequenceReadsEveryActionOfAScript() {
-        assertTrue(Launch.applies("scene.x")); assertTrue(Launch.applies("script.x")); assertFalse(Launch.applies("light.x"))
+    @Test fun launchSequenceIsForScenesOnly() {
+        assertTrue(Launch.applies("scene.x")); assertFalse(Launch.applies("script.x")); assertFalse(Launch.applies("button.x")); assertFalse(Launch.applies("light.x"))
         val scene = EntityState("scene.x", "on", org.json.JSONObject().put("entity_id", org.json.JSONArray(listOf("light.a", "cover.b"))))
         assertEquals(listOf("light.a", "cover.b"), Launch.targets(scene)); assertTrue(Launch.targets(null).isEmpty())
-        val script = org.json.JSONObject("""{"alias":"Bonne nuit","sequence":[
-            {"if":[{"condition":"state","entity_id":"media_player.tv","state":"on"}],"then":[{"action":"media_player.turn_off","target":{"entity_id":["media_player.tv"]}}]},
-            {"action":"light.turn_off","target":{"entity_id":["light.a","light.b"],"area_id":"sous_sol","label_id":["nuit"]}},
-            {"service":"lock.lock","data":{"entity_id":"lock.c, lock.d"}},
-            {"service":"homeassistant.turn_off","entity_id":"group.tout","target":{"floor_id":"etage","device_id":"abc123"}},
-            {"choose":[{"sequence":[{"action":"cover.close_cover","target":{"entity_id":"cover.e"}}]}],"default":[{"action":"scene.turn_on","target":{"entity_id":"scene.soir"}}]},
-            {"repeat":{"sequence":[{"action":"switch.turn_on","target":{"entity_id":"switch.f"}},{"delay":{"seconds":20}}],"until":[{"condition":"state","entity_id":"switch.zzz","state":"on"}]}},
-            {"action":"script.fermer_garage"},{"action":"script.turn_on","target":{"entity_id":"script.autre"}},
-            {"action":"light.turn_off","target":{"entity_id":"{{ states.light | map(attribute='entity_id') | list }}"}},
-            {"action":"{{ 'light.turn_on' }}","target":{"entity_id":"light.modele"}},
-            {"action":"notify.mobile","data":{"message":"x","data":{"tag":"y"}}}]}""")
-        val calls = Launch.calls(script)
-        // L'ordre des branches d'un même bloc n'est pas garanti : on compare sans ordre.
-        assertEquals(listOf("media_player.turn_off", "light.turn_off", "lock.lock", "homeassistant.turn_off", "cover.close_cover", "scene.turn_on", "switch.turn_on",
-            "script.fermer_garage", "script.turn_on", "light.turn_off", "notify.mobile").sorted(), calls.map { it.domain + "." + it.service }.sorted())
-        fun call(name: String, pick: (Launch.Call) -> Boolean = { true }) = calls.first { it.domain + "." + it.service == name && pick(it) }
-        val lights = call("light.turn_off") { !it.empty }
-        assertEquals(listOf("light.a", "light.b"), lights.entities); assertEquals(listOf("sous_sol"), lights.areas); assertEquals(listOf("nuit"), lights.labels)
-        assertEquals(listOf("lock.c", "lock.d"), call("lock.lock").entities)
-        val all = call("homeassistant.turn_off")
-        assertEquals(listOf("group.tout"), all.entities); assertEquals(listOf("etage"), all.floors); assertEquals(listOf("abc123"), all.devices)
-        assertEquals(listOf("scene.soir"), call("scene.turn_on").scenes)
-        // Les conditions ne sont pas des actions, et une cible calculée par un modèle ne donne rien.
-        assertTrue(calls.none { "switch.zzz" in it.entities || "light.modele" in it.entities || "media_player.zzz" in it.entities })
-        assertTrue(call("light.turn_off") { it.empty }.empty); assertTrue(call("notify.mobile").empty)
-        assertEquals(setOf("script.fermer_garage", "script.autre"), calls.flatMap { it.scripts }.toSet())
-        assertTrue(Launch.calls(null).isEmpty()); assertTrue(Launch.calls(org.json.JSONObject("""{"sequence":[]}""")).isEmpty())
+        val t = Launch.template("scene.soir")
+        assertTrue(t.contains("state_attr('scene.soir', 'entity_id')")); assertTrue(t.contains("expand(")); assertTrue(t.endsWith("{{ ns.r | tojson }}"))
+        // Un script, ou un identifiant qui n'en est pas un, ne donne aucun modèle.
+        assertEquals("", Launch.template("script.bonne_nuit")); assertEquals("", Launch.template("scene.x') }}{{ 1")); assertEquals("", Launch.template(""))
     }
 
-    @Test fun launchSequenceKnowsTheWantedStateOfCommonServices() {
-        assertEquals("off", Launch.expected("light", "turn_off")); assertEquals("on", Launch.expected("switch", "turn_on")); assertEquals("locked", Launch.expected("lock", "lock"))
-        assertEquals("closed", Launch.expected("cover", "close_cover")); assertEquals("", Launch.expected("light", "toggle")); assertEquals("", Launch.expected("scene", "turn_on"))
-        assertEquals("", Launch.expected("climate", "set_temperature"))
-        assertTrue(Launch.reached("off", "off")); assertTrue(Launch.reached("off", "standby")); assertFalse(Launch.reached("off", "on")); assertFalse(Launch.reached("off", "unavailable"))
-        assertTrue(Launch.reached("on", "on")); assertTrue(Launch.reached("on", "playing")); assertFalse(Launch.reached("on", "off")); assertFalse(Launch.reached("on", "unavailable"))
-        assertTrue(Launch.reached("locked", "locked")); assertFalse(Launch.reached("locked", "locking")); assertFalse(Launch.reached("", "on"))
-    }
-
-    @Test fun launchSequenceBuildsOneTemplateAndMergesItsAnswer() {
-        assertEquals("", Launch.template(emptyList())); assertEquals("", Launch.template(listOf(Launch.Call("notify", "mobile", emptyList()), Launch.Call("script", "turn_on", listOf("script.x")))))
-        val t = Launch.template(listOf(Launch.Call("light", "turn_off", listOf("light.a"), areas = listOf("salon")), Launch.Call("scene", "turn_on", listOf("scene.soir")),
-            Launch.Call("homeassistant", "turn_off", listOf("group.tout"))))
-        assertTrue(t.contains("""'e':["light.a"]""")); assertTrue(t.contains("""'a':["salon"]""")); assertTrue(t.contains("'x':'off'")); assertTrue(t.contains("""'m':"^light\\.""""))
-        assertTrue(t.contains("""'s':["scene.soir"]""")); assertTrue(t.contains("""'e':["group.tout"]""")); assertTrue(t.contains("area_entities")); assertTrue(t.endsWith("{{ ns.r | tojson }}"))
-        val rows = Launch.parseRows("""[["light.a","Plafonnier","on","255/None/None","off"],["lock.b","Serrure","locked","None/None/None","locked"],
-            ["light.a","Plafonnier","on","255/None/None","on"],["cover.c","","open","None/60/None",""]]""")
+    @Test fun launchSequenceReadsTheAnswerAndComparesWithTheStart() {
+        val rows = Launch.parseRows("""[["light.a","Plafonnier","on","255/None/None"],["lock.b","Serrure","locked","None/None/None"],
+            ["light.a","Plafonnier","on","255/None/None"],["cover.c","","open","None/60/None"]]""")
         assertEquals(listOf("light.a", "lock.b", "cover.c"), rows.map { it.id })
-        assertEquals("", rows[0].expect); assertEquals("locked", rows[1].expect); assertEquals("cover.c", rows[2].name); assertEquals("open#None/60/None", rows[2].print)
+        assertEquals("cover.c", rows[2].name); assertEquals("open#None/60/None", rows[2].print)
         assertTrue(Launch.parseRows(null).isEmpty()); assertTrue(Launch.parseRows("pas du json").isEmpty())
         // Même empreinte que le modèle pour un appareil que la tablette suit déjà.
         assertEquals("on#255/None/None", Launch.print(EntityState("light.a", "on", org.json.JSONObject().put("brightness", 255).put("current_position", org.json.JSONObject.NULL))))
@@ -685,5 +648,42 @@ class NewFeaturesTest {
         val peaks = listOf(1000L to 2000L, 5000L to 6000L)
         assertFalse(Dial.inPeak(peaks, 999)); assertTrue(Dial.inPeak(peaks, 1000)); assertTrue(Dial.inPeak(peaks, 1999)); assertFalse(Dial.inPeak(peaks, 2000))
         assertTrue(Dial.inPeak(peaks, 5500)); assertFalse(Dial.inPeak(emptyList(), 1500))
+    }
+
+    @Test fun checkAfterAShortcutFollowsTheSwitchThenTheName() {
+        fun check(on: List<String> = emptyList(), off: List<String> = emptyList(), night: String = "", depart: String = "", id: String, name: String) = HomeCare.checkAfter(on, off, night, depart, id, name)
+        // D'office pour « Bonne nuit », reconnu par son nom ; pas pour les autres.
+        assertTrue(check(id = "script.bonne_nuit", name = "Bonne nuit")); assertFalse(check(id = "scene.match", name = "Match de hockey"))
+        // L'interrupteur l'emporte dans les deux sens.
+        assertTrue(check(on = listOf("scene.match"), id = "scene.match", name = "Match de hockey"))
+        assertFalse(check(off = listOf("script.bonne_nuit"), id = "script.bonne_nuit", name = "Bonne nuit"))
+        assertTrue(check(on = listOf("script.depart", "scene.match"), id = "script.depart", name = "Départ"))
+        // Anciens réglages encore respectés : raccourci de départ choisi, résumé du soir coupé ou attribué à un autre raccourci.
+        assertTrue(check(depart = "script.depart", id = "script.depart", name = "Départ"))
+        assertFalse(check(night = "none", id = "script.bonne_nuit", name = "Bonne nuit")); assertTrue(check(night = "script.x", id = "script.x", name = "Routine"))
+        assertFalse(check(id = "", name = ""))
+    }
+
+    @Test fun aShortcutRunElsewhereIsNoticedOnceItsMarkChanges() {
+        val scene = EntityState("scene.nuit", "2026-11-17T22:00:00+00:00", org.json.JSONObject())
+        assertEquals("2026-11-17T22:00:00+00:00", HomeCare.activation("scene.nuit", scene))
+        assertEquals("", HomeCare.activation("scene.nuit", EntityState("scene.nuit", "unknown", org.json.JSONObject())))
+        val script = EntityState("script.nuit", "off", org.json.JSONObject().put("last_triggered", "2026-11-17T22:00:05+00:00"))
+        assertEquals("2026-11-17T22:00:05+00:00", HomeCare.activation("script.nuit", script))
+        assertEquals("", HomeCare.activation("script.nuit", EntityState("script.nuit", "on", org.json.JSONObject())))
+        // La première lecture ne compte pas, ni une marque identique, ni une marque devenue inconnue.
+        assertFalse(HomeCare.activated(null, "a")); assertFalse(HomeCare.activated("a", "a")); assertFalse(HomeCare.activated("a", ""))
+        assertTrue(HomeCare.activated("a", "b")); assertTrue(HomeCare.activated("", "b"))
+    }
+
+    @Test fun aLockThatDoesNotAnswerLightsTheLockChip() {
+        val room = Room("r", "Entrée").apply { entities.addAll(listOf(RoomEntity("lock.a"), RoomEntity("lock.b"))) }
+        fun st(id: String, s: String) = id to EntityState(id, s, org.json.JSONObject())
+        fun lock(a: String, b: String) = Present.chips(room, mapOf(st("lock.a", a), st("lock.b", b))).first { it.kind == "lock" }
+        assertEquals(0, lock("locked", "locked").level)
+        assertEquals(1, lock("locked", "unknown").level); assertEquals(1, lock("unavailable", "locked").level)
+        assertTrue(lock("unknown", "unavailable").text.startsWith("2"))
+        // Une serrure déverrouillée ou bloquée passe avant.
+        assertEquals(2, lock("jammed", "unknown").level); assertTrue(lock("unlocked", "unknown").text != lock("locked", "unknown").text)
     }
 }

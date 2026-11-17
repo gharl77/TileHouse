@@ -114,6 +114,8 @@ class App : Application() {
     var ringingTimer: KitchenTimer? = null
         private set
     /** Défini par l'écran principal tant qu'il est visible. */
+    /** Aperçu de la séquence de lancement d'une scène, demandé depuis la page web ; rend vrai si l'écran l'a affiché. */
+    var onLaunchPreview: ((String) -> Boolean)? = null
     var onTimerDone: ((KitchenTimer) -> Unit)? = null
 
     private fun timerDone(t: KitchenTimer) {

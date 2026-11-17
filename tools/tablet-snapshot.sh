@@ -4,13 +4,16 @@
 #
 #   tools/tablet-snapshot.sh save    http://TABLETTE:8080 fichier.json
 #   tools/tablet-snapshot.sh restore http://TABLETTE:8080 fichier.json
+#   tools/tablet-snapshot.sh diff    http://TABLETTE:8080 fichier.json
 #
 # La copie ne contient aucun secret (jeton, mots de passe, clé Immich) : ils restent sur la tablette.
 # « restore » quitte d'abord le mode démo, remet la copie, puis vérifie que la tablette correspond à la copie.
+# « diff » montre ce qui a changé depuis la copie, sans rien modifier. À lancer avant « restore » sur une tablette
+# en service : si quelqu'un a changé un réglage entre-temps, « restore » l'écraserait.
 # Prenez la copie APRÈS avoir installé la version à tester : un réglage ajouté par une nouvelle version
 # n'est pas dans une copie plus ancienne (le script le signale).
 set -eu
-cmd=${1:?save|restore}; url=${2:?adresse de la tablette}; file=${3:?fichier}
+cmd=${1:?save|restore|diff}; url=${2:?adresse de la tablette}; file=${3:?fichier}
 H='Content-Type: application/json'
 case "$cmd" in
   save)
@@ -37,5 +40,18 @@ for k,v in want.items():
 if extra: print("ATTENTION : réglages absents de la copie (app mise à jour depuis ?), non restaurés : "+", ".join(extra))
 print("Restauration vérifiée : identique à la copie." if not diff else "DIFFÉRENCES : "+", ".join(diff)); sys.exit(1 if diff or extra else 0)' "$file"
     ;;
-  *) echo "save|restore" >&2; exit 2;;
+  diff)
+    curl -fsS -X POST -H "$H" -d '{"secrets":false}' "$url/api/export" | python3 -c '
+import json,sys
+now=json.load(sys.stdin); was=json.load(open(sys.argv[1]))
+same=lambda a,b: json.dumps(a,sort_keys=True)==json.dumps(b,sort_keys=True)
+diff=[]
+for k in sorted(set(was)|set(now)):
+    if k in ("exportedAt","version"): continue
+    a,b=was.get(k),now.get(k)
+    if isinstance(a,dict) and isinstance(b,dict): diff+=[k+"."+kk for kk in sorted(set(a)|set(b)) if not same(a.get(kk),b.get(kk))]
+    elif not same(a,b): diff.append(k)
+print("Aucun changement depuis la copie." if not diff else "Changé depuis la copie : "+", ".join(diff)); sys.exit(1 if diff else 0)' "$file"
+    ;;
+  *) echo "save|restore|diff" >&2; exit 2;;
 esac

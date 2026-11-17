@@ -137,6 +137,22 @@ details.fold>:not(summary){margin-bottom:10px}
 .pill small{font-weight:400;opacity:.7;margin-left:4px}
 .pcount{color:var(--mute);font-size:13px;margin-top:10px}
 .toks{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:34px;align-items:center}
+.sctable{display:grid;grid-template-columns:minmax(170px,1.6fr) minmax(150px,1fr) 118px 118px 30px;column-gap:14px;align-items:center;margin:6px 0 12px}
+.sctable>.h{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);padding:6px 0 8px}
+.sctable>.r{display:contents}
+.sctable>.r>*{padding:9px 0;border-top:1px solid var(--line);min-height:56px;display:flex;align-items:center;min-width:0;box-sizing:border-box}
+.sctable>.r.dragging>*{opacity:.4}
+.sctable .nm{gap:8px;cursor:grab}.sctable .nm .grip{color:var(--mute);flex:none}
+.sctable .nm b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}.sctable .nm small{color:var(--mute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.sctable .tg{justify-content:center}.sctable>.h.c{text-align:center}
+.sctable .tg{gap:10px}.sctable .pv{border:1px solid var(--line);background:transparent;color:var(--mute);border-radius:50%;width:26px;height:26px;padding:0;font-size:10px;line-height:1}.sctable .pv:hover{color:var(--text);border-color:var(--mute)}
+.sctable .x{border:0;background:rgba(255,255,255,.08);color:inherit;border-radius:50%;width:26px;height:26px;padding:0;font-size:12px;line-height:1}
+.sctable .x:hover{background:rgba(255,69,58,.35)}
+.sctable .foot{grid-column:1/3;color:var(--mute);font-size:14px}.sctable .na{color:var(--mute)}
+.sw{appearance:none;-webkit-appearance:none;flex:none;width:40px;height:24px;border-radius:99px;background:#3a4558;border:0;padding:0;position:relative;cursor:pointer;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw:checked{background:var(--ok)}.sw:checked::after{transform:translateX(16px)}.sw:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media (max-width:820px){.sctable{grid-template-columns:1fr auto}.sctable>.h{display:none}.sctable>.r>*{border-top:0;min-height:0;padding:4px 0}.sctable>.r>.nm{grid-column:1/-1;border-top:1px solid var(--line);padding-top:12px}.sctable>.r>[data-l]{grid-column:1/-1;justify-content:space-between;gap:12px}.sctable>.r>[data-l]::before{content:attr(data-l);color:var(--mute);font-size:13px}.sctable>.r>.rm{grid-column:1/-1;justify-content:flex-end}.sctable .foot{grid-column:1/-1}}
 .tok{display:inline-flex;align-items:center;gap:8px;border-radius:99px;padding:5px 6px 5px 12px;font-size:14px;background:rgba(255,179,0,.16);color:#ffcc66;cursor:grab;max-width:100%}
 .tok .tn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tok .n{background:rgba(255,179,0,.3);border-radius:99px;font-size:11px;padding:1px 7px;font-weight:700;flex:none}
@@ -398,18 +414,14 @@ details.more>p{margin:6px 0 0}
   <h3 class="group">Raccourcis</h3>
   <section class="card">
     <h2>▶️ Raccourcis</h2>
-    <details class="more"><summary>En savoir plus</summary><p class="muted">Scripts, scènes et boutons affichés en gros boutons, dans l'ordre où vous les cochez. Un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez ici) ; sans pièce, il reste sur l'accueil.</p></details>
-    <h3 class="sub">Raccourcis choisis</h3>
+    <p class="muted">Scripts, scènes et boutons affichés en gros boutons sur la tablette. Chaque ligne règle un raccourci : où il s'affiche, et ce qui se passe quand on le touche.</p>
+    <div id="scTable" class="sctable" role="table" aria-label="Raccourcis"></div>
     <div id="scList" class="muted">Connexion requise…</div>
-    <h3 class="sub">Séquence de lancement</h3>
-    <label class="check"><input type="checkbox" id="launchSequence"> Afficher une séquence de lancement après une scène ou un script</label>
-    <p class="muted">Un court plein écran liste les appareils de la scène ou du script et suit leur état réel : une ligne passe à « OK » quand l'appareil est dans l'état voulu, puis « Prêt ». Fonctionne avec les zones, groupes, étiquettes, scènes et scripts appelés ; une cible calculée par un modèle n'est pas listée. Un toucher ferme la séquence.</p>
-    <div id="launchSkipBox" hidden><p class="muted" style="margin-bottom:6px">Raccourcis avec la séquence (décochez ceux qui n'en ont pas besoin) :</p><div id="launchList"></div></div>
-    <h3 class="sub">Résumé du soir</h3>
-    <div class="set"><label class="f" for="nightShortcut">Résumé du soir après le raccourci</label><select id="nightShortcut"></select></div>
-    <p class="muted">Dix secondes après ce raccourci touché sur la tablette, une fenêtre montre ce qui reste allumé, déverrouillé ou ouvert, avec un bouton pour tout régler.</p>
-    <div class="set"><label class="f" for="departShortcut">Liste « Avant de partir » après le raccourci</label><select id="departShortcut"></select></div>
-    <p class="muted">La même fenêtre, pour un raccourci de départ : ce qui reste allumé, déverrouillé ou ouvert avant de quitter la maison.</p>
+    <details class="more"><summary>À quoi servent les colonnes ?</summary>
+      <p class="muted">Emplacement : un raccourci s'affiche en haut de la pièce qui lui est associée (celle de sa zone dans Home Assistant, ou celle que vous choisissez) ; sans pièce, il reste sur l'accueil. Glissez ⠿ pour changer l'ordre.</p>
+      <p class="muted">Séquence de lancement (scènes seulement) : après le toucher, un court plein écran liste les appareils que la scène règle et suit leur état réel ; une ligne passe à « OK » quand l'appareil change, « déjà fait » s'il était déjà comme la scène le veut, puis « Prêt ». Un toucher la ferme. Un script ou un bouton n'a pas de séquence. Le bouton ▶ la montre sur la tablette sans lancer la scène.</p>
+      <p class="muted">Vérification après : dix secondes après le lancement du raccourci, la tablette ouvre une fenêtre qui liste ce qui est encore allumé, déverrouillé ou ouvert dans la maison, avec un bouton pour tout régler d'un coup. Elle s'ouvre que le raccourci soit touché sur la tablette ou lancé ailleurs (téléphone, voix, automatisation). Utile après un raccourci de coucher ou de départ. Un raccourci nommé « Bonne nuit » l'a d'office ; vous pouvez la couper.</p>
+    </details>
   </section>
 </main>
 <datalist id="allEnts"></datalist>
@@ -1090,27 +1102,6 @@ function renderHomeExtras(ex, h) {
   for (const c of withCurrent(ex.calendar, ["", "none"].includes(st0.birthdayCalendar) ? "" : st0.birthdayCalendar)) bc.append(el("option", {value: c.id, textContent: c.name}));
   bc.value = st0.birthdayCalendar || "";
   bc.onchange = () => { st0.birthdayCalendar = bc.value; saveSettings({birthdayCalendar: bc.value}); };
-  const ns = $("nightShortcut");
-  ns.replaceChildren(el("option", {value: "", textContent: t("Automatique (raccourci « Bonne nuit »)")}), el("option", {value: "none", textContent: t("— Aucun —")}));
-  for (const id of (h.shortcuts || [])) ns.append(el("option", {value: id, textContent: ((ex.all || []).find(e => e.id === id) || {name: id}).name}));
-  ns.value = st0.nightShortcut || "";
-  if (ns.value !== (st0.nightShortcut || "")) ns.value = "";
-  ns.onchange = () => { st0.nightShortcut = ns.value; saveSettings({nightShortcut: ns.value}); };
-  const ds = $("departShortcut"), scName = id => ((ex.all || []).find(e => e.id === id) || {name: id}).name;
-  ds.replaceChildren(el("option", {value: "", textContent: t("— Aucun —")}));
-  for (const id of (h.shortcuts || [])) ds.append(el("option", {value: id, textContent: scName(id)}));
-  ds.value = st0.departShortcut || "";
-  if (ds.value !== (st0.departShortcut || "")) ds.value = "";
-  ds.onchange = () => { st0.departShortcut = ds.value; saveSettings({departShortcut: ds.value}); };
-  // Séquence de lancement : une case par raccourci (scène ou script) ; décochée = pas de séquence.
-  const ll = $("launchList"), skip = new Set(st0.launchSkip || []);
-  const launchable = (h.shortcuts || []).filter(id => id.startsWith("scene.") || id.startsWith("script."));
-  $("launchSkipBox").hidden = !st0.launchSequence || !launchable.length;
-  ll.replaceChildren(...launchable.map(id => {
-    const box = el("input", {type: "checkbox", checked: !skip.has(id)});
-    box.onchange = () => { box.checked ? skip.delete(id) : skip.add(id); st0.launchSkip = [...skip]; saveSettings({launchSkip: st0.launchSkip}); };
-    return el("label", {class: "check"}, box, " " + scName(id));
-  }));
   // Pointes
   const pc = $("peakCal");
   pc.replaceChildren(el("option", {value: "", textContent: t("— Aucune —")}));
@@ -1175,7 +1166,7 @@ function tokens(box, all, chosen, change, o = {}) {
     row.append(tk);
   });
   if (!chosen.length) row.append(el("span", {class: "muted", textContent: o.empty || t("Aucun choix pour l'instant.")}));
-  box.append(row);
+  if (!o.hideChosen || !chosen.length) box.append(row);
   if (o.offline) { box.append(el("div", {class: "muted", textContent: t("Connexion requise…")})); return; }
   const rest0 = all.filter(x => !chosen.includes(x.id));
   const q = el("input", {type: "search", placeholder: (o.placeholder || t("Ajouter")) + " (" + rest0.length + " " + (rest0.length === 1 ? t("disponible") : t("disponibles")) + ")"});
@@ -1209,12 +1200,66 @@ function shortcutPlace(e) {
   s.value = [...s.options].some(o => o.value === choice) ? choice : "";
   return s;
 }
+// Séquence de lancement : activée pour un raccourci quand le réglage général l'est et que le raccourci n'est pas dans les exceptions.
+// Seules les scènes ont une séquence. « tiles » désigne les scènes ajoutées comme tuiles dans les pièces, qui ne sont pas des raccourcis.
+const LAUNCH_TILES = "tiles";
+const launchable = id => id.startsWith("scene.");
+function launchIds() { return H.shortcuts.filter(launchable).concat(H.sceneTiles ? [LAUNCH_TILES] : []); }
+function launchOn(id) { const st = S.settings; return !!st.launchSequence && !(st.launchSkip || []).includes(id); }
+function setLaunch(id, on) {
+  const all = launchIds(), set = new Set(all.filter(launchOn));
+  on ? set.add(id) : set.delete(id);
+  const st = S.settings;
+  st.launchSequence = set.size > 0;
+  if (st.launchSequence) st.launchSkip = all.filter(x => !set.has(x));
+  return saveSettings({launchSequence: st.launchSequence, launchSkip: st.launchSkip || []});
+}
+// Vérification après : activée à la main, coupée à la main, ou d'office pour « Bonne nuit » (la tablette le dit dans checkIds).
+function checkOn(id) { return (H.checkIds || []).includes(id); }
+function setCheck(id, on) {
+  const st = S.settings, add = (list, yes) => { const s = new Set(list || []); yes ? s.add(id) : s.delete(id); return [...s]; };
+  st.summaryOn = add(st.summaryOn, on); st.summaryOff = add(st.summaryOff, !on);
+  return saveSettings({summaryOn: st.summaryOn, summaryOff: st.summaryOff});
+}
 function renderShortcuts() {
   const doms = ["script", "scene", "button", "input_button"];
   const ents = (cat ? cat.entities : []).filter(e => doms.includes(domain(e.id)));
-  tokens($("scList"), ents.map(e => ({id: e.id, name: e.name, note: e.id, area: e.area})), H.shortcuts,
-    next => { H.shortcuts = next; saveSettings({shortcuts: next}); renderShortcuts(); },
-    {rows: true, offline: !cat, placeholder: t("Ajouter un raccourci"), extra: shortcutPlace, empty: t("Aucun raccourci pour l'instant.")});
+  const all = ents.map(e => ({id: e.id, name: e.name, note: e.id, area: e.area}));
+  const change = next => { H.shortcuts = next; saveSettings({shortcuts: next}).then(renderShortcuts); };
+  const tb = $("scTable");
+  tb.replaceChildren();
+  tb.hidden = !H.shortcuts.length;
+  for (const [txt, cls] of [[t("Raccourci"), ""], [t("Emplacement"), ""], [t("Séquence de lancement"), "c"], [t("Vérification après"), "c"], ["", ""]])
+    tb.append(el("div", {class: "h " + cls, role: "columnheader", textContent: txt}));
+  let from = -1;
+  H.shortcuts.forEach((id, i) => {
+    const it = all.find(x => x.id === id) || {id, name: ((EX && EX.all) || []).find(e => e.id === id)?.name || id};
+    const row = el("div", {class: "r", role: "row", draggable: H.shortcuts.length > 1});
+    row.ondragstart = () => { from = i; row.classList.add("dragging"); };
+    row.ondragend = () => row.classList.remove("dragging");
+    row.ondragover = ev => ev.preventDefault();
+    row.ondrop = ev => { ev.preventDefault(); if (from < 0 || from === i) return; const next = H.shortcuts.slice(); next.splice(i, 0, next.splice(from, 1)[0]); change(next); };
+    const seq = launchable(id)
+      ? el("input", {type: "checkbox", class: "sw", checked: launchOn(id), "aria-label": t("Séquence de lancement") + colon() + it.name, onchange: ev => setLaunch(id, ev.target.checked).then(renderShortcuts)})
+      : el("span", {class: "na", title: t("Seules les scènes ont une séquence de lancement."), textContent: "—"});
+    const chk = el("input", {type: "checkbox", class: "sw", checked: checkOn(id), "aria-label": t("Vérification après") + colon() + it.name, onchange: ev => setCheck(id, ev.target.checked).then(renderShortcuts)});
+    row.append(
+      el("div", {class: "nm", title: it.id}, el("span", {class: "grip", textContent: "⠿"}), el("div", {style: "min-width:0"}, el("b", {textContent: it.name}), el("small", {textContent: it.id}))),
+      el("div", {"data-l": t("Emplacement")}, shortcutPlace(it)),
+      el("div", {class: "tg", "data-l": t("Séquence de lancement")}, seq,
+        launchable(id) ? el("button", {class: "pv", textContent: "▶", title: t("Aperçu sur la tablette, sans lancer la scène"), "aria-label": t("Aperçu sur la tablette, sans lancer la scène") + colon() + it.name,
+          onclick: async () => { try { const r = await api("POST", "/api/launch/preview", {id}); flash(r.ok ? t("Aperçu affiché sur la tablette") : "⚠ " + t("La tablette n'a pas pu afficher l'aperçu")); } catch (e) { if (e.message !== "pin") flash("⚠ " + e.message); } }}) : ""),
+      el("div", {class: "tg", "data-l": t("Vérification après")}, chk),
+      el("div", {class: "rm"}, el("button", {class: "x", textContent: "✕", title: t("Retirer"), "aria-label": t("Retirer") + colon() + it.name, onclick: () => change(H.shortcuts.filter(x => x !== id))})));
+    tb.append(row);
+  });
+  // Les scènes ajoutées comme appareils d'une pièce ont aussi leur interrupteur (ligne absente s'il n'y en a aucune).
+  if (H.shortcuts.length && H.sceneTiles) tb.append(el("div", {class: "r", role: "row"},
+    el("div", {class: "foot"}, t("Tuiles de scènes dans les pièces")),
+    el("div", {class: "tg", "data-l": t("Séquence de lancement")}, el("input", {type: "checkbox", class: "sw", checked: launchOn(LAUNCH_TILES), "aria-label": t("Séquence de lancement") + colon() + t("Tuiles de scènes dans les pièces"), onchange: ev => setLaunch(LAUNCH_TILES, ev.target.checked).then(renderShortcuts)})),
+    el("div", {}), el("div", {})));
+  tokens($("scList"), all, H.shortcuts, change,
+    {rows: true, hideChosen: true, offline: !cat, placeholder: t("Ajouter un raccourci"), empty: t("Aucun raccourci pour l'instant.")});
 }
 
 // Couleurs d'une pastille personnalisée (les mêmes que sur la tablette) et icônes proposées.
@@ -1942,7 +1987,6 @@ function renderSettings() {
   $("smokeAlarm").checked = st.smokeAlarm;
   $("leakAlarm").checked = st.leakAlarm;
   $("confirmUnlock").checked = st.confirmUnlock;
-  $("launchSequence").checked = !!st.launchSequence;
   $("batteryLow").value = String(st.batteryLow);
   $("maintenanceLow").value = String(st.maintenanceLow);
   $("offlineChip").checked = st.offlineChip;
@@ -2073,7 +2117,6 @@ function renderNotes(notes, authors) {
 $("quietBlack").onchange = () => saveSettings({quietBlack: $("quietBlack").checked});
 $("leakAlarm").onchange = () => saveSettings({leakAlarm: $("leakAlarm").checked});
 $("confirmUnlock").onchange = () => saveSettings({confirmUnlock: $("confirmUnlock").checked});
-$("launchSequence").onchange = () => { $("launchSkipBox").hidden = !$("launchSequence").checked || !$("launchList").children.length; saveSettings({launchSequence: $("launchSequence").checked}); };
 $("smokeAlarm").onchange = () => saveSettings({smokeAlarm: $("smokeAlarm").checked});
 $("maintenanceLow").onchange = () => saveSettings({maintenanceLow: +$("maintenanceLow").value});
 $("batteryLow").onchange = () => saveSettings({batteryLow: +$("batteryLow").value});

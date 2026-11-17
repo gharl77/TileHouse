@@ -327,19 +327,20 @@ unlocked or open, with *Turn off*, *Lock* and *Fix everything*. If nothing is le
 is recognised by its name, or chosen on the web page (*Home → Shortcuts*).
 
 The automatic detection needs the full *Good night* in the name (or *Bonne nuit*, *dodo*, *coucher*), so a scene called *Movie night*
-does not open it. The same window can follow a **leaving shortcut** of your choice, titled *Before leaving* (*Home → Shortcuts*).
+does not open it. The same window can follow **any shortcut**: turn on its *Check afterwards* switch on the web page
+(*Home → Shortcuts*), for example on a leaving shortcut. The window then carries the shortcut's name. It opens whether the
+shortcut is tapped on the tablet or run elsewhere (a phone, a voice assistant, an automation).
 
-**Launch sequence** (off by default; web page, *Home → Shortcuts*). After a scene or a script is tapped, a short full screen lists
-the devices concerned and follows their **real state**: a line turns to *OK* when the device is in the wanted state (off, locked,
-closed…), whether it just got there or already was, then *Ready*. When the action does not say the wanted state (a scene, a
-temperature), the line lights when the device changes, and reads *already done* otherwise. Devices that have not arrived after ten
-seconds are marked *pending* — a slow lock, for example. A tap closes the sequence at any time.
+**Launch sequence** (scenes only, off by default). After a scene is tapped, a short full screen lists the devices it sets and
+follows their **real state**: a line turns to *OK* when the device changes, and reads *already done* if it already was as the
+scene wants, then *Ready*. The members of a group are listed one by one. A device that cannot be reached is marked *pending*.
+A tap closes the sequence at any time. Scripts and buttons have no sequence: a scene says itself which devices it sets, a script
+does not. In the shortcuts table, the **▶** button next to a scene's switch plays its sequence on the tablet without activating
+the scene.
 
-For a script, TileHouse reads its content in Home Assistant and resolves every action: the devices it names, but also those of an
-**area**, a **device**, a **label** or a **floor**, the members of a **group**, the devices of a **scene** it activates and the
-content of the **scripts it calls** (two levels). An action on an area only lists the devices of the action's type (a
-`light.turn_off` on the kitchen lists the kitchen lights). A target computed by a template cannot be guessed and is not listed.
-One box per shortcut chooses which ones get the sequence.
+**The shortcuts table** (web page, *Home → Shortcuts*): one row per shortcut, with where it shows (automatic, the home screen or a
+room), a switch for the **launch sequence** (scenes only) and a switch for the **check afterwards**, which opens the window
+described above ten seconds after the tap. When a room holds a scene as a tile, a last row has a switch for those tiles.
 
 <img src="docs/screenshots/launch-sequence.png" width="860" alt="Launch sequence of a scene: its devices listed, two of them already OK, and a progress bar">
 
@@ -643,7 +644,8 @@ permission when you turn it on.
 ### Header sensors
 
 Sensors don't take tile space: temperature, humidity, motion, presence, doors, windows, water leaks, smoke and carbon monoxide detectors and locks are summarised as
-**chips under the room name**. Chips turn orange when something needs attention (door open, motion, leak, unlocked). The chips for lights, doors and windows only appear when something is on or open.
+**chips under the room name**. Chips turn orange when something needs attention (door open, motion, leak, unlocked, or a lock
+that no longer answers: *Lock not responding*). The chips for lights, doors and windows only appear when something is on or open.
 Tap any chip to see the individual devices.
 
 <img src="docs/screenshots/chip-detail.png" width="860" alt="Chip details">
@@ -767,7 +769,7 @@ Long explanations sit behind *Learn more*.
 
 | Electricity sensors | Shortcuts and their room |
 |---|---|
-| <img src="docs/screenshots/web-card-electricity.png" alt="Web page — electricity sensors as tokens"> | <img src="docs/screenshots/web-card-shortcuts.png" alt="Web page — shortcuts with their room"> | The **search field** above the menu finds a setting by its name and takes you to it.
+| <img src="docs/screenshots/web-card-electricity.png" alt="Web page — electricity sensors as tokens"> | <img src="docs/screenshots/web-card-shortcuts.png" alt="Web page — the shortcuts table: placement, launch sequence switch with its preview button, and check afterwards switch"> | The **search field** above the menu finds a setting by its name and takes you to it.
 
 **Content**
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
@@ -776,7 +778,7 @@ Long explanations sit behind *Learn more*.
   groups the rooms by. **Now playing** (the card at the top of a room, the thumbnail in the top bar, the poster search and its optional keys, its
   players and what happens after a pause) is here too.
 - **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
-  **Messages** (family messages), **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity with the Cockpit dial's red zone, weather alerts and radar, custom chips) and **Shortcuts** (with the launch sequence, the good-night summary and the *Before leaving* checklist). The birthday calendar is chosen in the *Calendar* card.
+  **Messages** (family messages), **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity with the Cockpit dial's red zone, weather alerts and radar, custom chips) and **Shortcuts** (one table: placement, launch sequence and check afterwards). The birthday calendar is chosen in the *Calendar* card.
 - **Devices & health**: **Tracked appliances** (3D printer, washer, oven…) and **Home health** (the low-battery, offline and vacuum-maintenance chips).
 - **Tools & media**: **Tools** — shopping and to-do lists, favourite timers, This morning and sports — and **Media** — music (the Music Assistant
   speakers offered, and the server token for the queue) and Now playing (posters, TV channels, log, which players count).
@@ -1016,7 +1018,8 @@ surfaces and the look of a tile, on or off) and add it to the list. The screens 
 **Testing on a tablet that is in use**: `tools/tablet-snapshot.sh save http://TABLET:8080 file.json` copies its configuration
 (without secrets) before you switch to demo mode, another language or another skin, and `… restore …` puts it back and checks
 the result. Take the copy after installing the version you are testing: a setting added by a newer version is not in an older
-copy (the script says so).
+copy (the script says so). `… diff …` shows what has changed on the tablet since the copy without modifying anything: run it
+before `restore`, which would overwrite a setting someone changed in the meantime.
 
 ---
 

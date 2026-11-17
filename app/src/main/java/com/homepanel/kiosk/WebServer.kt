@@ -178,6 +178,7 @@ class WebServer(private val app: App) {
             })
             "POST /api/notes/add" -> ok(onMain { JSONObject().put("ok", FamilyNotes.add(app, req.str("text"), req.str("author"), req.str("keep"))).put("notes", FamilyNotes.toJson(FamilyNotes.all(app))) })
             "POST /api/notes/remove" -> ok(onMain { FamilyNotes.remove(app, req.optLong("id")); JSONObject().put("ok", true).put("notes", FamilyNotes.toJson(FamilyNotes.all(app))) })
+            "POST /api/launch/preview" -> ok(onMain { JSONObject().put("ok", Launch.applies(req.str("id")) && app.onLaunchPreview?.invoke(req.str("id")) == true) })
             "POST /api/safety/test" -> ok(onMain { app.safety.test(req.optBoolean("keepVolume"), req.optBoolean("leak")); JSONObject().put("ok", true) })
             "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera"), req.optBoolean("ring")); JSONObject().put("ok", true) })
             "POST /api/demo" -> ok(onMain { app.setDemo(req.optBoolean("on")); state() })
@@ -281,6 +282,8 @@ class WebServer(private val app: App) {
                 if (req.has("launchSequence")) cfg.launchSequence = req.optBoolean("launchSequence", false)
                 req.optJSONArray("launchSkip")?.let { a -> cfg.launchSkip = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
                 if (req.has("departShortcut")) cfg.departShortcut = req.str("departShortcut")
+                req.optJSONArray("summaryOn")?.let { a -> cfg.summaryOn = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
+                req.optJSONArray("summaryOff")?.let { a -> cfg.summaryOff = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
                 if (req.has("peakPowerLimit")) cfg.peakPowerLimit = req.optInt("peakPowerLimit", 50)
                 if (req.has("confirmUnlock")) cfg.confirmUnlock = req.optBoolean("confirmUnlock", true)
                 if (req.has("batteryLow")) cfg.batteryLow = req.optInt("batteryLow", 15)
@@ -489,7 +492,11 @@ class WebServer(private val app: App) {
                 .put("recycleCalendar", cfg.recycleCalendar).put("wasteCalendar", cfg.wasteCalendar)
                 .put("recycleKeyword", cfg.recycleKeyword).put("wasteKeyword", cfg.wasteKeyword)
                 .put("peakCalendar", cfg.peakCalendar).put("peakReminder", cfg.peakReminder)
-                .put("weatherAlerts", JSONArray(cfg.weatherAlerts)).put("shortcuts", JSONArray(cfg.shortcuts)).put("shortcutRooms", cfg.shortcutRooms).put("shortcutAreas", cfg.shortcutAreas)
+                .put("weatherAlerts", JSONArray(cfg.weatherAlerts)).put("shortcuts", JSONArray(cfg.shortcuts))
+                // Une scène est-elle ajoutée comme appareil d'une pièce ? (Sinon, la ligne des tuiles du tableau des raccourcis est inutile.)
+                .put("sceneTiles", cfg.rooms.any { r -> r.entities.any { Launch.applies(it.id) } })
+                // Raccourcis suivis de la vérification (activée à la main, ou « Bonne nuit » reconnu par son nom).
+                .put("checkIds", JSONArray(cfg.shortcuts.filter { cfg.checksAfter(it, app.ha.states[it]?.name.orEmpty()) })).put("shortcutRooms", cfg.shortcutRooms).put("shortcutAreas", cfg.shortcutAreas)
                 .put("customChips", cfg.customChips).put("morningSources", cfg.morningSources)
                 .put("morningStart", cfg.morningStart).put("morningEnd", cfg.morningEnd)
                 .put("floors", JSONArray().also { a -> for (f in cfg.floors) a.put(JSONObject().put("id", f.id).put("name", f.name)) }))
@@ -534,7 +541,7 @@ class WebServer(private val app: App) {
                 .put("alertTrigger", cfg.alertTrigger)
                 .put("doorbellAlert", cfg.doorbellAlert)
                 .put("familyNotes", FamilyNotes.toJson(FamilyNotes.all(app))).put("noteAuthors", JSONArray(FamilyNotes.authors(cfg, app.ha.states)))
-                .put("launchSequence", cfg.launchSequence).put("launchSkip", JSONArray(cfg.launchSkip)).put("departShortcut", cfg.departShortcut).put("peakPowerLimit", cfg.peakPowerLimit).put("quietBlack", cfg.quietBlack).put("smokeAlarm", cfg.smokeAlarm).put("trackers", cfg.trackers).put("radarCamera", cfg.radarCamera).put("maintenanceLow", cfg.maintenanceLow).put("birthdayCalendar", cfg.birthdayCalendar).put("nightShortcut", cfg.nightShortcut).put("leakAlarm", cfg.leakAlarm).put("confirmUnlock", cfg.confirmUnlock).put("batteryLow", cfg.batteryLow).put("offlineChip", cfg.offlineChip)
+                .put("launchSequence", cfg.launchSequence).put("launchSkip", JSONArray(cfg.launchSkip)).put("departShortcut", cfg.departShortcut).put("summaryOn", JSONArray(cfg.summaryOn)).put("summaryOff", JSONArray(cfg.summaryOff)).put("peakPowerLimit", cfg.peakPowerLimit).put("quietBlack", cfg.quietBlack).put("smokeAlarm", cfg.smokeAlarm).put("trackers", cfg.trackers).put("radarCamera", cfg.radarCamera).put("maintenanceLow", cfg.maintenanceLow).put("birthdayCalendar", cfg.birthdayCalendar).put("nightShortcut", cfg.nightShortcut).put("leakAlarm", cfg.leakAlarm).put("confirmUnlock", cfg.confirmUnlock).put("batteryLow", cfg.batteryLow).put("offlineChip", cfg.offlineChip)
                 .put("darkBrightness", cfg.darkBrightness).put("scoreBefore", cfg.scoreBefore).put("scoreAfter", cfg.scoreAfter)
                 .put("wakeSensors", JSONArray(cfg.wakeSensors)).put("ambientLights", JSONArray(cfg.ambientLights))
                 .put("pinSet", cfg.pin.isNotEmpty()))

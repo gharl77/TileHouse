@@ -165,7 +165,7 @@ internal fun MainActivity.onTileTap(t: TileView, re: RoomEntity, room: Room) {
         confirmUnlock(Present.displayName(re, e, room.name)) { if (!haOffline() && Present.tap(app.ha, re.id, app.ha.states[re.id])) t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
         return
     }
-    if (Present.tap(app.ha, re.id, e)) { t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); maybeLaunch(re.id) }
+    if (Present.tap(app.ha, re.id, e)) { t.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY); maybeLaunch(re.id, tile = true) }
     else if (Present.hasDetail(re.id, e)) openDetail(re, room)
 }
 

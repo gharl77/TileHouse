@@ -2,6 +2,15 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.15
+
+- **Shortcuts: one table.** On the web page (*Home → Shortcuts*), each shortcut is now one row with everything about it: where it shows, a switch for the launch sequence and a switch for the check afterwards. It replaces the separate list, general switch, boxes and two drop-down lists.
+- **Check afterwards, for any shortcut, wherever it is run.** The window that lists what is still on, unlocked or open ten seconds after a shortcut (formerly *Good-night summary* and *Before leaving*) is now a simple switch on each shortcut, for as many as you like; its title is the shortcut's name. It also opens when the shortcut is run elsewhere: from a phone, by voice or by an automation. A shortcut named *Good night* still has it by default, and can be turned off. Earlier choices are kept.
+- **Launch sequence: scenes only.** The sequence now applies to scenes, which say themselves which devices they set. Scripts and buttons no longer have one. A line turns to *OK* when the device changes after the tap, and reads *already done* if it already was as the scene wants.
+- **Launch sequence preview.** In the shortcuts table, the ▶ button next to a scene's switch plays its sequence on the tablet without activating the scene.
+- **A lock that does not answer.** A lock whose state is unknown or unavailable now lights the lock chip in amber (*Lock not responding*) instead of being counted as locked. An unlocked or jammed lock still comes first.
+- **For contributors:** `tools/tablet-snapshot.sh diff` shows what changed on the tablet since a copy, without modifying anything.
+
 ## 2026.11.14
 
 - **Cockpit skin.** An eighth skin that turns the home screen into an instrument panel: the chips become a panel of **warning lamps** in identical cells across the full width — *Lights*, *Locks*, *Doors*, *Windows* and *Smoke* always keep their place, unlit when all is well; the weather card shows three **needle dials** (outside temperature, the home's power in kW — or the wind when no power sensor is chosen — and humidity); lights, plugs and fans are drawn as **toggle switches** with an indicator lamp; the clock uses **seven-segment digits**; scenes and scripts are large square buttons; section titles are engraved labels; cards and tiles have cut corners, amber for what is on and cyan for the rest. In control windows a light, blind or volume is set with a **lever** in a graduated slot, and a thermostat with a graduated scale and a pointer.

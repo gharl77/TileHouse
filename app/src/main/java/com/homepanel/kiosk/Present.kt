@@ -438,7 +438,7 @@ object Present {
         var hSum = 0.0; var hN = 0
         val thermostats = ArrayList<Chip>()
         var lights = 0
-        var locks = 0; var unlocked = 0; var jammed = 0
+        var locks = 0; var unlocked = 0; var jammed = 0; var silent = 0
         var doorsOpen = 0
         var windowsOpen = 0
         var coversOpen = 0; var curtainsOpen = 0
@@ -448,6 +448,8 @@ object Present {
         var smoke = 0; var smokeOn = 0; var coOn = 0
         for (re in room.entities) {
             val e = states[re.id] ?: continue
+            // Une serrure qui ne répond plus compte quand même : on ne sait pas si la porte est verrouillée.
+            if (e.domain == "lock" && (e.state == "unavailable" || e.state == "unknown")) { locks++; silent++; continue }
             if (e.state == "unavailable" || e.state == "unknown") continue
             val dc = e.attrs.str("device_class")
             val on = e.state == "on"
@@ -497,6 +499,7 @@ object Present {
         if (locks > 0) out.add(when {
             jammed > 0 -> Chip(R.drawable.ic_lock_open, tr("Serrure bloquée"), 2, "lock")
             unlocked > 0 -> Chip(R.drawable.ic_lock_open, if (locks == 1) tr("Déverrouillé") else plural(unlocked, "1 " + tr("déverrouillée"), tr("déverrouillées")), 1, "lock")
+            silent > 0 -> Chip(R.drawable.ic_lock_open, plural(silent, tr("Serrure sans réponse"), tr("serrures sans réponse")), 1, "lock")
             else -> Chip(R.drawable.ic_lock, tr("Verrouillé"), kind = "lock")
         })
         if (doorsOpen > 0) out.add(Chip(R.drawable.ic_door, plural(doorsOpen, tr("Porte ouverte"), tr("portes ouvertes")), 1, "door"))

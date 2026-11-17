@@ -339,6 +339,7 @@ class MainActivity : Activity(), HaClient.Listener {
         if (onTimers !in KitchenTimers.listeners) KitchenTimers.listeners.add(onTimers)
         app.onTimerDone = { showTimerDone(it) }
         app.safety.onChange = { syncSafety() }
+        app.onLaunchPreview = { id -> if (isFinishing) false else { onMotion(); maybeLaunch(id, preview = true); true } }
         if (onNotes !in FamilyNotes.listeners) FamilyNotes.listeners.add(onNotes)
         handler.post { syncSafety() }
         // Minuterie finie pendant que cet écran était caché ou reconstruit : la carte (et son bouton d'arrêt) revient.
@@ -384,10 +385,10 @@ class MainActivity : Activity(), HaClient.Listener {
         app.onNotice = null
         app.onTimerDone = null
         app.safety.onChange = null
+        app.onLaunchPreview = null
         FamilyNotes.listeners.remove(onNotes)
         stopCleaning()
         handler.removeCallbacks(nightSummary)
-        handler.removeCallbacks(departSummary)
         safetyDialog?.dismiss(); safetyDialog = null
         app.onNoticeCleared = null
         app.notices.listeners.remove(onNoticesChanged)
@@ -541,8 +542,24 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var cleanDownX = 0f
     internal var cleanDownY = 0f
     internal val cleanHold = Runnable { stopCleaning() }
-    internal val nightSummary = Runnable { showNightSummary() }
-    internal val departSummary = Runnable { showNightSummary(leaving = true) }
+    /** Nom du raccourci qui vient d'être touché : titre de la fenêtre de vérification. */
+    internal var summaryTitle = ""
+    /** Dernière activation connue de chaque raccourci, et moment du dernier toucher sur la tablette (voir [checkShortcutsRun]). */
+    private val shortcutMarks = HashMap<String, String>()
+    internal val shortcutTapped = HashMap<String, Long>()
+    /** Un raccourci suivi de la vérification vient d'être lancé ailleurs (téléphone, voix, automatisation) : la fenêtre s'ouvre aussi. */
+    private fun checkShortcutsRun(ids: Set<String>) {
+        for (id in cfg.shortcuts) if (id in ids) {
+            val e = app.ha.states[id] ?: continue
+            val mark = HomeCare.activation(id, e)
+            // Une marque inconnue (Home Assistant redémarre) ne remplace pas la dernière connue : son retour ne passe pas pour un lancement.
+            if (mark.isEmpty() || !HomeCare.activated(shortcutMarks.put(id, mark), mark)) continue
+            // Touché sur la tablette à l'instant : la fenêtre est déjà prévue.
+            if (android.os.SystemClock.uptimeMillis() - (shortcutTapped[id] ?: -60_000L) < 20_000L) continue
+            if (cfg.checksAfter(id, e.name)) { summaryTitle = e.name; handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
+        }
+    }
+    internal val nightSummary = Runnable { showNightSummary(summaryTitle) }
     internal val onNotes: () -> Unit = { updateFamilyNotes() }
     /** Écran rouge de l'alarme fumée / monoxyde, tant qu'elle sonne. */
     internal var safetyDialog: android.app.Dialog? = null
@@ -622,6 +639,7 @@ class MainActivity : Activity(), HaClient.Listener {
     override fun onHaEntities(ids: Set<String>) {
         chipDetailRefresh?.invoke()
         checkTrackers(ids)
+        checkShortcutsRun(ids)
         // Capteur de présence : quelqu'un approche, l'écran sort de veille (le premier état reçu ne compte pas).
         for (id in cfg.wakeSensors) if (id in ids) {
             val on = app.ha.states[id]?.state == "on"
