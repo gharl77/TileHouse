@@ -2,6 +2,13 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.16
+
+- **Launch sequence: *OK* means the wanted state.** For a scene created in Home Assistant, TileHouse now reads the states the scene asks for: a line turns to *OK* only when the device really is in that state, and stays *pending* otherwise. Before, a light that had not answered was shown as *already done*. Scenes whose content cannot be read (YAML, integrations) keep the earlier behaviour.
+- **Settings page: sub-menus.** In the side menu, the open section unfolds a link for each of its cards; opening another section folds the previous one. A link scrolls to its card, and the link of the card on screen is highlighted.
+- **Launch sequence: room for long lists.** With more than six devices, the two columns now use almost the full width of the screen, so each device's name and state show in full; a very long name wraps on two lines instead of being cut. Up to sixteen devices are listed (twelve before).
+- **The settings page follows app updates.** A settings page left open while the app is updated used to keep the old version's controls and looked broken. It now notices the new version and reloads by itself, or offers a *Reload the page* button if you are typing. While the tablet restarts, it says so and resumes by itself.
+
 ## 2026.11.15
 
 - **Shortcuts: one table.** On the web page (*Home → Shortcuts*), each shortcut is now one row with everything about it: where it shows, a switch for the launch sequence and a switch for the check afterwards. It replaces the separate list, general switch, boxes and two drop-down lists.

@@ -802,6 +802,9 @@ object I18n {
         "Alarme de fuite d'eau : écran bleu et sonnerie plus douce" to "Water leak alarm: blue screen and a softer sound",
         "Demander une confirmation avant de déverrouiller une serrure" to "Ask for confirmation before unlocking a lock",
         // --- Cockpit : séquence de lancement et veille radar
+        "La tablette ne répond pas : elle redémarre peut-être. La page reprendra toute seule." to "The tablet is not answering: it may be restarting. The page will resume by itself.",
+        "L'app a été mise à jour sur la tablette." to "The app was updated on the tablet.",
+        "Recharger la page" to "Reload the page",
         "Aperçu" to "Preview",
         "Aperçu sur la tablette, sans lancer la scène" to "Preview on the tablet, without activating the scene",
         "Aperçu affiché sur la tablette" to "Preview shown on the tablet",

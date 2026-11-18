@@ -21,6 +21,11 @@ import java.util.concurrent.TimeUnit
  * et une petite API JSON. Toutes les modifications passent par le thread principal.
  */
 class WebServer(private val app: App) {
+    /** Change à chaque installation, même d'une version qui porte le même numéro. */
+    private val buildStamp: String by lazy {
+        val info = try { app.packageManager.getPackageInfo(app.packageName, 0) } catch (_: Exception) { null }
+        (info?.versionName ?: "") + "-" + (info?.lastUpdateTime ?: 0L)
+    }
     private class Reply(val code: Int, val type: String, val body: String)
 
     @Volatile private var server: ServerSocket? = null
@@ -140,6 +145,9 @@ class WebServer(private val app: App) {
             if (I18n.english) for ((k, v) in I18n.EN) dict.put(k, v)
             return ok(JSONObject().put("english", I18n.english).put("dict", dict))
         }
+        // Empreinte de la version installée (numéro et moment de l'installation) : la page la relit pour se recharger après
+        // une mise à jour. Sans code d'accès, comme les traductions : elle ne dit rien de la maison.
+        if (method == "GET" && path == "/api/build") return ok(JSONObject().put("build", buildStamp))
 
         checkPin(headers["x-pin"])?.let { return it }
         // Protection CSRF simple : l'API n'accepte que les requêtes JSON de la page elle-même.

@@ -89,6 +89,16 @@ body{background:#0e131b}
 #tabs button svg{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.8}
 #tabs button:hover{background:var(--card2)}
 #tabs button.on{background:#f2f2f7;color:#1c1c1e;font-weight:600}
+#tabs button::after{content:"›";margin-left:auto;opacity:.45;font-weight:400;transition:transform .15s}
+#tabs button[aria-expanded="true"]::after{transform:rotate(90deg)}
+#tabs button.leaf::after{content:none}
+#tabs .sub{display:flex;flex-direction:column;gap:1px;margin:3px 0 8px 18px;padding-left:9px;border-left:1px solid var(--line)}
+#tabs .sub[hidden]{display:none}
+#tabs .sub a{color:var(--mute);text-decoration:none;font-size:13.5px;padding:5px 8px;border-radius:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#tabs .sub a:hover{color:var(--text);background:var(--card2)}
+#tabs .sub a.on{color:var(--text);font-weight:600}
+#tabs .sub a:focus-visible{outline:2px solid var(--blue);outline-offset:1px}
+.card{scroll-margin-top:14px}.card.spot{outline:2px solid var(--blue);outline-offset:3px}
 #refreshCat{margin-top:auto;font-size:13px;color:var(--mute);background:transparent}
 .content{padding:22px 32px 64px;min-width:0}
 .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;max-width:860px}
@@ -96,6 +106,8 @@ h1{margin:0;font-size:26px}
 h2{margin:0 0 10px;font-size:17px}
 h3.sub{margin:20px 0 8px;font-size:14px;color:var(--mute);font-weight:600}
 .lead{color:var(--mute);margin:4px 0 16px;max-width:860px}
+.notice{position:fixed;left:50%;transform:translateX(-50%);top:12px;z-index:60;max-width:calc(100% - 24px);background:var(--card2);border:1px solid var(--blue);border-radius:12px;padding:10px 14px;display:flex;gap:12px;align-items:center;font-size:14px;box-shadow:0 8px 30px rgba(0,0,0,.45)}
+.notice[hidden]{display:none}.notice button{background:var(--blue);border-color:var(--blue);color:#fff}
 .saved{color:var(--mute);font-size:13px;margin-left:auto;min-height:1em}
 #navSelect{display:none;width:auto;max-width:100%}
 .panel{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:860px;align-content:start}
@@ -259,6 +271,7 @@ details.more>p{margin:6px 0 0}
   <button id="refreshCat" title="Relit dans Home Assistant la liste des appareils, calendriers, listes et capteurs proposés dans ces réglages.">↻ Actualiser les entités</button>
 </aside>
 <div class="content">
+<div id="notice" class="notice" role="status" aria-live="polite" hidden><span id="noticeText"></span><button id="noticeBtn" hidden></button></div>
 <div class="topbar">
   <select id="navSelect" aria-label="Sections des réglages"></select>
   <h1 id="pageTitle">Pièces</h1>
@@ -873,7 +886,55 @@ function showTab(name) {
   $("pageLead").textContent = t(LEADS[name] || "");
   $("navSelect").value = name;
   try { localStorage.setItem("tab", name); } catch (e) {}
+  fillSubnav();
 }
+// Sous-menu : sous la section ouverte, un lien par carte de sa page. Une seule section est dépliée à la fois ;
+// en ouvrir une autre referme la précédente. Toucher de nouveau la section ouverte replie ou déplie son sous-menu.
+function subCards(name) {
+  const panel = document.querySelector('.panel[data-panel="' + name + '"]');
+  return panel ? [...panel.querySelectorAll("section.card")].filter(c => !c.hidden && c.offsetParent !== null && c.querySelector(":scope > h2")) : [];
+}
+function fillSubnav() {
+  const keep = document.querySelector("#tabs .sub");
+  const folded = !!(keep && keep.hidden), was = keep ? keep.dataset.tab : "";
+  for (const d of document.querySelectorAll("#tabs .sub")) d.remove();
+  for (const b of document.querySelectorAll("#tabs button")) {
+    const on = b.classList.contains("on"), cards = on ? subCards(b.dataset.tab) : [];
+    // Une section d'une seule carte n'a pas de sous-menu, donc pas de chevron.
+    const panel = document.querySelector('.panel[data-panel="' + b.dataset.tab + '"]');
+    if (!on) { b.removeAttribute("aria-expanded"); b.classList.toggle("leaf", !panel || panel.querySelectorAll("section.card > h2").length < 2); continue; }
+    b.classList.toggle("leaf", cards.length < 2);
+    if (cards.length < 2) { b.removeAttribute("aria-expanded"); continue; }
+    const sub = el("div", {class: "sub"}); sub.dataset.tab = b.dataset.tab;
+    sub.hidden = folded && was === b.dataset.tab;
+    b.setAttribute("aria-expanded", String(!sub.hidden));
+    for (const c of cards) {
+      const a = el("a", {href: "#", textContent: c.querySelector(":scope > h2").textContent.trim()});
+      a.onclick = ev => {
+        ev.preventDefault();
+        c.scrollIntoView({behavior: "smooth", block: "start"});
+        // Le lien touché reste en évidence jusqu'au prochain défilement fait à la main (une carte du bas de page n'atteint pas le haut de l'écran).
+        spyPinned = a;
+        for (const x of sub.children) x.classList.toggle("on", x === a);
+        c.classList.add("spot"); setTimeout(() => c.classList.remove("spot"), 1300);
+      };
+      a.card = c; sub.append(a);
+    }
+    b.after(sub);
+  }
+  spySubnav();
+}
+// Pendant le défilement, le lien de la carte en haut de l'écran est mis en évidence.
+function spySubnav() {
+  const sub = document.querySelector("#tabs .sub"); if (!sub || sub.hidden) return;
+  let cur = sub.children[0];
+  for (const a of sub.children) if (a.card.getBoundingClientRect().top < 160) cur = a;
+  if (spyPinned && spyPinned.parentNode === sub) cur = spyPinned;
+  for (const a of sub.children) a.classList.toggle("on", a === cur);
+}
+let spyTick = 0, spyPinned = null;
+for (const ev of ["wheel", "touchmove", "keydown"]) window.addEventListener(ev, () => { spyPinned = null; }, {passive: true});
+document.addEventListener("scroll", () => { if (!spyTick) spyTick = requestAnimationFrame(() => { spyTick = 0; spySubnav(); }); }, true);
 // Sur un petit écran, le menu devient une liste déroulante.
 function fillNavSelect() {
   const sel = $("navSelect");
@@ -935,7 +996,11 @@ function setupSearch() {
   };
   q.onkeydown = ev => { if (ev.key === "Enter") { const b = hits.querySelector("button"); if (b) b.click(); } else if (ev.key === "Escape") { q.value = ""; q.oninput(); } };
 }
-for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => showTab(b.dataset.tab);
+for (const b of document.querySelectorAll("#tabs button")) b.onclick = () => {
+  const sub = document.querySelector("#tabs .sub");
+  if (b.classList.contains("on") && sub && sub.dataset.tab === b.dataset.tab) { sub.hidden = !sub.hidden; b.setAttribute("aria-expanded", String(!sub.hidden)); spySubnav(); }
+  else showTab(b.dataset.tab);
+};
 fillNavSelect(); watchFolds(); setupSearch();
 let savedTab = "rooms";
 try { savedTab = localStorage.getItem("tab") || "rooms"; } catch (e) {}
@@ -1003,6 +1068,37 @@ $("loginPin").addEventListener("keydown", e => { if (e.key === "Enter") doLogin(
 
 function flash(text) { $("saved").textContent = text; }
 
+// ------------------------------------------------------------------ nouvelle version de l'app
+// Après une mise à jour de l'app, une page restée ouverte est périmée : ses réglages ne correspondent plus à la tablette.
+// La page relit donc l'empreinte de la version : si elle change, elle se recharge (ou le propose, si vous êtes en train d'écrire).
+let BUILD = null, buildMisses = 0;
+function notice(text, button, action) {
+  $("notice").hidden = !text; $("noticeText").textContent = text || "";
+  const b = $("noticeBtn"); b.hidden = !button; b.textContent = button || ""; b.onclick = action || null;
+}
+function editing() {
+  const a = document.activeElement;
+  return !!(a && (a.tagName === "TEXTAREA" || a.tagName === "SELECT" || (a.tagName === "INPUT" && !["checkbox", "radio", "button"].includes(a.type)))) || !!document.querySelector("dialog[open]");
+}
+async function checkBuild() {
+  if (document.hidden) return;
+  let b;
+  try { const r = await fetch("/api/build", {cache: "no-store"}); if (!r.ok) throw new Error(); b = (await r.json()).build; }
+  catch (e) { if (++buildMisses >= 2 && BUILD !== "stale") notice(t("La tablette ne répond pas : elle redémarre peut-être. La page reprendra toute seule.")); return; }
+  const wasDown = buildMisses >= 2; buildMisses = 0;
+  if (!b) return;
+  if (BUILD === null) BUILD = b;
+  if (BUILD !== "stale" && b !== BUILD) {
+    if (!editing()) { location.reload(); return; }
+    BUILD = "stale";
+    notice(t("L'app a été mise à jour sur la tablette."), t("Recharger la page"), () => location.reload());
+  } else if (wasDown && BUILD !== "stale") notice("");
+}
+checkBuild();
+setInterval(checkBuild, 15000);
+document.addEventListener("visibilitychange", checkBuild);
+window.addEventListener("focus", checkBuild);
+
 // ------------------------------------------------------------------ état général
 async function load() {
   S = await api("GET", "/api/state");
@@ -1011,6 +1107,7 @@ async function load() {
   if (!rooms.find(r => r.id === cur)) cur = rooms.length ? rooms[0].id : null;
   if (HASH[0] === "rooms" && rooms[+HASH[1]]) cur = rooms[+HASH[1]].id;
   renderConn(); renderSettings(); renderRooms(); renderEditor(); renderUpdate(S.update); renderAbout(S.about);
+  fillSubnav();
   if (!S.hasToken && !S.demo) showTab("conn");
   if (S.status === "CONNECTED") loadCatalog();
 }

@@ -13,15 +13,18 @@ import android.widget.TextView
  * leur état réel, puis « Prêt ». Seules les scènes ont une séquence : une scène dit elle-même quels appareils elle règle
  * (son attribut `entity_id`), ce qu'un script ne fait pas.
  *
- * Une scène ne dit pas l'état qu'elle veut : une ligne passe à « OK » quand l'appareil change après le toucher, et
- * « déjà fait » s'il n'a pas bougé (il était déjà comme la scène le veut). Les membres d'un groupe sont listés un à un.
+ * Pour une scène créée dans Home Assistant, la tablette lit les états que la scène demande : une ligne ne passe à « OK »
+ * que si l'appareil est vraiment dans cet état (qu'il vienne d'y arriver ou qu'il y fût déjà), et reste « en attente »
+ * sinon. Pour une scène dont le contenu ne peut pas être lu (écrite en YAML, ou fournie par une intégration), on se
+ * rabat sur le changement : « OK » quand l'appareil change après le toucher, « déjà fait » s'il n'a pas bougé.
+ * Les membres d'un groupe sont listés un à un.
  */
 object Launch {
     /** Dans les exceptions ([ConfigStore.launchSkip]) : pas de séquence pour les scènes ajoutées comme tuiles dans les pièces. */
     const val TILES = "tiles"
     const val STEP_MS = 280L
-    /** Lignes affichées au plus, sur deux colonnes. */
-    const val MAX_ROWS = 12
+    /** Lignes affichées au plus : deux colonnes de huit, ce qui tient en hauteur sur une tablette de 10 pouces. */
+    const val MAX_ROWS = 16
     /** Attente maximale d'un changement, durée minimale d'affichage et rythme de relecture. */
     const val WAIT_MS = 6000L
     const val MIN_MS = 1400L
@@ -48,6 +51,24 @@ object Launch {
             "{% set ns.r = ns.r + [[s.entity_id, s.name, s.state, (s.attributes.get('brightness')|string) ~ '/' ~ (s.attributes.get('current_position')|string) ~ '/' ~ (s.attributes.get('temperature')|string)]] %}" +
             "{% endfor %}{{ ns.r | tojson }}"
     }
+
+    /**
+     * États demandés par une scène, d'après son contenu dans Home Assistant (`entities` : un état, ou un objet dont
+     * `state` est l'état). Vide si le contenu est absent ou illisible.
+     */
+    fun wanted(config: org.json.JSONObject?): Map<String, String> {
+        val ents = config?.optJSONObject("entities") ?: return emptyMap()
+        val out = LinkedHashMap<String, String>()
+        for (id in ents.keys()) {
+            val v = ents.opt(id)
+            val state = when (v) { is String -> v; is org.json.JSONObject -> v.optString("state"); is Boolean -> if (v) "on" else "off"; else -> "" }
+            if (state.isNotEmpty()) out[id] = state
+        }
+        return out
+    }
+
+    /** L'appareil est-il dans l'état que la scène demande ? Un lecteur éteint peut se dire « en veille ». */
+    fun reached(want: String, state: String) = state == want || (want == "off" && state == "standby")
 
     /** Un appareil suivi : son état du moment et son empreinte (état et réglages). */
     class Row(val id: String, val name: String, val state: String, val print: String)
@@ -101,8 +122,8 @@ internal fun MainActivity.maybeLaunch(id: String, tile: Boolean = false, preview
     val columns = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     box.addView(columns)
     val fill = View(this).apply { setBackgroundColor(Skin.accent); pivotX = 0f; scaleX = 0f }
-    box.addView(FrameLayout(this).apply { setBackgroundColor(Skin.fg(0x26)); addView(fill, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)) },
-        LinearLayout.LayoutParams(dp(460), dp(4)).apply { topMargin = dp(26) })
+    val bar = FrameLayout(this).apply { setBackgroundColor(Skin.fg(0x26)); addView(fill, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT)) }
+    box.addView(bar, LinearLayout.LayoutParams(dp(460), dp(4)).apply { topMargin = dp(26) })
     val status = label(17f, Skin.mute, text = " ").apply { typeface = Skin.light; gravity = Gravity.CENTER; setPadding(0, dp(12), 0, 0) }
     box.addView(status)
     root.addView(box, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
@@ -113,7 +134,9 @@ internal fun MainActivity.maybeLaunch(id: String, tile: Boolean = false, preview
     val lines = ArrayList<Line>()
     var built = false
     var ready = false
-    /** Appareils qui ont changé depuis le toucher. */
+    /** États demandés par la scène : null tant que Home Assistant n'a pas répondu, vide s'ils ne peuvent pas être lus. */
+    var wanted: Map<String, String>? = null
+    /** Appareils arrivés : dans l'état demandé, ou changés depuis le toucher quand cet état est inconnu. */
     val done = HashSet<String>()
     var last: List<Launch.Row> = emptyList()
     val first = HashMap<String, String>()
@@ -121,16 +144,22 @@ internal fun MainActivity.maybeLaunch(id: String, tile: Boolean = false, preview
     fun build(names: List<String>, ids: List<String?>) {
         if (built || !d.isShowing) return
         built = true
-        // Jusqu'à six lignes : une colonne ; au-delà, deux colonnes.
-        val perColumn = if (names.size <= 6) names.size else (names.size + 1) / 2
+        // Jusqu'à six lignes : une colonne ; au-delà, deux colonnes qui prennent presque toute la largeur de l'écran,
+        // pour que le nom de chaque appareil et son état tiennent en entier.
+        val two = names.size > 6
+        val perColumn = if (!two) names.size else (names.size + 1) / 2
+        val gap = dp(14)
+        val columnW = if (!two) dp(460) else minOf(dp(600), (resources.displayMetrics.widthPixels - dp(64) - gap) / 2)
+        bar.layoutParams = (bar.layoutParams as LinearLayout.LayoutParams).apply { width = if (two) columnW * 2 + gap else dp(460) }
         var column: LinearLayout? = null
         for ((i, n) in names.withIndex()) {
             if (i % maxOf(1, perColumn) == 0) {
                 column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-                columns.addView(column, LinearLayout.LayoutParams(dp(if (names.size <= 6) 460 else 400), WRAP_CONTENT).apply { if (i > 0) marginStart = dp(12) })
+                columns.addView(column, LinearLayout.LayoutParams(columnW, WRAP_CONTENT).apply { if (i > 0) marginStart = gap })
             }
-            val name = label(19f, Skin.fg(0x99), text = n).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
-            val mark = label(16f, Skin.fg(0x66), text = "· · ·").apply { typeface = Skin.light; setPadding(dp(10), 0, 0, 0) }
+            // Un nom très long passe sur deux lignes plutôt que d'être coupé ; l'état reste entier à droite.
+            val name = label(19f, Skin.fg(0x99), text = n).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END }
+            val mark = label(16f, Skin.fg(0x66), text = "· · ·").apply { typeface = Skin.light; setPadding(dp(12), 0, 0, 0); maxLines = 1 }
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 background = Skin.softRect(this@maybeLaunch, dpf(14)); setPadding(dp(20), dp(12), dp(20), dp(12))
@@ -150,12 +179,13 @@ internal fun MainActivity.maybeLaunch(id: String, tile: Boolean = false, preview
     fun finish() {
         if (ready || !d.isShowing) return
         ready = true
-        // À la fin de l'attente : ce qui n'a pas bougé était déjà comme la scène le veut ; un appareil injoignable reste en attente.
+        // À la fin de l'attente : un appareil dont on connaît l'état demandé et qui n'y est pas reste « en attente » ; sans état
+        // connu, ce qui n'a pas bougé était déjà comme la scène le veut. Un appareil injoignable reste en attente.
         val byId = last.associateBy { it.id }
         var waiting = 0
         for (l in lines) if (!l.lit && l.entity != null) {
             val r = byId[l.entity]
-            if (r != null && r.state != "unavailable" && r.state != "unknown") { l.mark.text = tr("déjà fait"); l.mark.setTextColor(Skin.fg(0xCC)); l.name.setTextColor(Skin.fg(0xCC)) }
+            if (r != null && wanted?.containsKey(r.id) != true && r.state != "unavailable" && r.state != "unknown") { l.mark.text = tr("déjà fait"); l.mark.setTextColor(Skin.fg(0xCC)); l.name.setTextColor(Skin.fg(0xCC)) }
             else { l.mark.text = tr("en attente"); l.mark.setTextColor(Skin.accent); waiting++ }
         }
         fill.animate().cancel(); fill.scaleX = 1f
@@ -172,7 +202,9 @@ internal fun MainActivity.maybeLaunch(id: String, tile: Boolean = false, preview
         }
         for (r in rows) {
             val start = before[r.id] ?: first.getOrPut(r.id) { r.print }
-            if (r.print != start) done.add(r.id)
+            // Tant que les états demandés ne sont pas connus, on ne conclut rien : un changement n'est pas forcément le bon.
+            val want = (wanted ?: continue)[r.id]
+            if (if (want != null) Launch.reached(want, r.state) else r.print != start) done.add(r.id) else done.remove(r.id)
         }
         for (l in lines) if (l.entity != null && l.entity in done) light(l)
         // La ligne « + N autres » s'allume quand tous les appareils qu'elle résume ont changé.
@@ -227,5 +259,21 @@ internal fun MainActivity.maybeLaunch(id: String, tile: Boolean = false, preview
         handler.postDelayed({ if (!built) finish() }, 2000)
     }
 
+    // États demandés par la scène, lus dans son contenu (scènes créées dans Home Assistant, qui portent un attribut `id`).
+    // Sans réponse après une seconde et demie, on fait sans.
+    val sceneId = e?.attrs?.str("id").orEmpty()
+    handler.postDelayed({ if (wanted == null) wanted = emptyMap() }, 1500)
+    if (sceneId.isEmpty() || cfg.url.isEmpty()) wanted = emptyMap()
+    else try {
+        val request = okhttp3.Request.Builder().url(cfg.url.trimEnd('/') + "/api/config/scene/config/" + android.net.Uri.encode(sceneId))
+            .header("Authorization", "Bearer ${cfg.token}").build()
+        app.ha.http.newCall(request).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, err: java.io.IOException) { runOnUiThread { if (wanted == null) wanted = emptyMap() } }
+            override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
+                val found = response.use { r -> try { if (r.isSuccessful) Launch.wanted(org.json.JSONObject(r.body?.string().orEmpty())) else emptyMap() } catch (_: Exception) { emptyMap() } }
+                runOnUiThread { if (wanted == null) wanted = found }
+            }
+        })
+    } catch (_: Exception) { wanted = emptyMap() }
     watch(Launch.template(id))
 }

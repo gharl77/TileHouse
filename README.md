@@ -332,8 +332,9 @@ does not open it. The same window can follow **any shortcut**: turn on its *Chec
 shortcut is tapped on the tablet or run elsewhere (a phone, a voice assistant, an automation).
 
 **Launch sequence** (scenes only, off by default). After a scene is tapped, a short full screen lists the devices it sets and
-follows their **real state**: a line turns to *OK* when the device changes, and reads *already done* if it already was as the
-scene wants, then *Ready*. The members of a group are listed one by one. A device that cannot be reached is marked *pending*.
+follows their **real state**. For a scene created in Home Assistant, TileHouse reads the states the scene asks for: a line turns
+to *OK* only when the device really is in that state, and stays *pending* otherwise. For a scene whose content cannot be read
+(YAML, an integration), a line turns to *OK* when the device changes and reads *already done* if it did not move. Then *Ready*. The members of a group are listed one by one. A device that cannot be reached is marked *pending*.
 A tap closes the sequence at any time. Scripts and buttons have no sequence: a scene says itself which devices it sets, a script
 does not. In the shortcuts table, the **▶** button next to a scene's switch plays its sequence on the tablet without activating
 the scene.
@@ -767,9 +768,12 @@ Long explanations sit behind *Learn more*.
 |---|---|
 | <img src="docs/screenshots/web-card-chips.png" alt="Web page — editing a custom chip"> | <img src="docs/screenshots/web-card-morning.png" alt="Web page — This morning sources"> |
 
-| Electricity sensors | Shortcuts and their room |
+| Electricity sensors | The shortcuts table |
 |---|---|
 | <img src="docs/screenshots/web-card-electricity.png" alt="Web page — electricity sensors as tokens"> | <img src="docs/screenshots/web-card-shortcuts.png" alt="Web page — the shortcuts table: placement, launch sequence switch with its preview button, and check afterwards switch"> | The **search field** above the menu finds a setting by its name and takes you to it.
+
+In the side menu, the open section unfolds one link per card (for example *Alerts & sounds* → *Safety alarms*, *Locks*, *Camera
+alerts*…); opening another section folds the previous one. A link scrolls to its card.
 
 **Content**
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
@@ -964,6 +968,9 @@ TileHouse reopens by itself once the update is installed.
   and thrown away: nothing is recorded, saved or sent.
 - The web page requires the **PIN** when one is set (5 wrong attempts lock it for a while). Use a PIN on any shared network.
 - The web page only accepts JSON requests from itself (basic CSRF protection) and can only be embedded in a frame by Home Assistant.
+- A web page left open follows app updates: it notices the new version and reloads by itself (or offers a *Reload the page* button
+  if you are typing), and says so while the tablet restarts. The version stamp it reads is the only thing, with the translations,
+  that is served without the PIN.
 - Traffic to Home Assistant uses whatever you configure: use `https://` if your instance supports it.
 
 ---

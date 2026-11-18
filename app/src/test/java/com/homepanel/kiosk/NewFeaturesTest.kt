@@ -584,8 +584,9 @@ class NewFeaturesTest {
         assertEquals("on#255/None/None", Launch.print(EntityState("light.a", "on", org.json.JSONObject().put("brightness", 255).put("current_position", org.json.JSONObject.NULL))))
         assertEquals("open#None/60/None", Launch.print(EntityState("cover.c", "open", org.json.JSONObject().put("current_position", 60))))
         assertEquals(listOf("a", "b"), Launch.rows(listOf("a", "b")))
-        val many = Launch.rows((1..15).map { "n$it" })
-        assertEquals(Launch.MAX_ROWS, many.size); assertTrue(many.last().startsWith("+ 4"))
+        assertEquals(16, Launch.rows((1..16).map { "n$it" }).size)
+        val many = Launch.rows((1..20).map { "n$it" })
+        assertEquals(Launch.MAX_ROWS, many.size); assertTrue(many.last().startsWith("+ 5"))
         assertTrue(Launch.litAt(1) > Launch.litAt(0)); assertTrue(Launch.total(6) > Launch.litAt(5)); assertTrue(Launch.total(0) < 2000)
     }
 
@@ -685,5 +686,16 @@ class NewFeaturesTest {
         assertTrue(lock("unknown", "unavailable").text.startsWith("2"))
         // Une serrure déverrouillée ou bloquée passe avant.
         assertEquals(2, lock("jammed", "unknown").level); assertTrue(lock("unlocked", "unknown").text != lock("locked", "unknown").text)
+    }
+
+    @Test fun launchSequenceReadsTheStatesASceneAsksFor() {
+        val cfg = org.json.JSONObject("""{"id":"soir","name":"Soir","entities":{"light.a":"off","lock.b":"locked",
+            "light.c":{"state":"on","brightness":120},"media_player.tv":{"state":"off"},"switch.d":true,"sensor.e":{}}}""")
+        assertEquals(mapOf("light.a" to "off", "lock.b" to "locked", "light.c" to "on", "media_player.tv" to "off", "switch.d" to "on"), Launch.wanted(cfg))
+        assertTrue(Launch.wanted(null).isEmpty()); assertTrue(Launch.wanted(org.json.JSONObject("""{"name":"x"}""")).isEmpty())
+        // « OK » seulement si l'appareil y est vraiment : une lumière restée allumée n'est pas « faite ».
+        assertTrue(Launch.reached("off", "off")); assertFalse(Launch.reached("off", "on")); assertFalse(Launch.reached("off", "unavailable"))
+        assertTrue(Launch.reached("locked", "locked")); assertFalse(Launch.reached("locked", "unknown")); assertFalse(Launch.reached("locked", "locking"))
+        assertTrue(Launch.reached("off", "standby")); assertFalse(Launch.reached("on", "standby"))
     }
 }
