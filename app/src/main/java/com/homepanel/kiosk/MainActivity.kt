@@ -118,6 +118,7 @@ class MainActivity : Activity(), HaClient.Listener {
             if (roomIndex == HOME && peaks.isNotEmpty()) { updateHomeHeader(); if (Skin.gauges && cfg.weatherEntity.isNotEmpty()) weatherCard?.update(app.ha.states[cfg.weatherEntity]) }
             checkPeakReminder()
             checkReminders()
+            followMoment()
             // Messages pour la famille : ceux qui sont échus (minuit) s'effacent ; l'heure affichée suit.
             if (!FamilyNotes.prune(this@MainActivity) && roomIndex == HOME && notesBox != null && Calendar.getInstance().get(Calendar.MINUTE) == 0) updateFamilyNotes()
             app.backupTick()
@@ -469,6 +470,7 @@ class MainActivity : Activity(), HaClient.Listener {
         nowPlayingBox = null
         homePreviewBox = null
         notesBox = null
+        attentionBox = null; infoLine = null; nightCardRefresh = null; priorityKey = ""
         birthdayBox = null
         trackerViews.clear()
         handler.removeCallbacks(snapshotTick)
@@ -532,6 +534,13 @@ class MainActivity : Activity(), HaClient.Listener {
     internal val trackerActive = HashMap<String, Boolean>()
     /** Rangée des messages pour la famille, en haut de l'accueil (null hors de l'accueil ou si la section est masquée). */
     internal var notesBox: LinearLayout? = null
+    /** Accueil par priorité : zone « À voir maintenant », ligne d'information, carte du soir et moment affiché. */
+    internal var attentionBox: LinearLayout? = null
+    internal var infoLine: TextView? = null
+    internal var nightCardRefresh: (() -> Unit)? = null
+    internal var shownMoment = ""
+    internal var priorityKey = ""
+    internal var priorityTickAt = 0L
     /** Anniversaires d'aujourd'hui (titres des événements) et leur bannière en haut de l'accueil. */
     internal var birthdays: List<String> = emptyList()
     internal var birthdayBox: LinearLayout? = null

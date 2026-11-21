@@ -698,4 +698,92 @@ class NewFeaturesTest {
         assertTrue(Launch.reached("locked", "locked")); assertFalse(Launch.reached("locked", "unknown")); assertFalse(Launch.reached("locked", "locking"))
         assertTrue(Launch.reached("off", "standby")); assertFalse(Launch.reached("on", "standby"))
     }
+
+    @Test fun checkWindowSaysWhatIsLeftAndWhatWasSettled() {
+        assertEquals("3 choses à régler · 1 réglée", HomeCare.summaryHeader(3, 1)); assertEquals("1 chose à régler", HomeCare.summaryHeader(1, 0))
+        assertEquals("2 choses à régler · 2 réglées", HomeCare.summaryHeader(2, 2)); assertEquals("Tout est réglé", HomeCare.summaryHeader(0, 3))
+        assertEquals("Tout est réglé", HomeCare.summaryHeader(0, 0))
+        assertEquals("2 lumières éteintes · 1 serrure verrouillée", HomeCare.doneText(2, 1, 0)); assertEquals("1 lumière éteinte", HomeCare.doneText(1, 0, 0))
+        assertEquals("1 ouverture fermée", HomeCare.doneText(0, 0, 1)); assertEquals("", HomeCare.doneText(0, 0, 0))
+        assertEquals(60, HomeCare.SUMMARY_SECONDS)
+    }
+
+    @Test fun priorityHomeFollowsTheDay() {
+        assertEquals(HomeFlow.EVENING, HomeFlow.moment(4)); assertEquals(HomeFlow.MORNING, HomeFlow.moment(5)); assertEquals(HomeFlow.MORNING, HomeFlow.moment(9))
+        assertEquals(HomeFlow.DAY, HomeFlow.moment(10)); assertEquals(HomeFlow.DAY, HomeFlow.moment(18)); assertEquals(HomeFlow.EVENING, HomeFlow.moment(19)); assertEquals(HomeFlow.EVENING, HomeFlow.moment(23))
+        // Les mêmes cartes à chaque moment, dans un autre ordre ; seule la carte du soir s'ajoute.
+        val day = HomeFlow.order(HomeFlow.DAY, false)
+        assertEquals(day.toSet(), HomeFlow.order(HomeFlow.MORNING, false).toSet()); assertEquals(day.toSet() + "night", HomeFlow.order(HomeFlow.EVENING, false).toSet())
+        assertEquals("weather", HomeFlow.order(HomeFlow.MORNING, false)[1]); assertEquals("night", HomeFlow.order(HomeFlow.EVENING, false)[1])
+        // Ordre figé : toujours celui de la journée.
+        assertEquals(day, HomeFlow.order(HomeFlow.EVENING, true)); assertEquals(day, HomeFlow.order(HomeFlow.MORNING, true))
+    }
+
+    @Test fun priorityHomeSeparatesWhatNeedsActionFromInformation() {
+        fun chip(text: String, level: Int, kind: String) = Present.Chip(0, text, level, kind)
+        val chips = listOf(chip("9 allumées", 1, "light"), chip("2 stores ouverts", 0, "cover"), chip("Porte ouverte", 1, "door"), chip("2,4 kW", 0, "energy"),
+            chip("Fumée détectée", 2, "smoke"), chip("2 piles faibles", 1, "battery"), chip("Serrure sans réponse", 1, "lock"), chip("Laveuse à vider", 1, "custom"), chip("Recyclage demain", 0, "collect"))
+        val att = HomeFlow.attention(chips)
+        // La plus grave d'abord, puis la sécurité avant le reste ; les lumières allumées restent de l'information.
+        assertEquals(listOf("Fumée détectée", "Serrure sans réponse", "Porte ouverte", "2 piles faibles", "Laveuse à vider"), att.map { it.text })
+        assertEquals(listOf("9 allumées", "2 stores ouverts", "2,4 kW", "Recyclage demain"), HomeFlow.info(chips).map { it.text })
+        assertTrue(HomeFlow.attention(emptyList()).isEmpty()); assertEquals(3, HomeFlow.MAX_ATTENTION)
+        assertEquals("Salon, Cuisine", HomeFlow.rooms(listOf("Salon", "Cuisine"))); assertEquals("", HomeFlow.rooms(emptyList()))
+        assertEquals("Salon, Cuisine, Bureau et 1 autre pièce", HomeFlow.rooms(listOf("Salon", "Cuisine", "Bureau", "Garage")))
+        assertEquals("Salon, Cuisine, Bureau et 3 autres pièces", HomeFlow.rooms(listOf("Salon", "Cuisine", "Bureau", "a", "b", "c")))
+    }
+
+    @Test fun priorityHomePlanIsReadTolerantly() {
+        val d = HomeFlow.DEFAULT
+        for (bad in listOf("", "pas du json", "{}", """{"morning":{"from":12},"day":{"from":8}}""")) {
+            val p = HomeFlow.parsePlan(bad)
+            assertEquals(5, p.from[HomeFlow.MORNING]); assertEquals(10, p.from[HomeFlow.DAY]); assertEquals(19, p.from[HomeFlow.EVENING])
+            assertEquals(d.cards[HomeFlow.EVENING], p.cards[HomeFlow.EVENING])
+        }
+        val p = HomeFlow.parsePlan("""{"morning":{"from":6,"cards":["weather","inconnue","weather","notes"]},"day":{"from":9,"cards":[]},"evening":{"from":21}}""")
+        assertEquals(6, p.from[HomeFlow.MORNING]); assertEquals(9, p.from[HomeFlow.DAY]); assertEquals(21, p.from[HomeFlow.EVENING])
+        assertEquals(listOf("weather", "notes"), p.cards[HomeFlow.MORNING]); assertTrue(p.cards.getValue(HomeFlow.DAY).isEmpty()); assertEquals(d.cards[HomeFlow.EVENING], p.cards[HomeFlow.EVENING])
+        // Aller-retour par le texte enregistré.
+        val again = HomeFlow.parsePlan(HomeFlow.planJson(p).toString())
+        assertEquals(p.from, again.from); assertEquals(p.cards, again.cards)
+        // Les heures choisies décident du moment ; le soir dure jusqu'au matin.
+        assertEquals(HomeFlow.EVENING, HomeFlow.moment(5, p)); assertEquals(HomeFlow.MORNING, HomeFlow.moment(6, p)); assertEquals(HomeFlow.DAY, HomeFlow.moment(9, p))
+        assertEquals(HomeFlow.DAY, HomeFlow.moment(20, p)); assertEquals(HomeFlow.EVENING, HomeFlow.moment(21, p)); assertEquals(HomeFlow.EVENING, HomeFlow.moment(0, p))
+        assertEquals(listOf("weather", "notes"), HomeFlow.order(HomeFlow.MORNING, false, p)); assertTrue(HomeFlow.order(HomeFlow.MORNING, true, p).isEmpty())
+        assertTrue(HomeFlow.CARDS.containsAll(d.cards.values.flatten()))
+    }
+
+    @Test fun anOpenDoorBecomesACardOnlyAfterTheDelay() {
+        val now = 1_800_000_000_000L
+        assertFalse(HomeFlow.overdue(now - 60_000, now, 5)); assertTrue(HomeFlow.overdue(now - 5 * 60_000, now, 5)); assertTrue(HomeFlow.overdue(now - 60_000, now, 0))
+        // Moment inconnu (mode démo) : compte comme ancien, sans durée affichée.
+        assertTrue(HomeFlow.overdue(0, now, 30)); assertEquals("", HomeFlow.since(0, now))
+        assertEquals("", HomeFlow.since(now - 30_000, now)); assertEquals("depuis 40 min", HomeFlow.since(now - 40 * 60_000, now))
+        assertEquals("depuis 2 h", HomeFlow.since(now - 150 * 60_000, now)); assertEquals("depuis 3 jours", HomeFlow.since(now - 3 * 1440 * 60_000L - 5, now))
+    }
+
+    @Test fun duplicatedDeviceNamesAreTidied() {
+        assertEquals("Porte du réfrigérateur", Present.tidyName("Réfrigérateur Porte du réfrigérateur"))
+        assertEquals("Porte du Refrigerateur", Present.tidyName("réfrigérateur Porte du Refrigerateur"))
+        assertEquals("Capteur du salon bleu", Present.tidyName("Salon bleu Capteur du salon bleu"))
+        // Rien à retirer : pas de répétition, nom trop court, ou il ne resterait qu'un mot.
+        for (n in listOf("Lumière Armoire Cuisine", "Plafonnier", "Salon Salon", "TV du Salon", "Le chat et le chien")) assertEquals(n, Present.tidyName(n))
+        val re = RoomEntity("binary_sensor.x")
+        assertEquals("Porte du réfrigérateur", Present.displayName(re, EntityState("binary_sensor.x", "on", org.json.JSONObject().put("friendly_name", "Réfrigérateur Porte du réfrigérateur")), "Cuisine"))
+    }
+
+    @Test fun onlyDoorsThatLeadOutsideAlertByDefault() {
+        // Portes qui donnent sur l'extérieur, d'après la pièce ou le nom.
+        assertTrue(HomeFlow.alertByDefault("door", "Entrée", "Porte")); assertTrue(HomeFlow.alertByDefault("door", "Garage", "Porte latérale"))
+        assertTrue(HomeFlow.alertByDefault("door", "Salle à manger", "Porte patio")); assertTrue(HomeFlow.alertByDefault("door", "Kitchen", "Back door"))
+        // Portes intérieures, électroménagers et placards : jamais.
+        assertFalse(HomeFlow.alertByDefault("door", "Salle de bain", "Porte de la salle de bain")); assertFalse(HomeFlow.alertByDefault("door", "Chambre principale", "Porte"))
+        assertFalse(HomeFlow.alertByDefault("door", "Cuisine", "Porte du réfrigérateur")); assertFalse(HomeFlow.alertByDefault("door", "Entrée", "Porte du placard"))
+        assertFalse(HomeFlow.alertByDefault("door", "Cuisine", "Fridge Door")); assertFalse(HomeFlow.alertByDefault("door", "Courrier", "Porte"))
+        // Une fenêtre alerte, où qu'elle soit.
+        assertTrue(HomeFlow.alertByDefault("window", "Chambre principale", "Fenêtre")); assertTrue(HomeFlow.alertByDefault("window", "Cuisine", "Fenêtre cuisine"))
+        // Le choix fait à la main l'emporte, dans les deux sens.
+        assertTrue(HomeFlow.alerts("a", "door", "Salon", "Porte", listOf("a"), emptyList())); assertFalse(HomeFlow.alerts("b", "window", "Salon", "Fenêtre", emptyList(), listOf("b")))
+        assertFalse(HomeFlow.alerts("c", "door", "Salon", "Porte", emptyList(), emptyList())); assertTrue(HomeFlow.alerts("d", "door", "Garage", "Porte", emptyList(), emptyList()))
+    }
 }

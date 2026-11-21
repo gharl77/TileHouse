@@ -151,7 +151,10 @@ internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, ac
         .let { list -> if (Skin.gauges && activeOnly && room != null) Present.standing(list, room.entities.mapNotNull { Present.chipKind(it.id, app.ha.states[it.id]) }.toSet()) else list }
     // Tableau de bord : les alertes rouges de la maison allument le voyant d'alerte principal.
     if (Skin.gauges && activeOnly && room != null) updateCaution(chips.filter { it.level == 2 }.map { it.text }.toSet())
-    if (chips == lastChips && chipsRoom === room) return
+    // Accueil par priorité : les pastilles de la maison deviennent la zone « À voir maintenant » et la ligne d'information.
+    val split = priorityHome && activeOnly && room != null && attentionBox != null
+    chipsView.visibility = if (split) View.GONE else View.VISIBLE
+    if (chips == lastChips && chipsRoom === room && !split) return
     lastChips = chips; chipsRoom = room
     chipsView.removeAllViews()
     chipsView.maxRows = Skin.chipRows
@@ -161,6 +164,7 @@ internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, ac
         isClickable = true
         setOnClickListener { before(); if (c.entity != null) room?.find(c.entity)?.let { re -> if (!haOffline()) openDetail(re, room) } else if (c.kind == "wx") showWeatherAlerts() else if (c.kind == "wear") showWear() else if (c.kind == "tracker") Unit else if (c.kind == "battery") showBatteries() else if (c.kind == "offline") showOffline() else if (c.kind == "energy" || c.kind == "peak") showEnergy() else room?.let { showChipDetail(it, c) } }
     }
+    if (split) { updatePriorityHeader(chips) { c, close -> chip(c, close) }; return }
     for (c in shown) chipsView.addView(chip(c))
     if (Skin.chipRows != Int.MAX_VALUE) {
         val more = chipView(Present.Chip(0, "+9", 0, "more")).apply {

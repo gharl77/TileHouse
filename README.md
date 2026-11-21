@@ -323,9 +323,11 @@ the home screen only while it is working ("Washer: Washing · 25 min left"). Idl
 <img src="docs/screenshots/tracker-printer.png" width="860" alt="A 3D printer card in a room, with its camera, the job name, a progress bar and the time left">
 
 **Good-night summary.** Ten seconds after the *Good night* shortcut is tapped on the tablet, a window lists what is still on,
-unlocked or open, with *Turn off*, *Lock* and *Fix everything*. If nothing is left it says so and closes by itself. The shortcut
-is recognised by its name, or chosen on the web page (*Home → Shortcuts*).
-
+unlocked or open, room by room. What the tablet can do has its button (*Turn off*, *Lock*), and *Fix everything* does it all at
+once; an open door or window is marked *close it by hand*. An item that gets settled turns green. When nothing is left, the
+window says *The house is ready* and closes by itself. Otherwise it closes after one minute without a touch (the ring at the top
+right empties as the minute passes), so it does not stay on screen all night. The shortcut is recognised by its name, or chosen
+on the web page (*Home → Shortcuts*).
 The automatic detection needs the full *Good night* in the name (or *Bonne nuit*, *dodo*, *coucher*), so a scene called *Movie night*
 does not open it. The same window can follow **any shortcut**: turn on its *Check afterwards* switch on the web page
 (*Home → Shortcuts*), for example on a leaving shortcut. The window then carries the shortcut's name. It opens whether the
@@ -684,6 +686,36 @@ Themes can also be switched by hand (from the tablet, the web page, or a Home As
 | <img src="docs/screenshots/theme-halloween.png" alt="Halloween theme"> | <img src="docs/screenshots/theme-christmas.png" alt="Christmas theme"> |
 
 Nothing is animated, so themes cost nothing in battery or CPU.
+
+### Home screen by priority
+
+*Appearance → Home* chooses how the home screen is organised. **Classic** shows every chip, then the cards, always in the same
+order. **By priority** sorts things by what they ask of you:
+
+- **Needs attention**: at most three cards for what needs an action or a check — an open door or window, a lock that is unlocked
+  or no longer answers, smoke, a leak, low batteries, an electricity peak, and your custom chips coloured orange or red. The most
+  serious comes first. Each card says what and where, and a tap opens the same list as the chip did. With nothing to report, a
+  green line says *All is well*.
+- **One discreet line** for everything else: lights on, blinds open, power, collections. A tap opens the list.
+- **Cards that follow the day**: weather and calendar first in the morning (5 to 10 a.m.); in the evening (from 7 p.m.) a
+  *For the night* card with the lights still on and their rooms, your bedtime shortcut and *Turn everything off*, then the
+  cameras. Tick *Always keep the same order of cards* if you prefer a screen that does not move.
+
+**You choose what shows, and when.** With *By priority* on, the web page gets a card *Home by priority* (also in the
+*Appearance* sub-menu): for the morning, the day and the evening, set the hour it starts and switch each card on or off; drag
+the cards into the order you want. *Report an open door or window* sets how long one must stay open before it becomes a *Needs
+attention* card — 5 minutes by default, so the fridge you just opened is not an alert — and the card then says since when.
+
+**Which doors and windows alert.** In the same card, each door and window of your rooms has an *alert* switch. To start with,
+windows and the doors that lead outside alert (a room or a name that says entrance, hall, garage, patio, garden, front, back…);
+an inside door, a fridge, a washer or a cupboard does not, and stays on the information line when open. Flip any switch to
+change that; *Back to the original settings* forgets your choices.
+
+It combines with either layout and any skin. The classic home screen stays the default.
+
+| By priority, in the evening | By priority, fixed order |
+|---|---|
+| <img src="docs/screenshots/home-priority.png" alt="Home screen by priority in the evening: three attention cards, an information line and the For the night card"> | <img src="docs/screenshots/home-priority-day.png" alt="Home screen by priority with the fixed order: attention cards, family messages, weather and calendar"> |
 
 ### Skins
 

@@ -161,6 +161,10 @@ details.fold>:not(summary){margin-bottom:10px}
 .sctable .x{border:0;background:rgba(255,255,255,.08);color:inherit;border-radius:50%;width:26px;height:26px;padding:0;font-size:12px;line-height:1}
 .sctable .x:hover{background:rgba(255,69,58,.35)}
 .sctable .foot{grid-column:1/3;color:var(--mute);font-size:14px}.sctable .na{color:var(--mute)}
+.seg{display:inline-flex;gap:4px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:4px;margin:4px 0 10px}
+.seg button{border:0;background:transparent;border-radius:9px;padding:7px 16px}.seg button[aria-selected="true"]{background:#f2f2f7;color:#1c1c1e;font-weight:600}
+.hpcards{margin:6px 0 10px}.hpcards .hr{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);min-height:44px}
+.hpcards .hr .grip{color:var(--mute);cursor:grab}.hpcards .hr .n{flex:1}.hpcards .hr.off .n{color:var(--mute)}.hpcards .hr.dragging{opacity:.4}.hpcards .hr.off .grip{visibility:hidden}
 .sw{appearance:none;-webkit-appearance:none;flex:none;width:40px;height:24px;border-radius:99px;background:#3a4558;border:0;padding:0;position:relative;cursor:pointer;transition:background .15s}
 .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .15s}
 .sw:checked{background:var(--ok)}.sw:checked::after{transform:translateX(16px)}.sw:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
@@ -554,6 +558,11 @@ details.more>p{margin:6px 0 0}
     </div>
     <details class="more"><summary>En savoir plus</summary><p class="muted">Classique : l'accueil montre les pièces et les outils sont en haut à droite. Navigation latérale : les pièces restent à gauche de l'écran, l'accueil montre vos favoris, les aperçus des outils et vos caméras, et dans une pièce la caméra et les lecteurs sont côte à côte, les lecteurs au repos sur une seule ligne. La skin et la disposition se choisissent séparément.</p></details>
     <div class="set">
+      <label class="f" for="homeStyle">Accueil</label>
+      <select id="homeStyle"><option value="classic">Classique</option><option value="priority">Par priorité</option></select>
+    </div>
+    <details class="more"><summary>En savoir plus</summary><p class="muted">Classique : toutes les pastilles, puis les cartes dans le même ordre. Par priorité : une zone « À voir maintenant » montre au plus trois cartes pour ce qui demande une action ou une vérification (porte ou fenêtre ouverte, serrure, fumée, fuite, pile faible, pointe d'électricité, vos pastilles orange ou rouges) ; le reste tient sur une ligne discrète. Les cartes suivent la journée : météo et agenda le matin, « Pour la nuit » et les caméras le soir. Cochez la case pour qu'elles ne bougent pas.</p></details>
+    <div class="set">
       <label class="f" for="skin">Skin (style d'affichage)</label>
       <select id="skin"></select>
     </div>
@@ -564,6 +573,22 @@ details.more>p{margin:6px 0 0}
       <div style="flex:1"><label class="f" for="nightSkinEnd">Fin</label><input type="time" id="nightSkinEnd"></div>
     </div>
     <p class="muted">La skin de nuit remplace la skin pendant la plage horaire (par exemple Papier le jour et Néon le soir).</p>
+  </section>
+  <section class="card" id="homePlanCard" hidden>
+    <h2>Accueil par priorité</h2>
+    <p class="muted">Ce que l'accueil montre à chaque moment de la journée. Choisissez un moment, son heure de début, puis les cartes à afficher ; glissez ⠿ pour changer leur ordre.</p>
+    <div class="seg" id="hpMoments" role="tablist" aria-label="Moment de la journée"></div>
+    <div class="set"><label class="f" for="hpFrom">Ce moment commence à</label><select id="hpFrom"></select></div>
+    <div id="hpCards" class="hpcards"></div>
+    <label class="check"><input type="checkbox" id="homeFixedOrder"> Garder toujours le même ordre des cartes</label>
+    <p class="muted" id="hpFixedNote" hidden>L'accueil garde toute la journée les cartes de « Journée ». Les heures ne servent plus.</p>
+    <div class="set"><label class="f" for="attentionDelay">Signaler une porte ou une fenêtre ouverte</label>
+      <select id="attentionDelay"><option value="0">Tout de suite</option><option value="2">Après 2 minutes</option><option value="5">Après 5 minutes</option><option value="10">Après 10 minutes</option><option value="15">Après 15 minutes</option><option value="30">Après 30 minutes</option></select></div>
+    <p class="muted">Avant ce délai, une porte ouverte reste sur la ligne d'information : le réfrigérateur qu'on vient d'ouvrir ne devient pas une alerte.</p>
+    <h3 class="sub">Portes et fenêtres qui alertent</h3>
+    <p class="muted">Ouverte, une porte ou une fenêtre dont l'alerte est allumée devient une carte « À voir maintenant ». Les autres restent sur la ligne d'information. Au départ : les fenêtres, et les portes qui donnent sur l'extérieur (entrée, garage, patio…).</p>
+    <div id="hpOpenings" class="hpcards"></div>
+    <div class="row"><button id="hpReset">Revenir aux réglages d'origine</button></div>
   </section>
   <section class="card">
     <h2>Sections affichées</h2>
@@ -1098,6 +1123,66 @@ checkBuild();
 setInterval(checkBuild, 15000);
 document.addEventListener("visibilitychange", checkBuild);
 window.addEventListener("focus", checkBuild);
+
+// ------------------------------------------------------------------ accueil par priorité
+// Carte de configuration, visible seulement quand l'accueil est « Par priorité » (elle apparaît alors dans le sous-menu d'Apparence).
+// Un moment à la fois : son heure de début, et ses cartes — une carte allumée est affichée, dans l'ordre de la liste.
+const HP_MOMENTS = [["morning", "Matin"], ["day", "Journée"], ["evening", "Soir"]];
+const HP_NAMES = {birthday: "Anniversaire du jour", notes: "Messages pour la famille", weather: "Météo et agenda", night: "Pour la nuit", favorites: "Favoris", shortcuts: "Raccourcis", previews: "Aperçus des outils", cameras: "Caméras"};
+let hpMoment = "day";
+function renderHomePlan(st) {
+  const on = (st.homeStyle || "classic") === "priority", card = $("homePlanCard");
+  if (card.hidden === on) { card.hidden = !on; fillSubnav(); }
+  if (!on || !st.homePlan) return;
+  const plan = st.homePlan, fixed = !!st.homeFixedOrder;
+  if (fixed) hpMoment = "day";
+  const save = () => saveSettings({homePlan: plan});
+  $("hpMoments").replaceChildren(...HP_MOMENTS.map(([k, name]) => el("button", {role: "tab", "aria-selected": String(k === hpMoment), disabled: fixed && k !== "day", textContent: t(name),
+    onclick: () => { hpMoment = k; renderHomePlan(st); }})));
+  const from = $("hpFrom"), cur = plan[hpMoment];
+  from.replaceChildren(...Array.from({length: 24}, (_, h) => el("option", {value: String(h), textContent: h + " h"})));
+  from.value = String(cur.from); from.disabled = fixed;
+  from.onchange = () => {
+    const next = Object.assign({}, {morning: plan.morning.from, day: plan.day.from, evening: plan.evening.from}, {[hpMoment]: +from.value});
+    // Les moments doivent se suivre : matin, puis journée, puis soir.
+    if (!(next.morning < next.day && next.day < next.evening)) { from.value = String(cur.from); flash("⚠ " + t("Les moments doivent se suivre : le matin avant la journée, la journée avant le soir.")); return; }
+    cur.from = +from.value; save();
+  };
+  const all = st.homeCards || Object.keys(HP_NAMES), box = $("hpCards");
+  const rows = cur.cards.concat(all.filter(k => !cur.cards.includes(k)));
+  let dragFrom = -1;
+  box.replaceChildren(...rows.map((k, i) => {
+    const shown = cur.cards.includes(k);
+    const row = el("div", {class: "hr" + (shown ? "" : " off"), draggable: shown && cur.cards.length > 1},
+      el("span", {class: "grip", textContent: "⠿"}), el("span", {class: "n", textContent: t(HP_NAMES[k] || k)}),
+      el("input", {type: "checkbox", class: "sw", checked: shown, "aria-label": t(HP_NAMES[k] || k),
+        onchange: ev => { cur.cards = ev.target.checked ? cur.cards.concat(k) : cur.cards.filter(x => x !== k); save(); }}));
+    if (shown) {
+      row.ondragstart = () => { dragFrom = i; row.classList.add("dragging"); };
+      row.ondragend = () => row.classList.remove("dragging");
+      row.ondragover = ev => ev.preventDefault();
+      row.ondrop = ev => { ev.preventDefault(); if (dragFrom < 0 || dragFrom === i || dragFrom >= cur.cards.length) return; const next = cur.cards.slice(); next.splice(i, 0, next.splice(dragFrom, 1)[0]); cur.cards = next; save(); };
+    }
+    return row;
+  }));
+  $("homeFixedOrder").checked = fixed; $("hpFixedNote").hidden = !fixed;
+  $("homeFixedOrder").onchange = () => saveSettings({homeFixedOrder: $("homeFixedOrder").checked});
+  $("attentionDelay").value = String(st.attentionDelay ?? 5);
+  if ($("attentionDelay").value !== String(st.attentionDelay ?? 5)) $("attentionDelay").value = "5";
+  $("attentionDelay").onchange = () => saveSettings({attentionDelay: +$("attentionDelay").value});
+  // Une ligne par porte ou fenêtre des pièces, avec son interrupteur d'alerte.
+  const ops = st.openings || [], ob = $("hpOpenings");
+  const setAlert = (id, yes) => {
+    const add = (list, y) => { const set = new Set(list || []); y ? set.add(id) : set.delete(id); return [...set]; };
+    st.alertOn = add(st.alertOn, yes); st.alertOff = add(st.alertOff, !yes);
+    return saveSettings({alertOn: st.alertOn, alertOff: st.alertOff});
+  };
+  ob.replaceChildren(...(ops.length ? ops.map(o => el("div", {class: "hr" + (o.alert ? "" : " off")},
+    el("span", {class: "n"}, o.name, el("small", {style: "color:var(--mute);margin-left:8px", textContent: o.room + " · " + t(o.kind === "window" ? "fenêtre" : "porte")})),
+    el("input", {type: "checkbox", class: "sw", checked: o.alert, "aria-label": t("Alerte") + colon() + o.name, onchange: ev => setAlert(o.id, ev.target.checked)})))
+    : [el("div", {class: "muted", style: "padding:8px 0", textContent: t("Aucune porte ni fenêtre dans vos pièces.")})]));
+  $("hpReset").onclick = () => saveSettings({homePlan: null, attentionDelay: 5, homeFixedOrder: false, alertOn: [], alertOff: []});
+}
 
 // ------------------------------------------------------------------ état général
 async function load() {
@@ -2019,6 +2104,8 @@ function renderSettings() {
   }
   loadPhotoPreview(st);
   $("layout").value = st.layout || "classic";
+  $("homeStyle").value = st.homeStyle || "classic";
+  renderHomePlan(st);
   const sk = $("skin");
   if (!sk.options.length) for (const [k, n] of S.skins || []) sk.append(el("option", {value: k, textContent: n}));
   sk.value = st.skin || "homekit";
@@ -2162,6 +2249,7 @@ $("photoDelete").onclick = async () => {
 $("theme").onchange = () => saveSettings({theme: $("theme").value});
 $("skin").onchange = () => saveSettings({skin: $("skin").value});
 $("layout").onchange = () => saveSettings({layout: $("layout").value});
+$("homeStyle").onchange = () => saveSettings({homeStyle: $("homeStyle").value});
 $("nightSkin").onchange = () => { dependents(); saveSettings({nightSkin: $("nightSkin").value}); };
 const minutesOf = v => { const [a, b] = (v || "0:0").split(":").map(Number); return a * 60 + b; };
 $("nightSkinStart").onchange = () => saveSettings({nightSkinStart: minutesOf($("nightSkinStart").value)});

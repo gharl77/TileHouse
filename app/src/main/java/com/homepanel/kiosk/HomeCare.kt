@@ -53,6 +53,25 @@ object HomeCare {
         else -> choice == id
     }
 
+    /** Durée d'affichage de la fenêtre de vérification quand personne n'y touche. */
+    const val SUMMARY_SECONDS = 60
+    const val GREEN = 0xFF34C759.toInt()
+    const val RED = 0xFFFF6B5E.toInt()
+
+    /** Bilan de l'en-tête : « 3 choses à régler · 1 réglée » ; « Tout est réglé » quand il ne reste rien. */
+    fun summaryHeader(open: Int, done: Int): String {
+        if (open == 0) return tr("Tout est réglé")
+        val left = if (open == 1) tr("1 chose à régler") else "$open " + tr("choses à régler")
+        val fixed = if (done == 0) "" else if (done == 1) tr("1 réglée") else "$done " + tr("réglées")
+        return listOf(left, fixed).filter { it.isNotEmpty() }.joinToString(" · ")
+    }
+
+    /** Rappel de ce qui s'est réglé pendant que la fenêtre était ouverte : « 2 lumières éteintes · 1 serrure verrouillée ». */
+    fun doneText(lights: Int, locks: Int, openings: Int): String = listOfNotNull(
+        if (lights > 0) Present.plural(lights, tr("1 lumière éteinte"), tr("lumières éteintes")) else null,
+        if (locks > 0) Present.plural(locks, tr("1 serrure verrouillée"), tr("serrures verrouillées")) else null,
+        if (openings > 0) Present.plural(openings, tr("1 ouverture fermée"), tr("ouvertures fermées")) else null).joinToString(" · ")
+
     /**
      * Marque de la dernière activation d'un raccourci : l'état d'une scène ou d'un bouton est l'heure de son dernier
      * lancement ; pour un script, c'est son attribut `last_triggered`. "" si elle est inconnue.
@@ -205,74 +224,200 @@ internal fun MainActivity.loadBirthdays() {
 // ------------------------------------------------------------ résumé « Bonne nuit »
 
 /** Après le raccourci « Bonne nuit » : ce qui est encore allumé, déverrouillé ou ouvert, et un bouton pour tout régler. */
+/** Anneau de compte à rebours : il se vide à mesure que le temps passe et affiche les secondes restantes. Sert aussi de bouton pour fermer. */
+class CountdownRing(ctx: android.content.Context) : View(ctx) {
+    private var left = 0
+    private var total = 1
+    private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { style = android.graphics.Paint.Style.STROKE; strokeCap = android.graphics.Paint.Cap.ROUND }
+    private val text = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply { textAlign = android.graphics.Paint.Align.CENTER }
+    private val oval = android.graphics.RectF()
+    fun set(left: Int, total: Int) { this.left = left; this.total = maxOf(1, total); contentDescription = tr("Fermer") + " · $left s"; invalidate() }
+    override fun onDraw(c: android.graphics.Canvas) {
+        val w = context.dpf(3.5f)
+        val r = minOf(width, height) / 2f - w
+        oval.set(width / 2f - r, height / 2f - r, width / 2f + r, height / 2f + r)
+        paint.strokeWidth = w; paint.color = Skin.fg(0x26); c.drawOval(oval, paint)
+        paint.color = Skin.accent; c.drawArc(oval, -90f, 360f * left / total, false, paint)
+        text.color = Skin.ink; text.typeface = Skin.light; text.textSize = r * 0.72f
+        c.drawText(left.toString(), width / 2f, height / 2f + text.textSize * 0.36f, text)
+    }
+}
+
+/**
+ * Fenêtre de vérification après un raccourci : ce qui reste allumé, déverrouillé ou ouvert, pièce par pièce.
+ * Ce que la tablette peut régler a son bouton ; une porte ou une fenêtre ouverte est dite « à fermer à la main ».
+ * Ce qui se règle pendant que la fenêtre est ouverte passe au vert ; quand plus rien ne reste, « La maison est prête ».
+ * Sans toucher, elle se referme après [HomeCare.SUMMARY_SECONDS] secondes (anneau en haut à droite).
+ */
 internal fun MainActivity.showNightSummary(title: String = "") {
     if (isFinishing || cleanBox != null) return
-    val d = android.app.Dialog(this)
+    var left = HomeCare.SUMMARY_SECONDS
+    val d = object : android.app.Dialog(this) {
+        override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+            if (ev.actionMasked == MotionEvent.ACTION_DOWN) left = HomeCare.SUMMARY_SECONDS
+            return super.dispatchTouchEvent(ev)
+        }
+    }
     d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
     val box = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        setPadding(dp(30), dp(24), dp(30), dp(24))
-        background = Skin.panelBg(this@showNightSummary, dpf(22))
+        setPadding(dp(26), dp(22), dp(26), dp(22))
+        background = Skin.panelBg(this@showNightSummary, dpf(26))
     }
-    box.addView(label(24f, Skin.ink, true, title.ifEmpty { "🌙  " + tr("Bonne nuit") }).apply { setPadding(0, 0, 0, dp(10)) })
+    // En-tête : pastille, titre, bilan, anneau de compte à rebours.
+    val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+    head.addView(ImageView(this).apply {
+        setImageResource(R.drawable.ic_moon); imageTintList = android.content.res.ColorStateList.valueOf(Skin.accent)
+        background = oval(Skin.fg(0x1A)); setPadding(dp(11), dp(11), dp(11), dp(11))
+    }, LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginEnd = dp(14) })
+    val subtitle = label(15f, Skin.mute)
+    head.addView(LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        addView(label(22f, Skin.ink, true, title.ifEmpty { tr("Bonne nuit") }))
+        addView(subtitle)
+    }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+    val ring = CountdownRing(this).apply { isClickable = true; setOnClickListener { d.dismiss() } }
+    head.addView(ring, LinearLayout.LayoutParams(dp(46), dp(46)))
+    box.addView(head)
+
     val rows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-    box.addView(MaxHeightScrollView(this, (resources.displayMetrics.heightPixels * 0.55f).toInt()).apply { addView(rows) })
-    val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.END }
-    val fix = label(17f, Skin.onPrimary, true, tr("Tout régler")).apply {
-        setPadding(dp(24), dp(13), dp(24), dp(13)); background = roundRect(Skin.accent, dpf(22)); isClickable = true
-    }
-    buttons.addView(label(17f, Skin.ink, true, tr("Fermer")).apply {
-        setPadding(dp(24), dp(13), dp(24), dp(13)); background = roundRect(Skin.fg(0x1F), dpf(22)); isClickable = true
+    box.addView(MaxHeightScrollView(this, (resources.displayMetrics.heightPixels * 0.52f).toInt()).apply { addView(rows); isVerticalScrollBarEnabled = false },
+        LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(12) })
+    val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+    val later = label(17f, Skin.fg(0xCC), true, tr("Plus tard")).apply {
+        gravity = Gravity.CENTER; setPadding(dp(26), dp(14), dp(26), dp(14)); isClickable = true
+        background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dpf(26); setColor(Color.TRANSPARENT); setStroke(dp(1), Skin.fg(0x40)) }
         setOnClickListener { d.dismiss() }
-    })
-    buttons.addView(fix, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(12) })
+    }
+    val fix = label(17f, Skin.onPrimary, true, tr("Tout régler")).apply {
+        gravity = Gravity.CENTER; setPadding(dp(26), dp(14), dp(26), dp(14)); background = roundRect(Skin.accent, dpf(26)); isClickable = true
+    }
+    buttons.addView(later)
+    buttons.addView(fix, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginStart = dp(12) })
     box.addView(buttons, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(16) })
 
     val roomOf = HashMap<String, Room>()
     for (r in cfg.rooms) for (e in r.entities) roomOf.putIfAbsent(e.id, r)
-    fun name(re: RoomEntity): String {
-        val room = roomOf[re.id]
-        return Present.displayName(re, app.ha.states[re.id], room?.name ?: "") + (room?.let { "  ·  " + it.name } ?: "")
-    }
-    fun line(icon: Int, text: String, action: String?, tint: Int, onTap: (() -> Unit)?) {
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(50); setPadding(0, dp(5), 0, dp(5)) }
-        row.addView(ImageView(this).apply { setImageResource(icon); imageTintList = android.content.res.ColorStateList.valueOf(tint) }, LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(14) })
-        row.addView(label(17f, Skin.ink, text = text), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+    fun nameOf(re: RoomEntity) = Present.displayName(re, app.ha.states[re.id], roomOf[re.id]?.name ?: "")
+    fun roomTitle(name: String) = rows.addView(label(12.5f, Skin.mute, true, name.uppercase(I18n.locale)).apply { letterSpacing = 0.08f; setPadding(dp(4), dp(12), 0, dp(6)) })
+    /** Une carte : pastille colorée, texte, précision dessous, et le bouton de ce que la tablette peut faire. */
+    fun card(icon: Int, tint: Int, text: String, detail: String, detailColor: Int, action: String?, onTap: (() -> Unit)?) {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(62)
+            background = roundRect(Skin.fg(0x12), dpf(16)); setPadding(dp(14), dp(8), dp(12), dp(8))
+        }
+        row.addView(ImageView(this).apply {
+            setImageResource(icon); imageTintList = android.content.res.ColorStateList.valueOf(tint)
+            background = oval((tint and 0x00FFFFFF) or 0x33000000); setPadding(dp(8), dp(8), dp(8), dp(8))
+        }, LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(14) })
+        row.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(label(17f, Skin.ink, text = text).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+            if (detail.isNotEmpty()) addView(label(14f, detailColor, text = detail).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+        }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         if (action != null && onTap != null) row.addView(label(15f, Skin.ink, true, action).apply {
-            background = roundRect(Skin.fg(0x26), dpf(16)); setPadding(dp(14), dp(8), dp(14), dp(8)); isClickable = true
+            background = roundRect(Skin.fg(0x26), dpf(18)); setPadding(dp(16), dp(9), dp(16), dp(9)); isClickable = true
             setOnClickListener { if (!haOffline()) { onTap(); performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) } }
-        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(14) })
-        else if (action != null) row.addView(label(15f, Skin.fg(0x99), text = action).apply { setPadding(dp(14), 0, 0, 0) })
-        rows.addView(row)
+        }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(12) })
+        rows.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(8) })
     }
+    fun doneLine(text: String) = rows.addView(LinearLayout(this).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        background = roundRect(0x2434C759, dpf(14)); setPadding(dp(14), dp(8), dp(14), dp(8))
+        addView(label(15f, HomeCare.GREEN, true, "✓").apply { setPadding(0, 0, dp(10), 0) })
+        addView(label(15f, HomeCare.GREEN, text = text).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+    }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { bottomMargin = dp(6) })
+
+    // Ce qui était à régler à l'ouverture et ne l'est plus : gardé à l'écran, en vert, jusqu'à la fermeture.
+    val seen = LinkedHashMap<String, String>()
+    val done = LinkedHashMap<String, String>()
+    /** Rappel de ce qui est réglé, compté d'après la liste verte du moment (une lumière rallumée n'y est plus). */
+    fun doneSummary() = HomeCare.doneText(done.keys.count { seen[it] == "light" }, done.keys.count { seen[it] == "lock" }, done.keys.count { seen[it] == "open" })
     val closeSoon = Runnable { if (d.isShowing) d.dismiss() }
     fun build() {
         rows.removeAllViews()
         val n = HomeCare.night(homeRoom(), app.ha.states)
-        fix.visibility = if (n.fixable) View.VISIBLE else View.GONE
+        val now = HashSet<String>()
+        for (re in n.lights) { now.add(re.id); seen[re.id] = "light" }
+        for (re in n.locks) { now.add(re.id); seen[re.id] = "lock" }
+        for (re in n.openings) { now.add(re.id); seen[re.id] = "open" }
+        for ((id, kind) in seen) if (id !in now && id !in done) {
+            val re = roomOf[id]?.find(id) ?: RoomEntity(id)
+            val room = roomOf[id]?.name.orEmpty()
+            done[id] = listOf(room, nameOf(re)).filter { it.isNotEmpty() }.joinToString(" · ") + " · " + tr(when (kind) { "light" -> "éteinte"; "lock" -> "verrouillée"; else -> "fermée" })
+        }
+        // Ce qui redevient à régler (une lumière rallumée) quitte la liste verte.
+        for (id in now) done.remove(id)
+        val open = n.lights.size + n.locks.size + n.openings.size
+        subtitle.text = HomeCare.summaryHeader(open, done.size)
+        val fixable = n.lights.size + n.locks.size
+        fix.visibility = if (fixable > 0) View.VISIBLE else View.GONE
+        fix.text = tr("Tout régler") + " ($fixable)"
         fix.setOnClickListener {
             if (haOffline()) return@setOnClickListener
             for (re in n.lights + n.locks) Present.bulkOff(app.ha, re.id, app.ha.states[re.id])
             fix.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         }
         if (n.clear) {
-            line(R.drawable.ic_lock, tr("Tout est en ordre : rien d'allumé, d'ouvert ni de déverrouillé."), null, 0xFF34C759.toInt(), null)
-            // Rien à faire : la fenêtre se referme d'elle-même.
+            // Plus rien à régler : un écran de fin, puis la fenêtre se referme d'elle-même.
+            buttons.visibility = View.GONE
+            rows.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL; setPadding(0, dp(18), 0, dp(10))
+                addView(label(44f, 0xFF0B0E13.toInt(), true, "✓").apply { gravity = Gravity.CENTER; background = oval(HomeCare.GREEN); includeFontPadding = false },
+                    LinearLayout.LayoutParams(dp(92), dp(92)))
+                addView(label(22f, Skin.ink, true, tr("La maison est prête")).apply { gravity = Gravity.CENTER; setPadding(0, dp(16), 0, dp(4)) })
+                addView(label(15f, Skin.mute, text = tr("Rien d'allumé, d'ouvert ni de déverrouillé")).apply { gravity = Gravity.CENTER })
+                doneSummary().takeIf { it.isNotEmpty() }?.let { t ->
+                    addView(label(14f, Skin.fg(0xCC), text = t).apply { gravity = Gravity.CENTER; background = roundRect(Skin.fg(0x14), dpf(14)); setPadding(dp(14), dp(7), dp(14), dp(7)) },
+                        LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(16) })
+                }
+            })
             handler.removeCallbacks(closeSoon); handler.postDelayed(closeSoon, 6000)
             return
         }
+        buttons.visibility = View.VISIBLE
         handler.removeCallbacks(closeSoon)
-        if (n.lights.size == 1) line(R.drawable.ic_light, name(n.lights[0]), tr("Éteindre"), 0xFFFFD60A.toInt()) { Present.bulkOff(app.ha, n.lights[0].id, app.ha.states[n.lights[0].id]) }
-        else if (n.lights.isNotEmpty()) line(R.drawable.ic_light, "${n.lights.size} " + tr("lumières allumées"), tr("Éteindre"), 0xFFFFD60A.toInt()) { for (re in n.lights) Present.bulkOff(app.ha, re.id, app.ha.states[re.id]) }
-        for (re in n.locks) line(R.drawable.ic_lock_open, name(re), tr("Verrouiller"), 0xFFFF9F0A.toInt()) { Present.bulkOff(app.ha, re.id, app.ha.states[re.id]) }
-        for (re in n.openings) line(Present.icon(re.id, app.ha.states[re.id]), name(re), tr("ouverte"), 0xFFFF9F0A.toInt(), null)
+        // Pièce par pièce, dans l'ordre des pièces de la tablette.
+        val byRoom = LinkedHashMap<String, Triple<ArrayList<RoomEntity>, ArrayList<RoomEntity>, ArrayList<RoomEntity>>>()
+        fun bucket(re: RoomEntity) = byRoom.getOrPut(roomOf[re.id]?.name ?: tr("Maison")) { Triple(ArrayList(), ArrayList(), ArrayList()) }
+        for (r in cfg.rooms) for (e in r.entities) when {
+            n.lights.any { it.id == e.id } && roomOf[e.id] === r -> bucket(e).first.add(e)
+            n.locks.any { it.id == e.id } && roomOf[e.id] === r -> bucket(e).second.add(e)
+            n.openings.any { it.id == e.id } && roomOf[e.id] === r -> bucket(e).third.add(e)
+        }
+        for ((room, items) in byRoom) {
+            roomTitle(room)
+            val (lights, locks, openings) = items
+            if (lights.size == 1) card(R.drawable.ic_light, 0xFFFFD60A.toInt(), nameOf(lights[0]), tr("Allumée"), Skin.mute, tr("Éteindre")) { Present.bulkOff(app.ha, lights[0].id, app.ha.states[lights[0].id]) }
+            else if (lights.isNotEmpty()) card(R.drawable.ic_light, 0xFFFFD60A.toInt(), "${lights.size} " + tr("lumières allumées"), lights.joinToString(", ") { nameOf(it) }, Skin.mute, tr("Éteindre")) {
+                for (re in lights) Present.bulkOff(app.ha, re.id, app.ha.states[re.id])
+            }
+            for (re in locks) card(R.drawable.ic_lock_open, 0xFFFF9F0A.toInt(), nameOf(re), tr("Déverrouillée"), Skin.mute, tr("Verrouiller")) { Present.bulkOff(app.ha, re.id, app.ha.states[re.id]) }
+            for (re in openings) card(Present.icon(re.id, app.ha.states[re.id]), HomeCare.RED, nameOf(re), tr("Ouverte") + " · " + tr("à fermer à la main"), HomeCare.RED, null, null)
+        }
+        // Jusqu'à trois lignes vertes, une par appareil réglé ; au-delà, une seule ligne qui les résume.
+        if (done.isNotEmpty()) {
+            rows.addView(View(this), LinearLayout.LayoutParams(1, dp(6)))
+            if (done.size <= 3) for (t in done.values) doneLine(t) else doneLine(doneSummary())
+        }
     }
     build()
     val refresh = { build() }
     chipDetailRefresh = refresh
-    d.setOnDismissListener { handler.removeCallbacks(closeSoon); if (chipDetailRefresh === refresh) chipDetailRefresh = null }
+    // L'anneau se vide en une minute ; un toucher dans la fenêtre repart pour une minute.
+    val countdown = object : Runnable {
+        override fun run() {
+            if (!d.isShowing) return
+            if (left <= 0) { d.dismiss(); return }
+            ring.set(left, HomeCare.SUMMARY_SECONDS)
+            left--
+            handler.postDelayed(this, 1000)
+        }
+    }
+    d.setOnDismissListener { handler.removeCallbacks(closeSoon); handler.removeCallbacks(countdown); if (chipDetailRefresh === refresh) chipDetailRefresh = null }
     showSheet(d, box)
-    d.window?.setLayout(minOf(resources.displayMetrics.widthPixels - dp(80), dp(720)), WindowManager.LayoutParams.WRAP_CONTENT)
+    d.window?.setLayout(minOf(resources.displayMetrics.widthPixels - dp(80), dp(680)), WindowManager.LayoutParams.WRAP_CONTENT)
+    countdown.run()
     if (dimmed) undim()
     lastTouch = SystemClock.uptimeMillis()
 }

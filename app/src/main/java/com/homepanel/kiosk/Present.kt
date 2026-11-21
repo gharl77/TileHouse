@@ -355,9 +355,25 @@ object Present {
         return true
     }
 
+    /**
+     * Home Assistant colle le nom de l'appareil devant celui du capteur : « Réfrigérateur Porte du réfrigérateur ».
+     * Quand les premiers mots (un à trois) reviennent tels quels dans la suite, on les retire : « Porte du réfrigérateur ».
+     */
+    fun tidyName(name: String): String {
+        val words = name.trim().split(Regex("\\s+"))
+        fun plain(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
+        for (k in minOf(3, words.size - 2) downTo 1) {
+            val head = words.take(k).map { plain(it) }
+            val rest = words.drop(k).map { plain(it) }
+            if (head.any { it.length < 3 }) continue
+            if ((0..rest.size - k).any { i -> rest.subList(i, i + k) == head }) return words.drop(k).joinToString(" ").replaceFirstChar { it.uppercase() }
+        }
+        return name
+    }
+
     fun displayName(re: RoomEntity, e: EntityState?, roomName: String): String {
         re.name?.let { if (it.isNotBlank()) return it }
-        val n = e?.name ?: re.id.substringAfter('.').replace('_', ' ')
+        val n = tidyName(e?.name ?: re.id.substringAfter('.').replace('_', ' '))
         if (n.length > roomName.length + 1 && n.startsWith(roomName, ignoreCase = true)) {
             val rest = n.substring(roomName.length).trimStart(' ', '-', ':', '·').trim()
             if (rest.isNotEmpty()) return rest.replaceFirstChar { it.uppercase() }

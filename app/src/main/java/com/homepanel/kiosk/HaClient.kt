@@ -12,7 +12,8 @@ import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import kotlin.math.min
 
-class EntityState(val id: String, var state: String, var attrs: JSONObject) {
+/** [changed] : moment du dernier changement d'état selon Home Assistant, en millisecondes ; 0 s'il est inconnu (mode démo). */
+class EntityState(val id: String, var state: String, var attrs: JSONObject, var changed: Long = 0L) {
     val domain: String = id.substringBefore('.')
     val name: String get() = attrs.str("friendly_name").ifEmpty { id }
 }
@@ -302,7 +303,7 @@ class HaClient {
         ev.optJSONObject("a")?.let { a ->
             for (k in a.keys()) {
                 val o = a.optJSONObject(k) ?: continue
-                states[k] = EntityState(k, o.optString("s"), o.optJSONObject("a") ?: JSONObject())
+                states[k] = EntityState(k, o.optString("s"), o.optJSONObject("a") ?: JSONObject(), (o.optDouble("lc", 0.0) * 1000).toLong())
                 changed.add(k)
             }
         }
@@ -311,7 +312,7 @@ class HaClient {
                 val e = states[k] ?: continue
                 val d = c.optJSONObject(k) ?: continue
                 d.optJSONObject("+")?.let { plus ->
-                    if (plus.has("s")) e.state = plus.optString("s")
+                    if (plus.has("s")) { e.state = plus.optString("s"); e.changed = if (plus.has("lc")) (plus.optDouble("lc", 0.0) * 1000).toLong() else System.currentTimeMillis() }
                     plus.optJSONObject("a")?.let { na -> for (ak in na.keys()) e.attrs.put(ak, na.get(ak)) }
                 }
                 d.optJSONObject("-")?.optJSONArray("a")?.let { arr ->

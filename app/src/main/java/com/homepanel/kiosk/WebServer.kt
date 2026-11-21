@@ -218,6 +218,13 @@ class WebServer(private val app: App) {
                 if (req.has("photoVeilLevel")) cfg.photoVeilLevel = req.optInt("photoVeilLevel", 50)
                 req.optJSONArray("autoHolidays")?.let { a -> cfg.autoHolidays = (0 until a.length()).map { a.getString(it) }.filter { it in Themes.AUTO_HOLIDAYS }.toSet() }
                 if (req.has("layout")) cfg.layout = req.str("layout")
+                if (req.has("homeStyle")) cfg.homeStyle = req.str("homeStyle")
+                if (req.has("homeFixedOrder")) cfg.homeFixedOrder = req.optBoolean("homeFixedOrder", false)
+                // Réglage de l'accueil par priorité : relu et remis en forme avant d'être enregistré ; null = réglage d'origine.
+                if (req.has("homePlan")) cfg.homePlan = req.optJSONObject("homePlan")?.let { HomeFlow.planJson(HomeFlow.parsePlan(it.toString())).toString() } ?: ""
+                if (req.has("attentionDelay")) cfg.attentionDelay = req.optInt("attentionDelay", 5)
+                req.optJSONArray("alertOn")?.let { a -> cfg.alertOn = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
+                req.optJSONArray("alertOff")?.let { a -> cfg.alertOff = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
                 if (req.has("skin")) cfg.skin = req.str("skin").let { k -> if (k in Skin.keys) k else "homekit" }
                 if (req.has("nightSkin")) cfg.nightSkin = req.str("nightSkin").let { k -> if (k in Skin.keys) k else "" }
                 if (req.has("nightSkinStart")) cfg.nightSkinStart = req.optInt("nightSkinStart", 19 * 60)
@@ -523,7 +530,18 @@ class WebServer(private val app: App) {
                 .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
                 .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
                 .put("theme", cfg.theme)
-                .put("skin", cfg.skin).put("layout", cfg.layout)
+                .put("skin", cfg.skin).put("layout", cfg.layout).put("homeStyle", cfg.homeStyle).put("homeFixedOrder", cfg.homeFixedOrder).put("homePlan", HomeFlow.planJson(HomeFlow.parsePlan(cfg.homePlan))).put("homeCards", JSONArray(HomeFlow.CARDS)).put("attentionDelay", cfg.attentionDelay).put("alertOn", JSONArray(cfg.alertOn)).put("alertOff", JSONArray(cfg.alertOff))
+                // Portes et fenêtres des pièces, avec leur alerte du moment (choisie, ou selon la règle d'origine).
+                .put("openings", JSONArray().also { list ->
+                    val on = cfg.alertOn.toSet(); val off = cfg.alertOff.toSet(); val seen = HashSet<String>()
+                    for (r in cfg.rooms) for (re in r.entities) {
+                        val e = app.ha.states[re.id]
+                        val kind = Present.chipKind(re.id, e)?.takeIf { it == "door" || it == "window" } ?: continue
+                        if (!seen.add(re.id)) continue
+                        list.put(JSONObject().put("id", re.id).put("name", Present.displayName(re, e, r.name)).put("room", r.name).put("kind", kind)
+                            .put("alert", HomeFlow.alerts(re.id, kind, r.name, re.name ?: e?.name.orEmpty(), on, off)))
+                    }
+                })
                 .put("nightSkin", cfg.nightSkin).put("nightSkinStart", cfg.nightSkinStart).put("nightSkinEnd", cfg.nightSkinEnd)
                 .put("language", cfg.language)
                 .put("dim", cfg.dimMinutes)

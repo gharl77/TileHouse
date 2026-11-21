@@ -39,6 +39,7 @@ import kotlin.math.abs
  */
 
 internal fun MainActivity.showHome() {
+    if (priorityHome) { showPriorityHome(); return }
     clearContent()
     backBtn.visibility = View.GONE
     subtitleView.visibility = View.VISIBLE
@@ -47,7 +48,22 @@ internal fun MainActivity.showHome() {
     // Anniversaire du jour, puis messages pour la famille, tout en haut
     addBirthdayBanner()
     addFamilyNotes()
-    // Météo + agenda côte à côte
+    addWeatherAgenda()
+
+    // Navigation latérale : les favoris viennent tout de suite sous la météo et l'agenda.
+    if (cfg.sideNav) addHomeFavorites()
+    // Raccourcis : scripts, scènes, boutons
+    addShortcuts(Shortcuts.forHome(cfg), dp(14))
+
+    updateRail()
+    // Navigation latérale : les pièces sont dans le rail, l'accueil ne les répète pas.
+    if (cfg.sideNav) { addHomeExtras(); if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData(); return }
+    addFloorSections()
+    if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData()
+}
+
+/** Météo et agenda côte à côte. */
+internal fun MainActivity.addWeatherAgenda() {
     val cards = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     val w = WeatherCard(this).also { weatherCard = it }
     w.isClickable = true
@@ -66,16 +82,10 @@ internal fun MainActivity.showHome() {
     if (!showC) (w.layoutParams as LinearLayout.LayoutParams).marginEnd = 0
     cards.visibility = if (showW || showC) View.VISIBLE else View.GONE
     content.addView(cards, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
+}
 
-    // Navigation latérale : les favoris viennent tout de suite sous la météo et l'agenda.
-    if (cfg.sideNav) addHomeFavorites()
-    // Raccourcis : scripts, scènes, boutons
-    addShortcuts(Shortcuts.forHome(cfg), dp(14))
-
-    updateRail()
-    // Navigation latérale : les pièces sont dans le rail, l'accueil ne les répète pas.
-    if (cfg.sideNav) { addHomeExtras(); if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData(); return }
-    // Pièces regroupées par palier (étage) de Home Assistant
+/** Pièces regroupées par palier (étage) de Home Assistant : accueil en disposition classique. */
+internal fun MainActivity.addFloorSections() {
     val placed = HashSet<Int>()
     for (floor in cfg.floors) {
         val idx = cfg.rooms.indices.filter { cfg.rooms[it].areaId != null && cfg.rooms[it].areaId in floor.areas }
@@ -85,8 +95,6 @@ internal fun MainActivity.showHome() {
     }
     val rest = cfg.rooms.indices.filter { it !in placed }
     if (rest.isNotEmpty()) addFloorSection(if (placed.isEmpty()) tr("Pièces") else tr("Autres pièces"), rest)
-
-    if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData()
 }
 
 /** Pièce fictive des favoris de l'accueil : sans nom, pour que chaque appareil garde son nom complet. */
@@ -96,7 +104,10 @@ internal val HOME_SHELF = Room("__shelf", "")
  * Accueil en navigation latérale, sous la météo et l'agenda : les aperçus des outils (listes, minuteries, pointage),
  * et les caméras choisies (les favoris sont placés plus haut, par [addHomeFavorites]). Chacun se masque dans « Sections affichées ».
  */
-internal fun MainActivity.addHomeExtras() {
+internal fun MainActivity.addHomeExtras() { addHomePreviews(); addHomeCameras() }
+
+/** Aperçus des outils (listes, minuteries, pointage). */
+internal fun MainActivity.addHomePreviews() {
     homePreviewBox = null
     if (cfg.shows("previews")) {
         homePreviewBox = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }.also { content.addView(it, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT)) }
@@ -104,6 +115,10 @@ internal fun MainActivity.addHomeExtras() {
         loadTodoPreviews()
         updateHomePreviews()
     }
+}
+
+/** Caméras choisies pour l'accueil. */
+internal fun MainActivity.addHomeCameras() {
     fun entity(id: String) = cfg.rooms.firstNotNullOfOrNull { it.find(id) }
     val cams = if (cfg.shows("cameras")) cfg.homeCameras.mapNotNull { entity(it) } else emptyList()
     if (cams.isNotEmpty()) {
@@ -194,19 +209,22 @@ internal fun MainActivity.updateHomePreviews() {
 internal fun MainActivity.addShortcuts(ids: List<String>, top: Int) {
     if (ids.isNotEmpty() && cfg.shows("shortcuts")) {
         val row = FlowLayout(this)
-        for (id in ids) row.addView(HomeExtras.shortcut(this, id, app.ha.states[id]) { v ->
-            if (haOffline()) return@shortcut
-            if (Present.tap(app.ha, id, app.ha.states[id])) {
-                v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
-                v.animate().alpha(0.5f).setDuration(120).withEndAction { v.animate().alpha(1f).setDuration(300).start() }.start()
-                // Vérification après : dix secondes plus tard (le temps que le raccourci agisse), ce qui reste à régler, sous le nom du raccourci.
-                val name = app.ha.states[id]?.name.orEmpty()
-                shortcutTapped[id] = android.os.SystemClock.uptimeMillis()
-                if (cfg.checksAfter(id, name)) { summaryTitle = name; handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
-                maybeLaunch(id)
-            }
-        })
+        for (id in ids) row.addView(HomeExtras.shortcut(this, id, app.ha.states[id]) { v -> runShortcut(id, v) })
         content.addView(row, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = top })
+    }
+}
+
+/** Lance un raccourci touché sur la tablette ([v] : le bouton touché), avec sa vérification et sa séquence de lancement. */
+internal fun MainActivity.runShortcut(id: String, v: View) {
+    if (haOffline()) return
+    if (Present.tap(app.ha, id, app.ha.states[id])) {
+        v.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+        v.animate().alpha(0.5f).setDuration(120).withEndAction { v.animate().alpha(1f).setDuration(300).start() }.start()
+        // Vérification après : dix secondes plus tard (le temps que le raccourci agisse), ce qui reste à régler, sous le nom du raccourci.
+        val name = app.ha.states[id]?.name.orEmpty()
+        shortcutTapped[id] = android.os.SystemClock.uptimeMillis()
+        if (cfg.checksAfter(id, name)) { summaryTitle = name; handler.removeCallbacks(nightSummary); handler.postDelayed(nightSummary, 10_000) }
+        maybeLaunch(id)
     }
 }
 

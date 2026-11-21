@@ -113,6 +113,8 @@ class SettingsActivity : Activity(), HaClient.Listener {
             Skin.names, Skin.keys.indexOf(cfg.skin).coerceAtLeast(0)) { cfg.skin = Skin.keys[it]; app.notifyConfigChanged() }))
         look.addRow(settingRow(R.drawable.ic_grid, Ui.TEAL, tr("Disposition"), tr("Classique : accueil avec les pièces. Navigation latérale : pièces à gauche, favoris et caméras sur l'accueil."), choice(
             listOf(tr("Classique"), tr("Navigation latérale")), if (cfg.sideNav) 1 else 0) { cfg.layout = if (it == 1) "side" else "classic"; app.notifyConfigChanged() }))
+        look.addRow(settingRow(R.drawable.ic_home, Ui.ORANGE, tr("Accueil"), tr("Classique : toutes les pastilles et les cartes dans le même ordre. Par priorité : ce qui demande une action en premier, puis les cartes selon le moment de la journée."), choice(
+            listOf(tr("Classique"), tr("Par priorité")), if (cfg.homeStyle == "priority") 1 else 0) { cfg.homeStyle = if (it == 1) "priority" else "classic"; app.notifyConfigChanged() }))
         val nightKeys = listOf("") + Skin.keys
         val halfHours = (0 until 48).map { it * 30 }
         fun clock(m: Int) = "%02d:%02d".format(m / 60, m % 60)

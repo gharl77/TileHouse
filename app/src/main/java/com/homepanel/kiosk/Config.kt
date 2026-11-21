@@ -119,6 +119,29 @@ class ConfigStore(ctx: Context) {
         get() = if (p.getString("layout", "classic") == "side") "side" else "classic"
         set(v) = p.edit().putString("layout", if (v == "side") "side" else "classic").apply()
     val sideNav get() = layout == "side"
+    /** Accueil : "classic" (pastilles et cartes dans l'ordre habituel) ou "priority" (voir [HomeFlow]). */
+    var homeStyle: String
+        get() = if (p.getString("homeStyle", "classic") == "priority") "priority" else "classic"
+        set(v) = p.edit().putString("homeStyle", if (v == "priority") "priority" else "classic").apply()
+    /** Accueil par priorité : les heures des moments et les cartes de chacun (voir [HomeFlow.parsePlan]) ; vide = réglage d'origine. */
+    var homePlan: String
+        get() = p.getString("homePlan", "") ?: ""
+        set(v) = p.edit().putString("homePlan", v).apply()
+    /** Accueil par priorité : minutes avant qu'une porte ou une fenêtre ouverte devienne une carte « À voir maintenant » (0 = tout de suite). */
+    var attentionDelay: Int
+        get() = p.getInt("attentionDelay", 5)
+        set(v) = p.edit().putInt("attentionDelay", v.coerceIn(0, 120)).apply()
+    /** Accueil par priorité : portes et fenêtres dont l'alerte est allumée ou coupée à la main (les autres suivent [HomeFlow.alertByDefault]). */
+    var alertOn: List<String>
+        get() = csv("alertOn")
+        set(v) = p.edit().putString("alertOn", v.distinct().joinToString(",")).apply()
+    var alertOff: List<String>
+        get() = csv("alertOff")
+        set(v) = p.edit().putString("alertOff", v.distinct().joinToString(",")).apply()
+    /** Accueil par priorité : garder toujours le même ordre des cartes, au lieu de suivre le moment de la journée. */
+    var homeFixedOrder: Boolean
+        get() = p.getBoolean("homeFixedOrder", false)
+        set(v) = p.edit().putBoolean("homeFixedOrder", v).apply()
     /** Skin : façon d'afficher l'app ("homekit", "epure", "papier"). */
     var skin: String
         get() = p.getString("skin", "homekit") ?: "homekit"
@@ -684,7 +707,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("layout", layout).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
+                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("layout", layout).put("homeStyle", homeStyle).put("homeFixedOrder", homeFixedOrder).put("homePlan", homePlan).put("attentionDelay", attentionDelay).put("alertOn", JSONArray(alertOn)).put("alertOff", JSONArray(alertOff)).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
@@ -718,6 +741,12 @@ class ConfigStore(ctx: Context) {
             if (d.has("theme")) theme = d.str("theme")
             if (d.has("skin")) skin = d.str("skin")
             if (d.has("layout")) layout = d.str("layout")
+            if (d.has("homeStyle")) homeStyle = d.str("homeStyle")
+            if (d.has("homeFixedOrder")) homeFixedOrder = d.optBoolean("homeFixedOrder", false)
+            if (d.has("homePlan")) homePlan = d.str("homePlan")
+            if (d.has("attentionDelay")) attentionDelay = d.optInt("attentionDelay", 5)
+            d.optJSONArray("alertOn")?.let { a -> alertOn = (0 until a.length()).map { a.optString(it) } }
+            d.optJSONArray("alertOff")?.let { a -> alertOff = (0 until a.length()).map { a.optString(it) } }
             if (d.has("photoVeilLevel")) photoVeilLevel = d.optInt("photoVeilLevel", 50)
             d.optJSONArray("autoHolidays")?.let { a -> autoHolidays = (0 until a.length()).map { a.getString(it) }.toSet() }
             if (d.has("nightSkin")) nightSkin = d.str("nightSkin")
