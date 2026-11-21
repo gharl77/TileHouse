@@ -63,20 +63,23 @@ internal fun MainActivity.showHome() {
 }
 
 /** Météo et agenda côte à côte. */
-internal fun MainActivity.addWeatherAgenda() {
+internal fun MainActivity.addWeatherAgenda(weather: Boolean = true, agenda: Boolean = true, opts: HomeFlow.Options? = null) {
     val cards = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
     val w = WeatherCard(this).also { weatherCard = it }
     w.isClickable = true
     w.setOnClickListener { showHourlyForecast() }
+    // Accueil par priorité : nombre de jours de prévision, et étendue de l'agenda.
+    if (opts != null) w.forecastDays = opts.int("weather", "days", 5)
     w.update(app.ha.states[cfg.weatherEntity].takeIf { cfg.weatherEntity.isNotEmpty() })
     w.updateForecast(forecast)
     val c = CalendarCard(this).also { calendarCard = it }
+    if (opts != null) { c.days = opts.int("agenda", "days", 0); c.lines = opts.int("agenda", "lines", 6).coerceIn(2, 12) }
     c.onEvent = { ev -> showEventDetail(c, ev) }
     c.setEvents(if (cfg.calendars.isEmpty()) emptyList() else events)
     cards.addView(w, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f).apply { marginEnd = dp(12) })
     cards.addView(c, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
     // Sections masquées dans les réglages : l'autre carte prend toute la largeur ; sans les deux, la rangée disparaît.
-    val showW = cfg.shows("weather"); val showC = cfg.shows("agenda")
+    val showW = weather && cfg.shows("weather"); val showC = agenda && cfg.shows("agenda")
     w.visibility = if (showW) View.VISIBLE else View.GONE
     c.visibility = if (showC) View.VISIBLE else View.GONE
     if (!showC) (w.layoutParams as LinearLayout.LayoutParams).marginEnd = 0

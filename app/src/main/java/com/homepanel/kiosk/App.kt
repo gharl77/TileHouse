@@ -116,6 +116,8 @@ class App : Application() {
     /** Défini par l'écran principal tant qu'il est visible. */
     /** Aperçu de la séquence de lancement d'une scène, demandé depuis la page web ; rend vrai si l'écran l'a affiché. */
     var onLaunchPreview: ((String) -> Boolean)? = null
+    /** Aperçu d'un moment de l'accueil par priorité (« morning », « day », « evening »), demandé depuis la page web. */
+    var onHomePreview: ((String) -> Boolean)? = null
     var onTimerDone: ((KitchenTimer) -> Unit)? = null
 
     private fun timerDone(t: KitchenTimer) {

@@ -448,8 +448,25 @@ object Present {
         return head + chips.filter { it.kind !in STANDING }
     }
 
-    /** Résumé de la pièce façon HomeKit : une pastille par type de capteur présent. */
-    fun chips(room: Room, states: Map<String, EntityState>): List<Chip> {
+    /** Types dont l'utilisateur peut choisir l'état normal (voir [chips]). */
+    val NORMAL_KINDS = listOf("light", "cover", "door", "window")
+
+    /**
+     * Un appareil du type [kind] est-il « au repos » (éteint, fermé) ? C'est l'écart que signale une pastille dont l'état
+     * normal est « allumé / ouvert ». Un appareil injoignable ne compte pas.
+     */
+    fun atRest(kind: String, e: EntityState?): Boolean {
+        if (e == null || e.state == "unavailable" || e.state == "unknown") return false
+        return if (kind == "cover") !active(e) else e.state == "off"
+    }
+
+    /**
+     * Résumé de la pièce façon HomeKit : une pastille par type de capteur présent.
+     * [normalOn] : les types ([NORMAL_KINDS]) dont l'état normal est « allumé / ouvert ». Leur pastille ne dit plus ce qui
+     * est allumé ou ouvert mais ce qui s'en écarte (« 2 stores fermés »), et disparaît quand tout est normal.
+     */
+    fun chips(room: Room, states: Map<String, EntityState>, normalOn: Set<String> = emptySet()): List<Chip> {
+        var lightsOff = 0; var doorsClosed = 0; var windowsClosed = 0; var coversClosed = 0
         var tSum = 0.0; var tN = 0; var tUnit = ""
         var hSum = 0.0; var hN = 0
         val thermostats = ArrayList<Chip>()
@@ -488,15 +505,15 @@ object Present {
                 }
                 "climate" -> thermostats.add(Chip(R.drawable.ic_thermostat, climateChip(e), kind = "climate", entity = e.id,
                     iconTint = when (e.attrs.str("hvac_action")) { "heating" -> 0xFFFF7A00.toInt(); "cooling" -> 0xFF4DB8FF.toInt(); else -> null }))
-                "light" -> if (on) lights++
-                "cover" -> if (dc !in setOf("garage", "door", "gate") && active(e)) { coversOpen++; if (isCurtain(e.id, e)) curtainsOpen++ }
+                "light" -> if (on) lights++ else lightsOff++
+                "cover" -> if (dc !in setOf("garage", "door", "gate")) { if (active(e)) { coversOpen++; if (isCurtain(e.id, e)) curtainsOpen++ } else coversClosed++ }
                 "lock" -> {
                     locks++
                     if (e.state == "jammed") jammed++ else if (e.state != "locked" && e.state != "locking") unlocked++
                 }
                 "binary_sensor" -> when (dc) {
-                    "door", "garage_door", "opening" -> { if (on) doorsOpen++ }
-                    "window" -> { if (on) windowsOpen++ }
+                    "door", "garage_door", "opening" -> { if (on) doorsOpen++ else doorsClosed++ }
+                    "window" -> { if (on) windowsOpen++ else windowsClosed++ }
                     "motion" -> { motion++; if (on) motionOn++ }
                     "occupancy", "presence" -> { presence++; if (on) presenceOn++ }
                     "moisture" -> { leaks++; if (on) leaksOn++ }
@@ -511,18 +528,22 @@ object Present {
         // Une pastille par thermostat (température actuelle et consigne), après la température et l'humidité qui se suivent.
         out.addAll(thermostats)
         // Lumières, portes et fenêtres : rien à zéro ; sinon en jaune, pour ce qui est allumé ou ouvert.
-        if (lights > 0) out.add(Chip(R.drawable.ic_light, plural(lights, "1 " + tr("allumée"), tr("allumées")), 1, "light"))
+        if ("light" in normalOn) { if (lightsOff > 0) out.add(Chip(R.drawable.ic_light, plural(lightsOff, "1 " + tr("éteinte"), tr("éteintes")), 1, "light")) }
+        else if (lights > 0) out.add(Chip(R.drawable.ic_light, plural(lights, "1 " + tr("allumée"), tr("allumées")), 1, "light"))
         if (locks > 0) out.add(when {
             jammed > 0 -> Chip(R.drawable.ic_lock_open, tr("Serrure bloquée"), 2, "lock")
             unlocked > 0 -> Chip(R.drawable.ic_lock_open, if (locks == 1) tr("Déverrouillé") else plural(unlocked, "1 " + tr("déverrouillée"), tr("déverrouillées")), 1, "lock")
             silent > 0 -> Chip(R.drawable.ic_lock_open, plural(silent, tr("Serrure sans réponse"), tr("serrures sans réponse")), 1, "lock")
             else -> Chip(R.drawable.ic_lock, tr("Verrouillé"), kind = "lock")
         })
-        if (doorsOpen > 0) out.add(Chip(R.drawable.ic_door, plural(doorsOpen, tr("Porte ouverte"), tr("portes ouvertes")), 1, "door"))
-        if (windowsOpen > 0) out.add(Chip(R.drawable.ic_window, plural(windowsOpen, tr("Fenêtre ouverte"), tr("fenêtres ouvertes")), 1, "window"))
+        if ("door" in normalOn) { if (doorsClosed > 0) out.add(Chip(R.drawable.ic_door, plural(doorsClosed, tr("Porte fermée"), tr("portes fermées")), 1, "door")) }
+        else if (doorsOpen > 0) out.add(Chip(R.drawable.ic_door, plural(doorsOpen, tr("Porte ouverte"), tr("portes ouvertes")), 1, "door"))
+        if ("window" in normalOn) { if (windowsClosed > 0) out.add(Chip(R.drawable.ic_window, plural(windowsClosed, tr("Fenêtre fermée"), tr("fenêtres fermées")), 1, "window")) }
+        else if (windowsOpen > 0) out.add(Chip(R.drawable.ic_window, plural(windowsOpen, tr("Fenêtre ouverte"), tr("fenêtres ouvertes")), 1, "window"))
         // Comme les lumières : la pastille n'existe que s'il y a quelque chose d'ouvert.
         // Le texte dit ce qui est ouvert : des stores, des rideaux, ou les deux.
-        if (coversOpen > 0) out.add(when (curtainsOpen) {
+        if ("cover" in normalOn) { if (coversClosed > 0) out.add(Chip(R.drawable.ic_blinds, plural(coversClosed, tr("1 store fermé"), tr("stores fermés")), kind = "cover")) }
+        else if (coversOpen > 0) out.add(when (curtainsOpen) {
             0 -> Chip(R.drawable.ic_blinds, plural(coversOpen, tr("1 store ouvert"), tr("stores ouverts")), kind = "cover")
             coversOpen -> Chip(R.drawable.ic_curtain, plural(coversOpen, tr("1 rideau ouvert"), tr("rideaux ouverts")), kind = "cover")
             else -> Chip(R.drawable.ic_blinds, "$coversOpen " + tr("stores et rideaux ouverts"), kind = "cover")

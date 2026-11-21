@@ -150,6 +150,8 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
     private val days = LinearLayout(ctx).apply { orientation = HORIZONTAL }
     private val dayFmt = SimpleDateFormat("EEE", I18n.locale)
     private val dials = List(3) { DialView(ctx) }
+    /** Jours de prévision affichés (0 = aucun). */
+    var forecastDays = 5
 
     init {
         orientation = VERTICAL
@@ -204,9 +206,10 @@ class WeatherCard(ctx: Context) : LinearLayout(ctx) {
     /** Prévisions quotidiennes renvoyées par weather.get_forecasts. */
     fun updateForecast(list: JSONArray?) {
         days.removeAllViews()
+        days.visibility = if (forecastDays <= 0) View.GONE else View.VISIBLE
         if (list == null) return
         val iso = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        for (i in 0 until minOf(5, list.length())) {
+        for (i in 0 until minOf(forecastDays.coerceIn(0, 5), list.length())) {
             val f = list.optJSONObject(i) ?: continue
             val date = try { iso.parse(f.str("datetime").take(10)) } catch (_: Exception) { null }
             val col = LinearLayout(context).apply { orientation = VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
@@ -231,6 +234,10 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
 
     /** Appelé quand on touche un événement (ouvre son détail). */
     var onEvent: ((Event) -> Unit)? = null
+    /** Étendue affichée : 1 = aujourd'hui, 2 = aujourd'hui et demain… ; 0 = tout ce qui est chargé. */
+    var days = 0
+    /** Nombre d'événements affichés au plus. */
+    var lines = 6
 
     private val rows = LinearLayout(ctx).apply { orientation = VERTICAL }
     private val timeFmt = SimpleDateFormat("HH:mm", I18n.locale)
@@ -245,13 +252,14 @@ class CalendarCard(ctx: Context) : LinearLayout(ctx) {
         setEvents(null)
     }
 
-    fun setEvents(events: List<Event>?) {
+    fun setEvents(all: List<Event>?) {
         rows.removeAllViews()
-        if (events == null) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Chargement…"))); return }
-        if (events.isEmpty()) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Aucun événement ces prochains jours"))); return }
+        if (all == null) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr("Chargement…"))); return }
+        val events = HomeFlow.within(all, days, System.currentTimeMillis()) { it.start.time }
+        if (events.isEmpty()) { rows.addView(context.label(14f, Skin.fg(0xB3), text = tr(if (days == 1) "Rien à l'agenda aujourd'hui" else "Aucun événement ces prochains jours"))); return }
         // Une cloche à côté des événements pour lesquels un rappel est prévu.
         val reminders = Reminders.all(context).map { it.key }.toSet()
-        for (ev in events.take(6)) {
+        for (ev in events.take(lines)) {
             val row = LinearLayout(context).apply {
                 orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                 setPadding(0, context.dp(6), 0, context.dp(6))

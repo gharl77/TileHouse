@@ -2,6 +2,21 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.18
+
+- **Home by priority: you decide what counts.** One row per kind of chip — smoke, lock, doors, windows, lights, blinds, low batteries, offline devices, vacuum maintenance, electricity peak, weather alert, waste collection, electricity — with where it shows (*Red alert*, *Needs attention*, *Information line* or *Hidden*) and after how long. Nothing changes until you touch it. The card of an unlocked lock now says since when.
+- **Home by priority: more cards.** Weather and calendar are now two cards (side by side when they follow each other, as before). New cards: *Electricity*, *Now playing* and *News*. Add a room, a device or a camera as a card, as many as you like.
+- **Home by priority: adjust each card.** An *Adjust* button chooses what a card shows: forecast days, calendar range and number of events, the buttons of *For the night*, which favourites and cameras, which feeds and how many headlines, which groups of devices of a room.
+- **Home by priority: card sizes.** Full width, half width or one third; smaller cards that follow each other share a row, with the same height.
+- **Home by priority: preview on the tablet.** A button next to the times of day shows the selected one on the tablet for two minutes, whatever the hour.
+- **News card.** The latest headlines of the *This morning* feeds on the home screen, in two columns with their images; tap one for its summary, *More news* opens the *This morning* panel.
+- **Information chips, redone.** On the home screen by priority, the information line became a row of quiet chips: one per subject, with its icon in a coloured dot, each with its own tap. *No smoke* is no longer shown.
+- **Normal state of the chips.** For lights, doors, windows and blinds, choose *normally off / closed* or *normally on / open* (*Home → Whole-house overview*). A chip disappears when everything is normal and only reports the exceptions (*2 blinds closed*). Applies to every chip, on both home screens and in rooms.
+- **Settings page reorganised.** Everything about the home screen is now under *Home*, in five groups (Layout, Cards, Chips, Header, Messages): the layout choice and *Home by priority* moved there from *Appearance*, and all the chips are together. The *Devices & health* section is gone: *Home health* joined the chips and *Tracked appliances* moved to *Tools & media*. *Dashboard* is now *Rooms and clock*. Card titles no longer have an emoji, and the sub-menu shows the group names. No setting changed value. The `#devices` deep link no longer exists.
+- **Posters: the right programme, or none.** A search result is kept only when its title really is the one playing; a person is never kept. *Sports 30* no longer gets the poster of another show: when nothing is certain, the channel's logo is shown.
+- **Posters: dubbed films and series.** With a TMDB key, a title that TMDB lists under another name is recognised through the full record — original, translated and per-country titles, Quebec's included. When several series share a title on a TV channel, the one aired by that channel wins. The log says how a title was recognised.
+- **Fixed: devices missing from the settings page.** A page loaded while the tablet was restarting listed no doors, windows or smoke detectors under *Devices that count* and *Doors and windows that alert*. The page now completes those lists as soon as the tablet has the states.
+
 ## 2026.11.17
 
 - **Home screen by priority (optional).** A new choice under *Appearance → Home*: instead of a wall of chips all at the same level, a *Needs attention* area shows at most three cards for what needs an action or a check (an open door or window, a lock that is unlocked or not answering, smoke, a leak, low batteries, an electricity peak, your orange or red custom chips), most serious first; a tap opens the same list as the chip did. When there is nothing, a green *All is well* line. Everything else (lights on, blinds, power…) fits on one discreet line. The cards follow the day: weather and calendar first in the morning (5 to 10 a.m.), and in the evening (from 7 p.m.) a *For the night* card with what is still on, your bedtime shortcut and *Turn everything off*, then the cameras. A box keeps the order fixed. The classic home screen stays the default.

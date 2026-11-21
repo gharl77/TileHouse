@@ -740,7 +740,7 @@ class NewFeaturesTest {
             assertEquals(5, p.from[HomeFlow.MORNING]); assertEquals(10, p.from[HomeFlow.DAY]); assertEquals(19, p.from[HomeFlow.EVENING])
             assertEquals(d.cards[HomeFlow.EVENING], p.cards[HomeFlow.EVENING])
         }
-        val p = HomeFlow.parsePlan("""{"morning":{"from":6,"cards":["weather","inconnue","weather","notes"]},"day":{"from":9,"cards":[]},"evening":{"from":21}}""")
+        val p = HomeFlow.parsePlan("""{"v":2,"morning":{"from":6,"cards":["weather","inconnue","weather","notes"]},"day":{"from":9,"cards":[]},"evening":{"from":21}}""")
         assertEquals(6, p.from[HomeFlow.MORNING]); assertEquals(9, p.from[HomeFlow.DAY]); assertEquals(21, p.from[HomeFlow.EVENING])
         assertEquals(listOf("weather", "notes"), p.cards[HomeFlow.MORNING]); assertTrue(p.cards.getValue(HomeFlow.DAY).isEmpty()); assertEquals(d.cards[HomeFlow.EVENING], p.cards[HomeFlow.EVENING])
         // Aller-retour par le texte enregistré.
@@ -785,5 +785,144 @@ class NewFeaturesTest {
         // Le choix fait à la main l'emporte, dans les deux sens.
         assertTrue(HomeFlow.alerts("a", "door", "Salon", "Porte", listOf("a"), emptyList())); assertFalse(HomeFlow.alerts("b", "window", "Salon", "Fenêtre", emptyList(), listOf("b")))
         assertFalse(HomeFlow.alerts("c", "door", "Salon", "Porte", emptyList(), emptyList())); assertTrue(HomeFlow.alerts("d", "door", "Garage", "Porte", emptyList(), emptyList()))
+    }
+
+    @Test fun attentionRulesPlaceEachChip() {
+        fun chip(text: String, level: Int, kind: String) = Present.Chip(0, text, level, kind)
+        val chips = listOf(chip("9 allumées", 1, "light"), chip("Déverrouillé", 1, "lock"), chip("2 portes ouvertes", 1, "door"), chip("Aucune fumée", 0, "smoke"),
+            chip("2 piles faibles", 1, "battery"), chip("Pointe en cours", 2, "peak"), chip("Recyclage demain", 0, "collect"), chip("Imprimante", 0, "tracker"))
+        val d = HomeFlow.parseRules("", 7)
+        assertEquals(HomeFlow.KINDS.toSet(), d.keys); assertEquals(HomeFlow.Rule(HomeFlow.AMBER, 7), d["door"]); assertEquals(HomeFlow.Rule(HomeFlow.RED, 0), d["smoke"])
+        assertEquals(HomeFlow.Rule(HomeFlow.INFO, 0), d["light"])
+        // Règles d'origine : comme avant ce réglage ; la pointe en cours reste rouge et passe devant.
+        val p = HomeFlow.place(chips, d) { _, _ -> true }
+        assertEquals(listOf("Pointe en cours", "Déverrouillé", "2 portes ouvertes", "2 piles faibles"), p.cards.map { it.chip.text })
+        assertEquals(listOf(true, false, false, false), p.cards.map { it.red })
+        assertEquals(listOf("9 allumées", "Recyclage demain", "Imprimante"), p.info.map { it.text })
+        // Réglages de l'utilisateur : lumières en carte, piles masquées, serrure en rouge, collecte en carte, valeurs abîmées ignorées.
+        val r = HomeFlow.parseRules("""{"light":{"level":"amber","delay":30},"battery":{"level":"hidden"},"lock":{"level":"red"},"collect":{"level":"amber"},"door":{"level":"??","delay":-4},"zzz":{"level":"red"}}""", 7)
+        assertEquals(HomeFlow.Rule(HomeFlow.AMBER, 30), r["light"]); assertEquals(HomeFlow.Rule(HomeFlow.AMBER, 0), r["door"]); assertFalse(r.containsKey("zzz"))
+        val q = HomeFlow.place(chips, r) { c, delay -> c.kind != "light" || delay <= 10 }
+        assertEquals(listOf("Déverrouillé", "Pointe en cours", "2 portes ouvertes", "Recyclage demain"), q.cards.map { it.chip.text })
+        assertTrue(q.cards[0].red); assertFalse(q.cards[3].red)
+        // Les lumières n'ont pas encore attendu leur délai : ligne d'information. Les piles ne sont nulle part.
+        assertEquals(listOf("9 allumées", "Imprimante"), q.info.map { it.text })
+        // La fumée détectée, elle, reste une alerte rouge en tête.
+        assertEquals("Fumée détectée !", HomeFlow.place(listOf(chip("Déverrouillé", 1, "lock"), chip("Fumée détectée !", 2, "smoke")), d) { _, _ -> true }.cards[0].chip.text)
+        assertEquals(r, HomeFlow.parseRules(HomeFlow.rulesJson(r).toString(), 7))
+        assertEquals(d, HomeFlow.parseRules("pas du json", 7))
+    }
+
+    @Test fun homeCardsCanBeSplitAddedAndTuned() {
+        // Ancien réglage (sans version) : l'agenda suivait la météo ; il est ajouté à sa suite. Un réglage récent est gardé tel quel.
+        val old = HomeFlow.parsePlan("""{"day":{"from":10,"cards":["notes","weather","cameras"]}}""")
+        assertEquals(listOf("notes", "weather", "agenda", "cameras"), old.cards[HomeFlow.DAY])
+        val new = HomeFlow.parsePlan("""{"v":2,"day":{"from":10,"cards":["weather","room:salon","entity:light.a","camera:camera.b","room:","inconnue","energy","music"]}}""")
+        assertEquals(listOf("weather", "room:salon", "entity:light.a", "camera:camera.b", "energy", "music"), new.cards[HomeFlow.DAY])
+        assertEquals(new.cards[HomeFlow.DAY], HomeFlow.parsePlan(HomeFlow.planJson(new).toString()).cards[HomeFlow.DAY])
+        assertTrue(HomeFlow.isCard("agenda")); assertTrue(HomeFlow.isCard("room:x")); assertFalse(HomeFlow.isCard("entity:")); assertFalse(HomeFlow.isCard("plan"))
+        for (m in HomeFlow.MOMENTS) assertTrue(HomeFlow.DEFAULT.cards.getValue(m).let { it.indexOf("agenda") == it.indexOf("weather") + 1 })
+        val o = HomeFlow.Options("""{"agenda":{"days":2,"lines":4},"night":{"locks":true},"room:salon":{"hide":["cover","lock"]}}""")
+        assertEquals(2, o.int("agenda", "days", 0)); assertEquals(5, o.int("weather", "days", 5)); assertTrue(o.bool("night", "locks", false)); assertTrue(o.bool("night", "allOff", true))
+        assertEquals(listOf("cover", "lock"), o.list("room:salon", "hide")); assertTrue(o.list("room:autre", "hide").isEmpty())
+        assertEquals(5, HomeFlow.Options("abîmé").int("weather", "days", 5))
+        assertEquals("light", HomeFlow.roomGroup("light")); assertEquals("switch", HomeFlow.roomGroup("input_boolean")); assertEquals("other", HomeFlow.roomGroup("vacuum"))
+        assertTrue(HomeFlow.ROOM_GROUPS.contains(HomeFlow.roomGroup("fan")))
+        // Agenda : aujourd'hui seulement, aujourd'hui et demain, ou tout.
+        val noon = java.util.Calendar.getInstance().apply { set(2026, 10, 21, 12, 0, 0); set(java.util.Calendar.MILLISECOND, 0) }.timeInMillis
+        val day = 86_400_000L; val ev = listOf(noon + 3_600_000, noon + day, noon + 3 * day)
+        assertEquals(1, HomeFlow.within(ev, 1, noon) { it }.size); assertEquals(2, HomeFlow.within(ev, 2, noon) { it }.size)
+        assertEquals(3, HomeFlow.within(ev, 7, noon) { it }.size); assertEquals(3, HomeFlow.within(ev, 0, noon) { it }.size)
+    }
+
+    @Test fun newsCardMergesFeedsByDate() {
+        fun h(src: String, title: String, date: Long) = HomeFlow.Headline(src, title, "", date)
+        val a = "A" to listOf(h("A", "Marché samedi", 300), h("A", "Travaux", 100), h("A", "Sans date", 0))
+        val b = "B" to listOf(h("B", "Tempête", 400), h("B", "marché samedi ", 250), h("B", "Hockey", 200))
+        val all = HomeFlow.headlines(listOf(a, b), 10)
+        assertEquals(listOf("Tempête", "Marché samedi", "Hockey", "Travaux", "Sans date"), all.map { it.title })
+        assertEquals(listOf("B", "A", "B"), HomeFlow.headlines(listOf(a, b), 3).map { it.source })
+        assertTrue(HomeFlow.headlines(emptyList(), 5).isEmpty()); assertEquals(1, HomeFlow.headlines(listOf(a), 0).size)
+        assertTrue(HomeFlow.isCard("news"))
+    }
+
+    @Test fun normalStateAppliesToEveryChip() {
+        fun st(id: String, state: String, dc: String = "") = id to EntityState(id, state, org.json.JSONObject().put("device_class", dc))
+        val room = Room("r", "Salon")
+        for (id in listOf("light.a", "light.b", "light.c", "cover.a", "cover.b", "binary_sensor.d", "binary_sensor.w", "binary_sensor.w2")) room.entities.add(RoomEntity(id))
+        val states = mapOf(st("light.a", "on"), st("light.b", "off"), st("light.c", "unavailable"), st("cover.a", "open"), st("cover.b", "closed"),
+            st("binary_sensor.d", "off", "door"), st("binary_sensor.w", "on", "window"), st("binary_sensor.w2", "on", "window"))
+        fun texts(normalOn: Set<String>) = Present.chips(room, states, normalOn).filter { it.kind in Present.NORMAL_KINDS }.associate { it.kind to it.text }
+        // D'origine : ce qui est allumé ou ouvert ; rien pour la porte fermée.
+        assertEquals(mapOf("light" to "1 allumée", "window" to "2 fenêtres ouvertes", "cover" to "1 store ouvert"), texts(emptySet()))
+        // État normal « allumé / ouvert » : les écarts seulement ; les fenêtres, toutes ouvertes, n'ont plus de pastille.
+        assertEquals(mapOf("light" to "1 éteinte", "door" to "Porte fermée", "cover" to "1 store fermé"), texts(Present.NORMAL_KINDS.toSet()))
+        // Un type à la fois, sans toucher aux autres.
+        assertEquals(mapOf("light" to "1 allumée", "window" to "2 fenêtres ouvertes", "cover" to "1 store fermé"), texts(setOf("cover")))
+        assertTrue(Present.atRest("cover", states["cover.b"])); assertFalse(Present.atRest("cover", states["cover.a"]))
+        assertTrue(Present.atRest("light", states["light.b"])); assertFalse(Present.atRest("light", states["light.c"])); assertFalse(Present.atRest("door", null))
+    }
+
+    @Test fun cardSizesShareRows() {
+        val f = 1f; val h = 0.5f; val t = 1f / 3f
+        assertEquals(1f, HomeFlow.width("")); assertEquals(1f, HomeFlow.width("full")); assertEquals(h, HomeFlow.width("half")); assertEquals(t, HomeFlow.width("third"))
+        // Pleine largeur : toujours seule. Deux moitiés ou trois tiers par rangée ; ce qui ne tient plus passe à la suivante.
+        assertEquals(listOf(listOf(0), listOf(1, 2), listOf(3)), HomeFlow.rows(listOf(f, h, h, f)))
+        assertEquals(listOf(listOf(0, 1, 2), listOf(3)), HomeFlow.rows(listOf(t, t, t, t)))
+        assertEquals(listOf(listOf(0, 1), listOf(2, 3), listOf(4)), HomeFlow.rows(listOf(h, t, h, h, h)))
+        assertEquals(listOf(listOf(0), listOf(1), listOf(2)), HomeFlow.rows(listOf(h, f, t)))
+        assertTrue(HomeFlow.rows(emptyList()).isEmpty())
+        assertEquals("half", HomeFlow.Options("""{"energy":{"size":"half"}}""").str("energy", "size")); assertEquals("", HomeFlow.Options("").str("energy", "size"))
+    }
+
+    @Test fun posterSearchKeepsOnlyTheRightTitle() {
+        // Même titre malgré la casse, les accents, la ponctuation et l'article ; un titre plus long de peu passe aussi.
+        assertTrue(Posters.sameTitle("Salut bonjour", "Salut, Bonjour !")); assertTrue(Posters.sameTitle("Le gros laboratoire", "Gros Laboratoire"))
+        assertTrue(Posters.sameTitle("Occupation Double Panamá", "Occupation double")); assertTrue(Posters.sameTitle("Harry Potter à l'école des sorciers", "Harry Potter a l'ecole des sorciers"))
+        // Un titre voisin n'est pas le bon.
+        assertFalse(Posters.sameTitle("Sports 30", "30 for 30")); assertFalse(Posters.sameTitle("Sports 30", "Sports")); assertFalse(Posters.sameTitle("Coupe Grey", "Grey's Anatomy"))
+        assertFalse(Posters.sameTitle("Le Québec matin", "Québec")); assertFalse(Posters.sameTitle("", "Rien")); assertFalse(Posters.sameTitle("Happy Gilmore", "Happy"))
+        val json = """{"results":[
+            {"media_type":"person","name":"Salut Bonjour","profile_path":"/x.jpg","poster_path":"/person.jpg"},
+            {"media_type":"movie","title":"Bonjour","poster_path":"/autre.jpg","popularity":90},
+            {"media_type":"movie","title":"Salut bonjour","backdrop_path":"/film.jpg","popularity":50,"original_language":"en"},
+            {"media_type":"tv","name":"Salut, bonjour !","backdrop_path":"/serie.jpg","popularity":3,"origin_country":["CA"],"original_language":"fr"}]}"""
+        // Sur une chaîne de télé, la série l'emporte sur le film du même titre ; ailleurs, la production d'ici.
+        assertEquals("https://image.tmdb.org/t/p/w780/serie.jpg", Posters.fromTmdb(json, "Salut bonjour", tv = true))
+        assertEquals("https://image.tmdb.org/t/p/w780/serie.jpg", Posters.fromTmdb(json, "Salut bonjour"))
+        // Rien du bon titre : pas d'affiche, plutôt qu'une affiche fausse. Sans titre à vérifier : le premier film ou série (jamais la personne).
+        assertEquals("", Posters.fromTmdb(json, "Sports 30", tv = true)); assertEquals("https://image.tmdb.org/t/p/w342/autre.jpg", Posters.fromTmdb(json))
+        assertEquals("https://image.tmdb.org/t/p/w342/autre.jpg", Posters.fromTmdb(json, "Bonjour"))
+        val maze = """{"name":"Grey's Anatomy","image":{"original":"http://x/g.jpg"}}"""
+        assertEquals("", Posters.fromTvmaze(maze, "Coupe Grey")); assertEquals("https://x/g.jpg", Posters.fromTvmaze(maze, "Grey's Anatomy")); assertEquals("https://x/g.jpg", Posters.fromTvmaze(maze))
+        val itunes = """{"results":[{"trackName":"Happy Feet","artworkUrl100":"https://x/100x100bb.jpg"}]}"""
+        assertEquals("", Posters.fromItunes(itunes, "Happy Gilmore")); assertEquals("https://x/600x600bb.jpg", Posters.fromItunes(itunes, "Happy Feet"))
+        // Un seul mot court avant le tiret n'est pas cherché seul ; une vraie série suivie d'un épisode, oui.
+        assertEquals(listOf("Coupe - Alouettes contre Elks"), Posters.What("Coupe - Alouettes contre Elks", "", "", "Télé Fibe", "RDSHD", true).terms)
+        assertEquals(listOf("Tatoué Rodéo - Ayer's Cliff", "Tatoué Rodéo"), Posters.What("Tatoué Rodéo - Ayer's Cliff", "", "", "Télé Fibe", "X", true).terms)
+    }
+
+    @Test fun tmdbRecognisesDubbedTitlesAndNetworks() {
+        // « Maman, j'ai raté l'avion » : TMDB trouve le film mais l'affiche sous un autre titre. La fiche complète donne tous ses titres.
+        val search = """{"results":[{"media_type":"person","id":9,"name":"Avion","poster_path":"/p.jpg"},
+            {"media_type":"movie","id":771,"title":"Maman, j'ai raté l'avion !","original_title":"Home Alone","backdrop_path":"/home.jpg","popularity":80,"original_language":"en"},
+            {"media_type":"tv","id":5,"name":"District 31","backdrop_path":"/d.jpg","origin_country":["CA"],"original_language":"fr","popularity":4}]}"""
+        val all = Posters.tmdbCandidates(search)
+        assertEquals(listOf("movie", "tv"), all.map { it.type }); assertEquals(771L, all[0].id); assertTrue(all[1].local); assertFalse(all[0].local)
+        assertTrue(Posters.tmdbMatches(all, "Seul à la maison", false).isEmpty())
+        val detail = """{"original_title":"Home Alone","title":"Maman, j'ai raté l'avion !","alternative_titles":{"titles":[{"iso_3166_1":"CA","title":"Seul à la maison"},{"iso_3166_1":"US","title":"Home Alone 1"}]},
+            "translations":{"translations":[{"iso_3166_1":"ES","data":{"title":"Solo en casa","name":""}},{"iso_3166_1":"FR","data":{"title":""}}]}}"""
+        val titles = Posters.tmdbTitles(detail)
+        assertTrue(titles.containsAll(listOf("Home Alone", "Maman, j'ai raté l'avion !", "Seul à la maison", "Solo en casa"))); assertFalse(titles.contains(""))
+        assertTrue(titles.any { Posters.sameTitle("Seul à la maison", it) }); assertFalse(titles.any { Posters.sameTitle("Seul au monde", it) })
+        assertEquals("Home Alone", Posters.tmdbOriginal(detail)); assertEquals("", Posters.tmdbOriginal("pas du json")); assertTrue(Posters.tmdbTitles(null).isEmpty())
+        // Une série : ses titres par pays sont sous « results », et ses réseaux disent qui la diffuse.
+        val show = """{"original_name":"The Office","name":"Le Bureau","alternative_titles":{"results":[{"title":"La Job"}]},"networks":[{"name":"ICI Radio-Canada Télé"},{"name":"Noovo"}]}"""
+        assertTrue(Posters.tmdbTitles(show).containsAll(listOf("The Office", "Le Bureau", "La Job"))); assertEquals("The Office", Posters.tmdbOriginal(show))
+        val nets = Posters.tmdbNetworks(show)
+        assertTrue(Posters.onNetwork("ICI Télé", nets)); assertTrue(Posters.onNetwork("Noovo", nets)); assertFalse(Posters.onNetwork("TVA", nets)); assertFalse(Posters.onNetwork("TVA Sports", listOf("TVA")))
+        assertTrue(Posters.onNetwork("TVA", listOf("TVA"))); assertFalse(Posters.onNetwork("", nets)); assertFalse(Posters.onNetwork("RDS", emptyList()))
+        // Le choix direct reste le même qu'avant.
+        assertEquals("https://image.tmdb.org/t/p/w780/d.jpg", Posters.fromTmdb(search, "District 31", tv = true)); assertEquals("", Posters.fromTmdb(search, "Avion"))
     }
 }

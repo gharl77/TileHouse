@@ -186,6 +186,7 @@ class WebServer(private val app: App) {
             })
             "POST /api/notes/add" -> ok(onMain { JSONObject().put("ok", FamilyNotes.add(app, req.str("text"), req.str("author"), req.str("keep"))).put("notes", FamilyNotes.toJson(FamilyNotes.all(app))) })
             "POST /api/notes/remove" -> ok(onMain { FamilyNotes.remove(app, req.optLong("id")); JSONObject().put("ok", true).put("notes", FamilyNotes.toJson(FamilyNotes.all(app))) })
+            "POST /api/home/preview" -> ok(onMain { JSONObject().put("ok", app.onHomePreview?.invoke(req.str("moment")) == true) })
             "POST /api/launch/preview" -> ok(onMain { JSONObject().put("ok", Launch.applies(req.str("id")) && app.onLaunchPreview?.invoke(req.str("id")) == true) })
             "POST /api/safety/test" -> ok(onMain { app.safety.test(req.optBoolean("keepVolume"), req.optBoolean("leak")); JSONObject().put("ok", true) })
             "POST /api/alert/test" -> ok(onMain { app.alerts.test(req.str("camera"), req.optBoolean("ring")); JSONObject().put("ok", true) })
@@ -223,6 +224,10 @@ class WebServer(private val app: App) {
                 // Réglage de l'accueil par priorité : relu et remis en forme avant d'être enregistré ; null = réglage d'origine.
                 if (req.has("homePlan")) cfg.homePlan = req.optJSONObject("homePlan")?.let { HomeFlow.planJson(HomeFlow.parsePlan(it.toString())).toString() } ?: ""
                 if (req.has("attentionDelay")) cfg.attentionDelay = req.optInt("attentionDelay", 5)
+                // Niveau et délai par type d'alerte : relus avant d'être enregistrés ; null = règles d'origine.
+                if (req.has("attentionRules")) cfg.attentionRules = req.optJSONObject("attentionRules")?.let { HomeFlow.rulesJson(HomeFlow.parseRules(it.toString(), cfg.attentionDelay)).toString() } ?: ""
+                req.optJSONArray("normalOn")?.let { a -> cfg.normalOn = (0 until a.length()).map { a.optString(it) } }
+                if (req.has("homeCardOptions")) cfg.homeCardOptions = req.optJSONObject("homeCardOptions")?.toString()?.takeIf { it.length < 20_000 } ?: ""
                 req.optJSONArray("alertOn")?.let { a -> cfg.alertOn = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
                 req.optJSONArray("alertOff")?.let { a -> cfg.alertOff = (0 until a.length()).map { a.optString(it) }.filter { it.isNotEmpty() } }
                 if (req.has("skin")) cfg.skin = req.str("skin").let { k -> if (k in Skin.keys) k else "homekit" }
@@ -480,6 +485,8 @@ class WebServer(private val app: App) {
             .put("url", if (cfg.demo) "" else cfg.url)
             .put("hasToken", cfg.token.isNotEmpty())
             .put("status", ha.status.name)
+            // Nombre d'états connus : juste après un démarrage il est encore à zéro, et les listes qui en dépendent sont incomplètes.
+            .put("entityCount", ha.states.size)
             .put("demo", cfg.demo)
             .put("update", updateState())
             .put("about", About.json(app))
@@ -530,7 +537,9 @@ class WebServer(private val app: App) {
                 .put("autoHolidays", JSONArray(cfg.autoHolidays.toList()))
                 .put("holidays", JSONArray().also { a -> for (k in Themes.AUTO_HOLIDAYS) Themes.get(k)?.let { a.put(JSONArray().put(k).put(it.emoji + "  " + it.name)) } })
                 .put("theme", cfg.theme)
-                .put("skin", cfg.skin).put("layout", cfg.layout).put("homeStyle", cfg.homeStyle).put("homeFixedOrder", cfg.homeFixedOrder).put("homePlan", HomeFlow.planJson(HomeFlow.parsePlan(cfg.homePlan))).put("homeCards", JSONArray(HomeFlow.CARDS)).put("attentionDelay", cfg.attentionDelay).put("alertOn", JSONArray(cfg.alertOn)).put("alertOff", JSONArray(cfg.alertOff))
+                .put("skin", cfg.skin).put("layout", cfg.layout).put("homeStyle", cfg.homeStyle).put("homeFixedOrder", cfg.homeFixedOrder).put("homePlan", HomeFlow.planJson(HomeFlow.parsePlan(cfg.homePlan))).put("homeCards", JSONArray(HomeFlow.CARDS))
+                .put("attentionRules", HomeFlow.rulesJson(HomeFlow.parseRules(cfg.attentionRules, cfg.attentionDelay))).put("homeCardOptions", try { JSONObject(cfg.homeCardOptions.ifBlank { "{}" }) } catch (_: Exception) { JSONObject() })
+                .put("roomGroups", JSONArray(HomeFlow.ROOM_GROUPS)).put("normalOn", JSONArray(cfg.normalOn)).put("normalKinds", JSONArray(Present.NORMAL_KINDS)).put("attentionDelay", cfg.attentionDelay).put("alertOn", JSONArray(cfg.alertOn)).put("alertOff", JSONArray(cfg.alertOff))
                 // Portes et fenêtres des pièces, avec leur alerte du moment (choisie, ou selon la règle d'origine).
                 .put("openings", JSONArray().also { list ->
                     val on = cfg.alertOn.toSet(); val off = cfg.alertOff.toSet(); val seen = HashSet<String>()

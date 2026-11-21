@@ -340,6 +340,7 @@ class MainActivity : Activity(), HaClient.Listener {
         if (onTimers !in KitchenTimers.listeners) KitchenTimers.listeners.add(onTimers)
         app.onTimerDone = { showTimerDone(it) }
         app.safety.onChange = { syncSafety() }
+        app.onHomePreview = { m -> previewHome(m) }
         app.onLaunchPreview = { id -> if (isFinishing) false else { onMotion(); maybeLaunch(id, preview = true); true } }
         if (onNotes !in FamilyNotes.listeners) FamilyNotes.listeners.add(onNotes)
         handler.post { syncSafety() }
@@ -387,6 +388,7 @@ class MainActivity : Activity(), HaClient.Listener {
         app.onTimerDone = null
         app.safety.onChange = null
         app.onLaunchPreview = null
+        app.onHomePreview = null
         FamilyNotes.listeners.remove(onNotes)
         stopCleaning()
         handler.removeCallbacks(nightSummary)
@@ -470,7 +472,7 @@ class MainActivity : Activity(), HaClient.Listener {
         nowPlayingBox = null
         homePreviewBox = null
         notesBox = null
-        attentionBox = null; infoLine = null; nightCardRefresh = null; priorityKey = ""
+        attentionBox = null; infoLine = null; priorityRefresh.clear(); priorityKey = ""
         birthdayBox = null
         trackerViews.clear()
         handler.removeCallbacks(snapshotTick)
@@ -536,9 +538,15 @@ class MainActivity : Activity(), HaClient.Listener {
     internal var notesBox: LinearLayout? = null
     /** Accueil par priorité : zone « À voir maintenant », ligne d'information, carte du soir et moment affiché. */
     internal var attentionBox: LinearLayout? = null
-    internal var infoLine: TextView? = null
-    internal var nightCardRefresh: (() -> Unit)? = null
+    internal var infoLine: FlowLayout? = null
+    /** Cartes de l'accueil par priorité qui se rafraîchissent à chaque changement d'état (nuit, énergie, musique). */
+    internal val priorityRefresh = ArrayList<() -> Unit>()
+    /** Premier moment où chaque type d'alerte a été vu : délai des types sans appareil daté. */
+    internal val prioritySeen = HashMap<String, Long>()
     internal var shownMoment = ""
+    /** Moment montré en aperçu (page web), jusqu'à [previewUntil] ; vide hors aperçu. */
+    internal var previewMoment = ""
+    internal var previewUntil = 0L
     internal var priorityKey = ""
     internal var priorityTickAt = 0L
     /** Anniversaires d'aujourd'hui (titres des événements) et leur bannière en haut de l'accueil. */

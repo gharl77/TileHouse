@@ -34,7 +34,9 @@ object Posters {
          * Ce qu'on essaie tour à tour : le titre tel quel, puis ce qui précède un tiret ou un deux-points
          * (« Tatoué Rodéo - Ayer's Cliff » est une série suivie d'un épisode).
          */
-        val terms: List<String> get() = listOf(term, term.split(Regex("\\s+[-–—:|]\\s+|\\s*:\\s+"))[0].trim()).filter { it.length >= 2 }.distinct()
+        val terms: List<String> get() = listOf(term, term.split(Regex("\\s+[-–—:|]\\s+|\\s*:\\s+"))[0].trim()
+            // Un seul mot court avant le tiret (« Coupe - Alouettes contre Elks ») est trop vague pour chercher une émission.
+            .takeIf { it.length >= 8 || it.contains(' ') }.orEmpty()).filter { it.length >= 2 }.distinct()
 
         /** Chaîne de télé, quand l'application (Télé Fibe) donne son code comme identifiant de contenu. */
         val channel: String get() = Channels.name(contentId)
@@ -69,21 +71,134 @@ object Posters {
 
     // --- Réponses des services de recherche (une adresse d'image, ou vide)
 
-    fun fromTvmaze(text: String?): String = try {
-        JSONObject(text ?: "").optJSONObject("image")?.let { it.optString("original").ifEmpty { it.optString("medium") } }.orEmpty().replace("http://", "https://")
+    /** Titre réduit à l'essentiel pour comparer : minuscules, sans accents ni ponctuation, sans article en tête. */
+    fun plainTitle(s: String): String = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
+        .replace(Regex("[^a-z0-9]+"), " ").trim().replace(Regex("^(le|la|les|l|the|un|une|a|an) "), "")
+
+    /**
+     * Le résultat [found] est-il bien l'émission cherchée ([wanted]) ? Oui si les titres sont les mêmes, ou si l'un commence
+     * par l'autre, qui fait au moins deux mots, sans être beaucoup plus long (« Occupation Double Panamá » pour « Occupation double »). Les moteurs de
+     * recherche renvoient toujours quelque chose : sans cette vérification, « Sports 30 » recevait l'affiche d'une autre émission.
+     */
+    fun sameTitle(wanted: String, found: String): Boolean {
+        val w = plainTitle(wanted); val f = plainTitle(found)
+        if (w.length < 2 || f.length < 2) return false
+        if (w == f) return true
+        val (short, long) = if (w.length <= f.length) w to f else f to w
+        // Un seul mot ne suffit pas pour reconnaître un titre plus long (« Sports » n'est pas « Sports 30 »).
+        return long.startsWith("$short ") && short.contains(' ') && short.length >= long.length * 0.6
+    }
+
+    /** TVmaze renvoie l'émission la plus proche du titre : on ne la garde que si c'est bien [query] (vide = sans vérification). */
+    fun fromTvmaze(text: String?, query: String = ""): String = try {
+        val o = JSONObject(text ?: "")
+        if (query.isNotEmpty() && !sameTitle(query, o.optString("name"))) ""
+        else o.optJSONObject("image")?.let { it.optString("original").ifEmpty { it.optString("medium") } }.orEmpty().replace("http://", "https://")
     } catch (_: Exception) { "" }
 
-    fun fromItunes(text: String?): String = try {
-        JSONObject(text ?: "").optJSONArray("results")?.optJSONObject(0)?.optString("artworkUrl100").orEmpty().replace("100x100bb", "600x600bb")
+    /** iTunes : le premier résultat, seulement si son titre est bien [query] (vide = sans vérification). */
+    fun fromItunes(text: String?, query: String = ""): String = try {
+        val o = JSONObject(text ?: "").optJSONArray("results")?.optJSONObject(0)
+        if (query.isNotEmpty() && (o == null || !sameTitle(query, o.optString("trackName")))) ""
+        else o?.optString("artworkUrl100").orEmpty().replace("100x100bb", "600x600bb")
     } catch (_: Exception) { "" }
 
-    fun fromTmdb(text: String?): String = try {
+    /** Un film ou une série dans une réponse de recherche de TMDB : ses titres visibles (traduit et d'origine) et son image. */
+    class Tmdb(val type: String, val id: Long, val titles: List<String>, val image: String, val popularity: Double, val local: Boolean)
+
+    /** Films et séries d'une réponse search/multi qui ont une image, dans l'ordre de TMDB. Jamais une personne. */
+    fun tmdbCandidates(text: String?): List<Tmdb> = try {
         val r = JSONObject(text ?: "").optJSONArray("results") ?: JSONArray()
         fun path(o: JSONObject, k: String) = o.optString(k).takeIf { !o.isNull(k) && it.isNotEmpty() }
-        // Le cadre est en largeur : on préfère l'image en largeur de TMDB, sinon l'affiche (rognée).
-        (0 until r.length()).mapNotNull { r.optJSONObject(it) }.firstOrNull { path(it, "backdrop_path") != null || path(it, "poster_path") != null }
-            ?.let { o -> path(o, "backdrop_path")?.let { "https://image.tmdb.org/t/p/w780$it" } ?: ("https://image.tmdb.org/t/p/w342" + path(o, "poster_path")) }.orEmpty()
-    } catch (_: Exception) { "" }
+        (0 until r.length()).mapNotNull { r.optJSONObject(it) }.filter { it.optString("media_type") != "person" }.mapNotNull { o ->
+            // Le cadre est en largeur : on préfère l'image en largeur de TMDB, sinon l'affiche (rognée).
+            val image = path(o, "backdrop_path")?.let { "https://image.tmdb.org/t/p/w780$it" } ?: path(o, "poster_path")?.let { "https://image.tmdb.org/t/p/w342$it" } ?: return@mapNotNull null
+            val type = o.optString("media_type").ifEmpty { if (o.has("name")) "tv" else "movie" }
+            val local = o.optString("original_language") == "fr" || (o.optJSONArray("origin_country")?.let { c -> (0 until c.length()).any { c.optString(it) == "CA" } } ?: false)
+            Tmdb(type, o.optLong("id"), listOf("name", "title", "original_name", "original_title").map { o.optString(it) }.filter { it.isNotEmpty() }.distinct(), image, o.optDouble("popularity", 0.0), local)
+        }
+    } catch (_: Exception) { emptyList() }
+
+    /**
+     * Les candidats dont un titre visible est bien [query], le meilleur d'abord : le titre exact, puis une série quand on
+     * regarde une chaîne de télé ([tv]), puis une production canadienne ou en français, puis la plus populaire.
+     */
+    fun tmdbMatches(all: List<Tmdb>, query: String, tv: Boolean): List<Tmdb> = all.filter { c -> c.titles.any { sameTitle(query, it) } }
+        .sortedWith(compareByDescending<Tmdb> { c -> c.titles.any { plainTitle(it) == plainTitle(query) } }
+            .thenByDescending { tv && it.type == "tv" }.thenByDescending { it.local }.thenByDescending { it.popularity })
+
+    /**
+     * Tous les titres d'une fiche de TMDB demandée avec « alternative_titles,translations » : le titre d'origine, le titre
+     * traduit, les titres par pays (dont celui du Québec) et ceux de chaque traduction. C'est ce qui permet de reconnaître
+     * un film doublé sous le titre que donne le télédistributeur.
+     */
+    fun tmdbTitles(detail: String?): List<String> = try {
+        val o = JSONObject(detail ?: "")
+        val out = ArrayList<String>()
+        for (k in listOf("original_title", "original_name", "title", "name")) out.add(o.optString(k))
+        o.optJSONObject("alternative_titles")?.let { a -> (a.optJSONArray("titles") ?: a.optJSONArray("results"))?.let { l -> for (i in 0 until l.length()) out.add(l.optJSONObject(i)?.optString("title").orEmpty()) } }
+        o.optJSONObject("translations")?.optJSONArray("translations")?.let { l ->
+            for (i in 0 until l.length()) l.optJSONObject(i)?.optJSONObject("data")?.let { d -> out.add(d.optString("title")); out.add(d.optString("name")) }
+        }
+        out.filter { it.isNotBlank() }.distinct()
+    } catch (_: Exception) { emptyList() }
+
+    /** Titre d'origine d'une fiche de TMDB. */
+    fun tmdbOriginal(detail: String?): String = try { JSONObject(detail ?: "").let { it.optString("original_title").ifEmpty { it.optString("original_name") } } } catch (_: Exception) { "" }
+
+    /** Réseaux qui diffusent une série, d'après sa fiche de TMDB. */
+    fun tmdbNetworks(detail: String?): List<String> = try {
+        JSONObject(detail ?: "").optJSONArray("networks")?.let { l -> (0 until l.length()).map { l.optJSONObject(it)?.optString("name").orEmpty() } }.orEmpty().filter { it.isNotEmpty() }
+    } catch (_: Exception) { emptyList() }
+
+    /** La chaîne regardée ([channel], « ICI Télé ») est-elle l'un de ces réseaux (« ICI Radio-Canada Télé ») ? Tous ses mots doivent s'y trouver. */
+    fun onNetwork(channel: String, networks: List<String>): Boolean {
+        val want = plainTitle(channel).split(' ').filter { it.isNotEmpty() }
+        return want.isNotEmpty() && networks.any { n -> plainTitle(n).split(' ').containsAll(want) }
+    }
+
+    /**
+     * Réponse de TMDB (search/multi). Avec [query], on ne garde que les films et les séries dont le titre visible est bien
+     * celui cherché (voir [tmdbMatches]). Sans [query] : le premier résultat qui a une image.
+     */
+    fun fromTmdb(text: String?, query: String = "", tv: Boolean = false): String =
+        tmdbCandidates(text).let { all -> if (query.isEmpty()) all.firstOrNull() else tmdbMatches(all, query, tv).firstOrNull() }?.image.orEmpty()
+
+    /**
+     * Recherche sur TMDB en plusieurs temps. [cb] reçoit l'image (vide si rien n'est sûr) et une précision pour le relevé.
+     *  1. La recherche par titre ; un résultat dont le titre visible est le bon est pris tel quel.
+     *  2. Aucun titre visible ne correspond (film ou série doublés, connus de TMDB sous un autre titre) : on lit la fiche
+     *     complète des trois premiers résultats et on compare avec tous leurs titres, d'origine, traduits et par pays.
+     *  3. Plusieurs séries portent ce titre et l'on regarde une chaîne de télé : celle que diffuse cette chaîne l'emporte.
+     */
+    private fun tmdbFind(term: String, channel: String, key: String, cb: (String, String) -> Unit) {
+        val k = Uri.encode(key)
+        fun detail(c: Tmdb, done: (String?) -> Unit) =
+            Covers.text("https://api.themoviedb.org/3/${c.type}/${c.id}?language=fr-CA&append_to_response=alternative_titles,translations&api_key=$k", done)
+        Covers.text("https://api.themoviedb.org/3/search/multi?query=${Uri.encode(term)}&include_adult=false&language=fr-CA&api_key=$k") { text ->
+            val all = tmdbCandidates(text)
+            val direct = tmdbMatches(all, term, channel.isNotEmpty())
+            val series = direct.filter { it.type == "tv" }.take(3)
+            when {
+                direct.isEmpty() -> {
+                    val tries = all.take(3)
+                    fun next(i: Int) {
+                        if (i >= tries.size) { cb("", ""); return }
+                        detail(tries[i]) { d -> if (tmdbTitles(d).any { sameTitle(term, it) }) cb(tries[i].image, " · " + tr("titre original :") + " " + tmdbOriginal(d)) else next(i + 1) }
+                    }
+                    next(0)
+                }
+                channel.isNotEmpty() && series.size > 1 -> {
+                    fun next(i: Int) {
+                        if (i >= series.size) { cb(direct[0].image, ""); return }
+                        detail(series[i]) { d -> if (onNetwork(channel, tmdbNetworks(d))) cb(series[i].image, " · " + tr("diffusé par") + " " + channel) else next(i + 1) }
+                    }
+                    next(0)
+                }
+                else -> cb(direct[0].image, "")
+            }
+        }
+    }
 
     fun fromYoutube(text: String?): String = try {
         val item = JSONObject(text ?: "").optJSONArray("items")?.optJSONObject(0)
@@ -116,7 +231,7 @@ object Posters {
     fun testTmdb(cb: (Int, Boolean) -> Unit) {
         val k = App.instance.config.tmdbKey
         if (k.isEmpty()) { cb(-1, false); return }
-        Covers.textCode("https://api.themoviedb.org/3/search/multi?query=Inception&language=fr-CA&api_key=${Uri.encode(k)}") { text, code -> cb(code, fromTmdb(text).isNotEmpty()) }
+        Covers.textCode("https://api.themoviedb.org/3/search/multi?query=Inception&language=fr-CA&api_key=${Uri.encode(k)}") { text, code -> cb(code, fromTmdb(text, "Inception").isNotEmpty()) }
     }
 
     /**
@@ -160,26 +275,27 @@ object Posters {
         pending[key] = arrayListOf(cb)
         val q = Uri.encode(w.term)
         // Étapes : nom de la source (pour le relevé), adresse, lecture de la réponse.
-        val steps = ArrayList<Triple<String, String, (String?) -> String>>()
+        val steps = ArrayList<Pair<String, ((String, String) -> Unit) -> Unit>>()
+        fun simple(name: String, url: String, read: (String?) -> String) = steps.add(name to { cb2 -> Covers.text(url) { cb2(read(it), "") } })
         if (w.youtube) {
             // Sans l'identifiant de la vidéo, on cherche le titre et la chaîne sur YouTube.
             val k = cfg.youtubeKey
-            if (k.isNotEmpty()) steps.add(Triple("YouTube (clé)", "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=$q&key=${Uri.encode(k)}", ::fromYoutube))
+            if (k.isNotEmpty()) simple("YouTube (clé)", "https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=$q&key=${Uri.encode(k)}", ::fromYoutube)
             // Sans clé (ou si elle échoue) : la page de recherche de YouTube, lue comme le ferait un navigateur.
-            steps.add(Triple("YouTube", "https://www.youtube.com/results?search_query=$q", ::fromYoutubePage))
+            simple("YouTube", "https://www.youtube.com/results?search_query=$q", ::fromYoutubePage)
         } else if (w.video) {
             val k = cfg.tmdbKey
             // Le titre complet d'abord, puis la série seule quand le titre contient aussi l'épisode.
             for (term in w.terms) {
                 val t = Uri.encode(term)
-                if (k.isNotEmpty()) steps.add(Triple("TMDB", "https://api.themoviedb.org/3/search/multi?query=$t&include_adult=false&language=fr-CA&api_key=${Uri.encode(k)}", ::fromTmdb))
-                steps.add(Triple("TVmaze", "https://api.tvmaze.com/singlesearch/shows?q=$t", ::fromTvmaze))
+                if (k.isNotEmpty()) steps.add("TMDB" to { cb2 -> tmdbFind(term, w.channel, k, cb2) })
+                simple("TVmaze", "https://api.tvmaze.com/singlesearch/shows?q=$t") { fromTvmaze(it, term) }
             }
             // Une chaîne de télé en direct ne passe pas par iTunes : il renverrait un film au titre voisin.
-            if (w.channel.isEmpty()) steps.add(Triple("iTunes", "https://itunes.apple.com/search?term=$q&media=movie&limit=1", ::fromItunes))
+            if (w.channel.isEmpty()) simple("iTunes", "https://itunes.apple.com/search?term=$q&media=movie&limit=1") { fromItunes(it, w.term) }
         } else {
-            steps.add(Triple("iTunes", "https://itunes.apple.com/search?term=$q&media=music&entity=song&limit=1", ::fromItunes))
-            steps.add(Triple("iTunes", "https://itunes.apple.com/search?term=$q&media=podcast&limit=1", ::fromItunes))
+            simple("iTunes", "https://itunes.apple.com/search?term=$q&media=music&entity=song&limit=1") { fromItunes(it) }
+            simple("iTunes", "https://itunes.apple.com/search?term=$q&media=podcast&limit=1") { fromItunes(it) }
         }
         fun done(url: String, source: String) {
             if (found.size > 300) found.clear()
@@ -194,10 +310,7 @@ object Posters {
                 if (logo.isNotEmpty()) done(logo, tr("logo de la chaîne")) else done("", tr("aucune affiche"))
                 return
             }
-            Covers.text(steps[i].second) { text ->
-                val url = steps[i].third(text)
-                if (url.isNotEmpty()) done(url, steps[i].first) else next(i + 1)
-            }
+            steps[i].second { url, note -> if (url.isNotEmpty()) done(url, steps[i].first + note) else next(i + 1) }
         }
         // Un match : deux équipes d'une même ligue dans le titre. On le vérifie avant la recherche par titre, qui
         // renverrait volontiers l'affiche d'une émission sans rapport.

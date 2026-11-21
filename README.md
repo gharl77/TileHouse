@@ -88,6 +88,7 @@ memory‑light on aging hardware (developed on a Samsung Galaxy Tab A 10.1, SM�
 
   <img src="docs/screenshots/side-home-extras.png" width="860" alt="Home screen with list previews, favourite devices and cameras">
 - **Sections shown**: hide what you do not use — weather, agenda, shortcuts, electricity chip, scores, timers, lists, Music, This morning — in the settings or on the web page (*Appearance → Sections shown*); a hidden section keeps its settings.
+- **Home screen by priority** (optional): a *Needs attention* area, quiet information chips, and cards you choose, size and order for each time of day — weather, calendar, news, electricity, now playing, a room, a device, a camera.
 - **Header chips** summarising temperature, humidity, motion, doors, windows, blinds and curtains, leaks, smoke detectors and locks, tap for the details and quick actions.
 - **Web configuration page** served by the tablet itself: set everything up comfortably from a computer or phone.
 - **MQTT discovery**: the tablet shows up in Home Assistant as a device (battery, charging, screen, brightness, theme, notifications, updates…).
@@ -225,6 +226,10 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   are listed by kind with their room, all ticked at first. Untick a device and it no longer counts (an inside door that is
   always open, a night light); untick a whole kind and its chip disappears. Appliance doors (fridge, freezer, washer…) and the
   door state published by a lock are **unticked by default**, marked as such in the list; tick them again if you want them.
+  **You choose the normal state** in the same card, for lights, doors, windows and blinds: *normally off / closed* (the default)
+  or *normally on / open*. A chip disappears when everything is in its normal state and only reports the exceptions: with
+  blinds normally open, *8 blinds open* gives way to *2 blinds closed* once you close two. This applies to every chip — the
+  classic home screen, the home screen by priority and the header of each room. A device that cannot be reached counts neither way.
 - **Rooms by floor**: rooms are grouped using your Home Assistant floors, in the order you choose. Rooms without a floor appear under *Other rooms*.
 - **Collection reminders**: "Recycling tomorrow" (blue bin) or "Garbage today" (green bin) chips. On the web page
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
@@ -388,13 +393,21 @@ the current value, the minimum and the maximum.
   search instead); for a **game**, when the title names two teams of the same league (NHL, NFL, NBA, MLB, MLS; English
   nicknames and the usual French ones), their **two logos** side by side, from ESPN's public team lists; otherwise a search
   by title on TVmaze (shows) and iTunes (films, music, podcasts). An optional TMDB key gives better film and series posters
-  (test it with the button next to the field). **Live TV** (Bell Fibe TV on an Apple TV gives the programme title and the
+  (test it with the button next to the field). **A result is kept only when it really is the programme**: search engines always
+  answer something close, so the title found must be the one that is playing — case, accents, punctuation and a leading
+  article aside, and a slightly longer title is accepted (*Occupation Double Panamá* finds *Occupation double*). A person is
+  never kept. With a TMDB key the search goes further: when no visible title matches — a **dubbed film or series** that TMDB
+  lists under another name — the tablet reads the full record of the first three results and compares with all their titles,
+  original, translated and per country (Quebec's included); and when several series share a title on a TV channel, the one
+  **aired by that channel** wins. Among equals, the exact title comes first, then a series on a TV channel, then a Canadian or
+  French-language production, then the most popular. **Live TV** (Bell Fibe TV on an Apple TV gives the programme title and the
   channel code): the card shows the channel — and its number once you have typed it on the web page (*Tools & media → Now playing → TV channels*:
   Fibe gives a code, not the number; the codes already seen are listed there) —, the search also tries the part of the title before a dash ("Series - Episode"),
   and when nothing is found the **channel's logo** is shown, from a public collection of Canadian channel logos.
   A **log** on the web page (*Tools & media → Now playing → Log*) lists the last titles as each player reported them and where the
   poster came from, to understand why one is missing; it stays on the tablet.
-  A search by title can pick the wrong poster, or none; the card then keeps an icon. The search sends the title of what is
+  The log says how TMDB recognised a title (*TMDB · original title: Home Alone*, *TMDB · aired by TVA*).
+  When nothing is certain the channel's logo is shown rather than a doubtful poster; without one, the card keeps an icon. The search sends the title of what is
   playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. The home screen doesn't show the cards. **You choose which players have a card** on the web page (*Tools & media → Now playing*): every speaker and TV of your rooms is listed and ticked at first, except voice assistants, which "play" at every answer; untick one and it goes back to being a plain tile.
 - Devices are shown as tiles, **grouped by category** (Cameras, Scenes, Lights, Climate, Blinds & shades, Media, Plugs & switches,
   Security, Sensors…), or in your own order if you turn grouping off.
@@ -689,33 +702,80 @@ Nothing is animated, so themes cost nothing in battery or CPU.
 
 ### Home screen by priority
 
-*Appearance → Home* chooses how the home screen is organised. **Classic** shows every chip, then the cards, always in the same
-order. **By priority** sorts things by what they ask of you:
+On the web page, *Home → Home screen layout* chooses how the home screen is organised. **Classic** shows every chip, then the
+cards, always in the same order. **By priority** sorts things by what they ask of you:
 
 - **Needs attention**: at most three cards for what needs an action or a check — an open door or window, a lock that is unlocked
-  or no longer answers, smoke, a leak, low batteries, an electricity peak, and your custom chips coloured orange or red. The most
-  serious comes first. Each card says what and where, and a tap opens the same list as the chip did. With nothing to report, a
-  green line says *All is well*.
-- **One discreet line** for everything else: lights on, blinds open, power, collections. A tap opens the list.
-- **Cards that follow the day**: weather and calendar first in the morning (5 to 10 a.m.); in the evening (from 7 p.m.) a
-  *For the night* card with the lights still on and their rooms, your bedtime shortcut and *Turn everything off*, then the
-  cameras. Tick *Always keep the same order of cards* if you prefer a screen that does not move.
+  or no longer answers, smoke, low batteries, an electricity peak, and your custom chips coloured orange or red. The most
+  serious comes first. Each card says what and where — and since when, for doors, windows and locks — and a tap opens the same
+  list as the chip did. With nothing to report, a green line says *All is well*.
+- **Information chips** for everything else: one quiet chip per subject (lights on, blinds open, power, collections…), each
+  with its icon in a coloured dot — yellow for lights, blue for blinds, green for electricity — and its own tap: *9 on* opens
+  the list of lights with *Turn everything off*. They fit on two rows; a *+N* chip opens the rest. *No smoke* is never shown:
+  smoke only matters when detected, and it is then a red card.
+- **Cards that follow the day**: one list of cards for the morning, one for the day and one for the evening.
 
-**You choose what shows, and when.** With *By priority* on, the web page gets a card *Home by priority* (also in the
-*Appearance* sub-menu): for the morning, the day and the evening, set the hour it starts and switch each card on or off; drag
-the cards into the order you want. *Report an open door or window* sets how long one must stay open before it becomes a *Needs
-attention* card — 5 minutes by default, so the fridge you just opened is not an alert — and the card then says since when.
+With *By priority* on, the card **Home by priority** appears right below (also in the *Home* sub-menu). It has three parts.
 
-**Which doors and windows alert.** In the same card, each door and window of your rooms has an *alert* switch. To start with,
-windows and the doors that lead outside alert (a room or a name that says entrance, hall, garage, patio, garden, front, back…);
-an inside door, a fridge, a washer or a cupboard does not, and stays on the information line when open. Flip any switch to
-change that; *Back to the original settings* forgets your choices.
+**1. What counts as "Needs attention".** One row per kind of chip, with two choices:
 
-It combines with either layout and any skin. The classic home screen stays the default.
+| Choice | Values |
+|---|---|
+| Where it shows | *Red alert*, *Needs attention (amber)*, *Information line* or *Hidden* |
+| After how long | right away, or after 2, 5, 10, 15, 30 or 60 minutes |
+
+The kinds are smoke and carbon monoxide, unlocked lock, doors, windows, lights, blinds and curtains, low batteries, offline
+devices, vacuum maintenance, electricity peak, weather alert, waste collection and electricity. To start with nothing changes:
+doors and windows become a card after 5 minutes, lights and blinds stay on the information line, smoke is red. A lock that is
+jammed or a peak in progress stay red even when set to *amber*. A delay on batteries, offline devices or weather starts again
+when the app restarts, because those have no known start time.
+
+**2. Which doors and windows alert.** Each door and window of your rooms has an *alert* switch. To start with, windows and the
+doors that lead outside alert (a room or a name that says entrance, hall, garage, patio, garden, front, back…); an inside door,
+a fridge, a washer or a cupboard does not, and stays among the information chips when open.
+
+**3. The cards.** Pick a time of day (morning from 5 a.m., day from 10 a.m., evening from 7 p.m. — each hour can be changed),
+then, for each card: switch it on or off, drag ⠿ to reorder, choose its **size** and press **Adjust** to choose what it shows.
+
+| Card | What *Adjust* offers |
+|---|---|
+| Birthday of the day, Family messages, Shortcuts, Tool previews | — |
+| Weather | forecast: none, 3 or 5 days |
+| Calendar | today, today and tomorrow, the next 7 days or everything; number of events (3 to 10) |
+| For the night | the bedtime-scene button, the *Turn everything off* button, a reminder of unlocked locks |
+| Favourites, Cameras | which devices or cameras (the same choice as their own card under *Home → Cards*) |
+| Electricity | current power, meter consumption; a tap opens the electricity window |
+| Now playing | only when something is playing; a tap shows the posters |
+| News | number of headlines (2, 4, 6 or 8) and which feeds |
+| A room (added) | which groups of devices: lights, plugs and switches, climate, blinds, locks, others |
+| A device, a camera (added) | — |
+
+- **Weather and Calendar are two cards.** Next to each other in the list and both full width, they sit side by side as before;
+  apart, each takes the full width. A plan saved by an earlier version keeps the calendar right after the weather.
+- **Add a room, a device or a camera** with the three *＋ Add* menus, as many as you like. A room card shows the room's name
+  (a tap opens the room) and its devices as tiles. Devices added one after the other share one row of tiles; cameras, one row
+  of thumbnails. A device already on screen is not repeated.
+- **Size**: *Full width*, *Half width* or *One third*. Smaller cards that follow each other share a row — two halves, three
+  thirds — with the same height and the same top line. A row that is not full leaves the rest empty.
+- **News** shows the latest headlines of the *This morning* feeds, all feeds together, in two columns: the image, the feed's
+  name, the title and its age. A story repeated by two feeds shows once; one without an image gets a tile with the feed's
+  initial. Tap a story to read its summary; **More news** opens the *This morning* panel. The feeds themselves are still set
+  under *Tools & media → This morning*.
+- **▶ Preview on the tablet** shows the selected time of day for two minutes, whatever the hour, with a small *Preview* label;
+  changing a setting meanwhile redraws it. The tablet then returns to the real time of day.
+- *Always keep the same order of cards* keeps the day's cards from morning to night. *Back to the original settings* forgets
+  everything in this card.
+
+What *Adjust* and *Size* set applies all day; only the order and the presence of the cards change with the time of day. It
+combines with either layout and any skin. The classic home screen stays the default.
 
 | By priority, in the evening | By priority, fixed order |
 |---|---|
-| <img src="docs/screenshots/home-priority.png" alt="Home screen by priority in the evening: three attention cards, an information line and the For the night card"> | <img src="docs/screenshots/home-priority-day.png" alt="Home screen by priority with the fixed order: attention cards, family messages, weather and calendar"> |
+| <img src="docs/screenshots/home-priority.png" alt="Home screen by priority in the evening: three attention cards, the information chips and the For the night card"> | <img src="docs/screenshots/home-priority-day.png" alt="Home screen by priority with the fixed order: attention cards, information chips, family messages, weather and calendar"> |
+
+| Cards of different sizes | The settings card |
+|---|---|
+| <img src="docs/screenshots/home-priority-cards.png" alt="Home screen by priority: electricity and now playing side by side, weather, calendar and For the night in thirds, then the news in two columns"> | <img src="docs/screenshots/web-card-priority.png" alt="Web page — Home by priority: time of day, preview button, and the cards with their size, Adjust button and switch"> |
 
 ### Skins
 
@@ -787,7 +847,7 @@ column of settings: the name on the left, the value on the right. Choosing sever
 - **tokens with a search field** for long lists (people and presence sensors, electricity sensors, weather-alert sensors,
   shortcuts): what you chose is on top, each with a ✕ to remove it, and the field below suggests what you can add. Drag a token
   to change the order — the first electricity sensor makes the home-screen chip, and shortcuts show in that order;
-- **switches by room** for the whole-house overview: a filter per kind (lights, locks, doors, windows) with its count, then the
+- **switches by room** for the whole-house overview: a filter per kind (lights, locks, doors, windows, blinds, smoke detectors) with its count, then the
   devices room by room, with *Turn all on / off* per room.
 
 Long explanations sit behind *Learn more*.
@@ -805,7 +865,12 @@ Long explanations sit behind *Learn more*.
 | <img src="docs/screenshots/web-card-electricity.png" alt="Web page — electricity sensors as tokens"> | <img src="docs/screenshots/web-card-shortcuts.png" alt="Web page — the shortcuts table: placement, launch sequence switch with its preview button, and check afterwards switch"> | The **search field** above the menu finds a setting by its name and takes you to it.
 
 In the side menu, the open section unfolds one link per card (for example *Alerts & sounds* → *Safety alarms*, *Locks*, *Camera
-alerts*…); opening another section folds the previous one. A link scrolls to its card.
+alerts*…); opening another section folds the previous one. A link scrolls to its card. When a section has groups, their names
+(*Layout*, *Cards*, *Chips*…) stand above their links, as on the page. Card titles are plain text, without emoji.
+
+A page opened while the tablet was restarting used to list only part of the devices (lights, locks and blinds, but no doors,
+windows or smoke detectors, which are recognised by their state). It now completes those lists by itself as soon as the tablet
+has the states.
 
 **Content**
 - **Rooms**: add, rename, delete and reorder rooms (drag ⠿ or ▲▼). For the selected room, search all your Home Assistant devices
@@ -813,14 +878,18 @@ alerts*…); opening another section folds the previous one. A link scrolls to i
   **Import HA areas** creates rooms from your areas automatically. **Floors** sets the order of the floors the home screen
   groups the rooms by. **Now playing** (the card at the top of a room, the thumbnail in the top bar, the poster search and its optional keys, its
   players and what happens after a pause) is here too.
-- **Home**: what the main page shows, top to bottom: **Header** (who's home, whole-house overview), **Cards** (weather, calendar),
-  **Messages** (family messages), **Home screen with side navigation** (favourites, tool previews, cameras), **Information chips** (collections, electricity with the Cockpit dial's red zone, weather alerts and radar, custom chips) and **Shortcuts** (one table: placement, launch sequence and check afterwards). The birthday calendar is chosen in the *Calendar* card.
-- **Devices & health**: **Tracked appliances** (3D printer, washer, oven…) and **Home health** (the low-battery, offline and vacuum-maintenance chips).
-- **Tools & media**: **Tools** — shopping and to-do lists, favourite timers, This morning and sports — and **Media** — music (the Music Assistant
-  speakers offered, and the server token for the queue) and Now playing (posters, TV channels, log, which players count).
+- **Home**: everything about the main page, in five groups. **Layout** — the home screen layout (classic or by priority) and,
+  with *By priority*, the *Home by priority* card. **Cards** — weather, calendar (and the birthday calendar), favourites,
+  cameras, tool previews and shortcuts (one table: placement, launch sequence and check afterwards). **Chips** — the
+  whole-house overview (which devices count, and the normal state), home health (the low-battery, offline and
+  vacuum-maintenance chips), collections, electricity (with the Cockpit dial's red zone), weather alerts and radar, and custom
+  chips. **Header** — who's home. **Messages** — family messages.
+- **Tools & media**: **Tools** — shopping and to-do lists, favourite timers, This morning, sports and **tracked appliances**
+  (3D printer, washer, oven…) — and **Media** — music (the Music Assistant speakers offered, and the server token for the
+  queue) and Now playing (posters, TV channels, log, which players count).
 
 **Tablet**
-- **Appearance**: language, layout, skin and night skin, the sections shown, dashboard options and the background (theme or wallpaper, your photo).
+- **Appearance**: language, layout, skin and night skin, the sections shown, *Rooms and clock* (group devices by category, show the time and the battery) and the background (theme or wallpaper, your photo).
 - **Screen & sleep**: brightness, sleep delay, wake on motion (front camera, or Home Assistant presence sensors), brightness by room
   (the screen dims when the lights of its room are all off), and the screen saver (including the Immich photo frame).
 - **Alerts & sounds**: safety first — **Safety alarms** (smoke, carbon monoxide, water leak, and the test), **Locks** (confirm before
@@ -837,13 +906,11 @@ the feed answered) that you drag to reorder and open to edit; suggestions are gr
   (the last six, without the token, the passwords or the PIN); download or restore one, or make one right away.
 - **About**: version, GitHub links, tablet and Home Assistant information, and **updates** (check, install, upload an APK).
 
-| Rooms | Devices & health |
+| Rooms | Tools & media |
 |---|---|
-| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-devices.png" alt="Web page — tracked appliances and home health"> |
+| <img src="docs/screenshots/web-rooms.png" alt="Web page — rooms"> | <img src="docs/screenshots/web-tools.png" alt="Web page — tools and media"> |
 
-| Tools & media | Alerts & sounds |
-|---|---|
-| <img src="docs/screenshots/web-tools.png" alt="Web page — tools and media"> | <img src="docs/screenshots/web-sound.png" alt="Web page — safety alarms, locks and camera alerts"> |
+<img src="docs/screenshots/web-sound.png" width="640" alt="Web page — safety alarms, locks and camera alerts">
 
 | Appearance | Screen & sleep |
 |---|---|
@@ -856,7 +923,7 @@ the feed answered) that you drag to reorder and open to edit; suggestions are gr
 <img src="docs/screenshots/web-about.png" width="640" alt="Web page — about">
 
 Changes are applied to the tablet instantly. If the configuration was changed elsewhere in the meantime (on the tablet or in another
-browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#rooms`, `#home`, `#devices`, `#tools`, `#display`, `#screen`, `#sound`, `#conn`, `#security`, `#about`.
+browser), the page reloads it instead of overwriting it. Deep links work too: `http://<tablet>:8080/#rooms`, `#home`, `#tools`, `#display`, `#screen`, `#sound`, `#conn`, `#security`, `#about`.
 
 ### Tablet settings
 
