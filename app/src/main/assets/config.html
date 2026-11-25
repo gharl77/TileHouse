@@ -167,6 +167,8 @@ details.fold>:not(summary){margin-bottom:10px}
 .hpcards{margin:6px 0 10px}.hpcards .hr{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line);min-height:44px}
 .hpcards .hr .grip{color:var(--mute);cursor:grab}.hpcards .hr .n{flex:1}.hpcards .hr.off .n{color:var(--mute)}.hpcards .hr.dragging{opacity:.4}.hpcards .hr.off .grip{visibility:hidden}
 .hpcards .hr{flex-wrap:wrap}.hpcards .hr select{width:auto;min-width:0;max-width:32%;padding:6px 8px}.hpcards .hr select.hpdelay{max-width:30%}.hpcards .hr select:disabled{opacity:.35}
+.hpmoment{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;align-items:end;margin:4px 0 8px;padding:12px 14px;background:var(--card2);border:1px solid var(--line);border-radius:12px}.hpmoment input,.hpmoment select,.hpmoment button{width:100%}
+.hpbadge{margin-left:8px;padding:2px 8px;border-radius:99px;font-size:12px;background:rgba(255,179,0,.16);color:#ffc233;white-space:nowrap}
 .hpset{padding:5px 12px;font-size:13px}.hpset[aria-expanded="true"]{background:#f2f2f7;color:#1c1c1e}
 .hpopt{margin:0 0 10px 26px;padding:6px 14px 10px;background:var(--card2);border:1px solid var(--line);border-radius:12px}.hpopt .set:first-child{border-top:0}.hpopt .check{display:block;margin:8px 0}
 .hpadd{gap:8px;flex-wrap:wrap}.hpadd select{flex:1;min-width:150px;width:auto}
@@ -351,9 +353,15 @@ details.more>p{margin:6px 0 0}
     <p class="muted">Ouverte, une porte ou une fenêtre dont l'alerte est allumée devient une carte « À voir maintenant ». Les autres restent sur la ligne d'information. Au départ : les fenêtres, et les portes qui donnent sur l'extérieur (entrée, garage, patio…).</p>
     <div id="hpOpenings" class="hpcards"></div>
     <h3 class="sub">Cartes de l'accueil</h3>
-    <p class="muted">Choisissez un moment, son heure de début, puis ses cartes : glissez ⠿ pour l'ordre, allumez pour afficher, « Régler » pour choisir le contenu. Le contenu réglé vaut pour toute la journée.</p>
+    <p class="muted">Choisissez un moment, son heure de début, puis ses cartes : glissez ⠿ ou touchez ▲▼ pour l'ordre, allumez pour afficher, « Régler » pour choisir le contenu. Le contenu réglé vaut pour toute la journée.</p>
     <div class="row" style="align-items:center;gap:12px;flex-wrap:wrap"><div class="seg" id="hpMoments" role="tablist" aria-label="Moment de la journée"></div><button id="hpPreview" class="ghost">▶ Aperçu sur la tablette</button></div>
-    <div class="set"><label class="f" for="hpFrom">Ce moment commence à</label><select id="hpFrom"></select></div>
+    <div class="hpmoment">
+      <div><label class="f" for="hpName">Nom du moment</label><input id="hpName" type="text" maxlength="40"></div>
+      <div><label class="f" for="hpTime">Commence à</label><input id="hpTime" type="time"></div>
+      <div><label class="f" for="hpDays">Jours</label><select id="hpDays"><option value="all">Tous les jours</option><option value="week">En semaine</option><option value="weekend">La fin de semaine</option></select></div>
+      <div><button id="hpRemove" class="ghost">Retirer ce moment</button></div>
+    </div>
+    <p class="muted">Ajoutez autant de moments que vous voulez (« Retour de l'école », « Matin de fin de semaine »…). Hors de ses jours, un moment est ignoré : le précédent continue.</p>
     <div id="hpCards" class="hpcards"></div>
     <div class="row hpadd"><select id="hpAddRoom" aria-label="Ajouter une pièce"></select><select id="hpAddEntity" aria-label="Ajouter un appareil"></select><select id="hpAddCamera" aria-label="Ajouter une caméra"></select></div>
     <p class="muted">La météo et l'agenda se placent côte à côte quand ils se suivent dans la liste. Les appareils ajoutés qui se suivent forment une même rangée de tuiles.</p>
@@ -1141,7 +1149,25 @@ window.addEventListener("focus", checkBuild);
 // ------------------------------------------------------------------ accueil par priorité
 // Carte de configuration, visible seulement quand l'accueil est « Par priorité » (elle apparaît alors dans le sous-menu d'Apparence).
 // Un moment à la fois : son heure de début, et ses cartes — une carte allumée est affichée, dans l'ordre de la liste.
-const HP_MOMENTS = [["morning", "Matin"], ["day", "Journée"], ["evening", "Soir"]];
+const HP_MOMENT_NAMES = {morning: "Matin", day: "Journée", evening: "Soir"};
+const hpMomentName = m => m.name || t(HP_MOMENT_NAMES[m.id] || "Moment");
+// Cartes sous condition : ce qu'on offre pour chaque carte (même liste que dans l'application), en clair et en court.
+const HP_CONDS = {motion: "Lors d'un mouvement, et 5 minutes après", bell: "Quand quelqu'un sonne, et 5 minutes après", events: "S'il reste un événement aujourd'hui", todo: "S'il reste quelque chose à éteindre ou à verrouiller",
+  peak: "Pendant une pointe d'électricité", power: "Au-dessus du seuil de la zone rouge", alert: "En cas d'alerte météo", light: "Quand une lumière y est allumée", presence: "Quand quelqu'un s'y trouve, et 5 minutes après"};
+const HP_COND_SHORT = {motion: "si mouvement", bell: "si on sonne", events: "s'il reste un événement", todo: "s'il reste à faire", peak: "pendant une pointe", power: "au-dessus du seuil", alert: "si alerte météo", light: "si lumière allumée", presence: "si présence"};
+function hpConds(k) {
+  return k === "cameras" || k.startsWith("camera:") ? ["motion", "bell"] : k === "agenda" ? ["events"] : k === "night" ? ["todo"] : k === "energy" ? ["peak", "power"]
+    : k === "weather" ? ["alert"] : k.startsWith("room:") ? ["light", "presence"] : [];
+}
+const hpCond = (st, k) => { const w = ((st.homeCardOptions || {})[k] || {}).when; return hpConds(k).includes(w) ? w : ""; };
+// Ce que « Régler » montre : d'abord quand la carte s'affiche (si elle peut être conditionnelle), puis son contenu.
+function hpOptions(st, k) {
+  const content = hpContent(st, k), conds = hpConds(k);
+  if (!conds.length) return content;
+  const all = st.homeCardOptions || (st.homeCardOptions = {});
+  const sel = hpSelect([["", t("Toujours")]].concat(conds.map(c => [c, t(HP_CONDS[c])])), hpCond(st, k), t("Afficher"), v => { all[k] = Object.assign({}, all[k], {when: v}); saveSettings({homeCardOptions: all}); });
+  return [el("div", {class: "set"}, el("span", {class: "f", textContent: t("Afficher")}), sel)].concat(content || []);
+}
 const HP_NAMES = {birthday: "Anniversaire du jour", notes: "Messages pour la famille", weather: "Météo", agenda: "Agenda", night: "Pour la nuit", favorites: "Favoris", shortcuts: "Raccourcis", previews: "Aperçus des outils", cameras: "Caméras", energy: "Électricité", music: "Musique en cours", news: "Actualités"};
 const HP_KINDS = {smoke: "Fumée et monoxyde", lock: "Serrure déverrouillée", door: "Portes", window: "Fenêtres", light: "Lumières", cover: "Stores et rideaux", battery: "Piles faibles", offline: "Appareils hors ligne", wear: "Entretien des aspirateurs", peak: "Pointe d'électricité", wx: "Alerte météo", collect: "Collecte des ordures", energy: "Électricité"};
 const HP_LEVELS = [["red", "Alerte rouge"], ["amber", "À voir (ambre)"], ["info", "Ligne d'information"], ["hidden", "Masqué"]];
@@ -1162,7 +1188,7 @@ function hpSelect(options, value, label, change) {
 }
 function hpDelayName(m) { return m === 0 ? t("Tout de suite") : m >= 60 ? t("Après") + " " + (m / 60) + " h" : t("Après") + " " + m + " min"; }
 // Contenu réglable d'une carte : rend les contrôles, ou null si la carte n'a rien à régler.
-function hpOptions(st, k) {
+function hpContent(st, k) {
   const all = st.homeCardOptions || (st.homeCardOptions = {}), o = all[k] || {};
   const set = (key, v) => { all[k] = Object.assign({}, all[k], {[key]: v}); return saveSettings({homeCardOptions: all}); };
   const check = (key, def, name) => el("label", {class: "check"}, el("input", {type: "checkbox", checked: o[key] ?? def, onchange: ev => set(key, ev.target.checked)}), " " + t(name));
@@ -1221,12 +1247,18 @@ function hpSize(st, k, name) {
     v => { all[k] = Object.assign({}, all[k], {size: v}); saveSettings({homeCardOptions: all}); });
   s.className = "hpdelay"; return s;
 }
+// Déplace une carte d'un rang : les flèches font le travail du glisser-déposer, qui n'existe pas sur un écran tactile.
+function hpMove(cur, i, by, save) {
+  const j = i + by; if (j < 0 || j >= cur.cards.length) return;
+  const next = cur.cards.slice(); [next[i], next[j]] = [next[j], next[i]]; cur.cards = next; save();
+}
 function renderHomePlan(st) {
   const on = (st.homeStyle || "classic") === "priority", card = $("homePlanCard");
   if (card.hidden === on) { card.hidden = !on; fillSubnav(); }
   if (!on || !st.homePlan) return;
   const plan = st.homePlan, fixed = !!st.homeFixedOrder;
-  if (fixed) hpMoment = "day";
+  const moments = plan.moments, dayId = (moments.find(m => m.id === "day") || moments[0]).id;
+  if (fixed || !moments.some(m => m.id === hpMoment)) hpMoment = dayId;
   const save = () => saveSettings({homePlan: plan});
   // Un type par ligne : où il s'affiche, puis son délai (sans objet pour la ligne d'information ou un type masqué).
   const rules = st.attentionRules || {};
@@ -1239,30 +1271,39 @@ function renderHomePlan(st) {
     return el("div", {class: "hr" + (r.level === "hidden" ? " off" : "")}, el("span", {class: "n", textContent: t(HP_KINDS[k] || k)}),
       hpSelect(HP_LEVELS.map(([v, name]) => [v, t(name)]), r.level, t(HP_KINDS[k] || k), v => setRule(k, {level: v})), d);
   }));
-  $("hpMoments").replaceChildren(...HP_MOMENTS.map(([k, name]) => el("button", {role: "tab", "aria-selected": String(k === hpMoment), disabled: fixed && k !== "day", textContent: t(name),
-    onclick: () => { hpMoment = k; renderHomePlan(st); }})));
+  $("hpMoments").replaceChildren(...moments.map(m => el("button", {role: "tab", "aria-selected": String(m.id === hpMoment), disabled: fixed && m.id !== dayId, textContent: hpMomentName(m),
+    onclick: () => { hpMoment = m.id; renderHomePlan(st); }})),
+    // Un nouveau moment part des cartes de celui qu'on regarde, à midi ; on le renomme et on le place ensuite.
+    el("button", {textContent: "＋ " + t("Ajouter"), "aria-label": t("Ajouter un moment"), disabled: fixed || moments.length >= 12, onclick: () => {
+      const id = "m" + Date.now().toString(36), from = moments.find(m => m.id === hpMoment);
+      moments.push({id, name: t("Nouveau moment"), from: 720, days: "all", cards: from ? from.cards.slice() : []}); hpMoment = id; save();
+    }}));
   $("hpPreview").onclick = async () => {
     try { const r = await api("POST", "/api/home/preview", {moment: hpMoment}); flash(r.ok ? t("Aperçu affiché sur la tablette pendant deux minutes") : "⚠ " + t("La tablette n'a pas pu afficher l'aperçu")); }
     catch (e) { if (e.message !== "pin") flash("⚠ " + e.message); }
   };
-  const from = $("hpFrom"), cur = plan[hpMoment];
-  from.replaceChildren(...Array.from({length: 24}, (_, h) => el("option", {value: String(h), textContent: h + " h"})));
-  from.value = String(cur.from); from.disabled = fixed;
-  from.onchange = () => {
-    const next = Object.assign({}, {morning: plan.morning.from, day: plan.day.from, evening: plan.evening.from}, {[hpMoment]: +from.value});
-    // Les moments doivent se suivre : matin, puis journée, puis soir.
-    if (!(next.morning < next.day && next.day < next.evening)) { from.value = String(cur.from); flash("⚠ " + t("Les moments doivent se suivre : le matin avant la journée, la journée avant le soir.")); return; }
-    cur.from = +from.value; save();
-  };
+  const cur = moments.find(m => m.id === hpMoment);
+  // Le moment regardé : son nom, son heure (à la minute), ses jours. La tablette les range ensuite par heure.
+  const nameIn = $("hpName"), timeIn = $("hpTime"), daysIn = $("hpDays"), two = n => String(n).padStart(2, "0");
+  nameIn.value = cur.name || ""; nameIn.placeholder = t(HP_MOMENT_NAMES[cur.id] || "Moment");
+  timeIn.value = two(Math.floor(cur.from / 60)) + ":" + two(cur.from % 60); daysIn.value = cur.days || "all";
+  nameIn.disabled = timeIn.disabled = daysIn.disabled = fixed;
+  nameIn.onchange = () => { cur.name = nameIn.value.trim(); save(); };
+  timeIn.onchange = () => { const [h, m] = (timeIn.value || "12:00").split(":").map(Number); cur.from = (h || 0) * 60 + (m || 0); save(); };
+  daysIn.onchange = () => { cur.days = daysIn.value; save(); };
+  $("hpRemove").disabled = fixed || moments.length < 2;
+  $("hpRemove").onclick = () => { if (!confirm(t("Retirer ce moment et sa liste de cartes ?"))) return; plan.moments = moments.filter(m => m !== cur); hpMoment = ""; save(); };
   // Les cartes du moment d'abord, dans leur ordre ; puis les autres : les cartes fixes, et celles ajoutées à un autre moment.
-  const added = [...new Set(HP_MOMENTS.flatMap(([m]) => plan[m].cards).filter(k => k.includes(":")))];
+  const added = [...new Set(plan.moments.flatMap(m => m.cards).filter(k => k.includes(":")))];
   const all = (st.homeCards || Object.keys(HP_NAMES)).concat(added), box = $("hpCards");
   const rows = cur.cards.concat(all.filter(k => !cur.cards.includes(k))).filter(k => hpCardName(k) !== null);
   let dragFrom = -1;
   box.replaceChildren(...rows.flatMap((k, i) => {
     const shown = cur.cards.includes(k), name = hpCardName(k), opts = hpOptions(st, k);
     const row = el("div", {class: "hr" + (shown ? "" : " off"), draggable: shown && cur.cards.length > 1},
-      el("span", {class: "grip", textContent: "⠿"}), el("span", {class: "n", textContent: name}),
+      el("span", {class: "grip", textContent: "⠿"}), el("span", {class: "n"}, name, hpCond(st, k) ? el("span", {class: "hpbadge", textContent: t(HP_COND_SHORT[hpCond(st, k)])}) : null),
+      shown ? el("button", {class: "mini", title: t("Monter"), "aria-label": t("Monter") + colon() + name, textContent: "▲", disabled: i === 0, onclick: () => hpMove(cur, i, -1, save)}) : null,
+      shown ? el("button", {class: "mini", title: t("Descendre"), "aria-label": t("Descendre") + colon() + name, textContent: "▼", disabled: i >= cur.cards.length - 1, onclick: () => hpMove(cur, i, 1, save)}) : null,
       shown ? hpSize(st, k, name) : null,
       opts ? el("button", {class: "hpset", "aria-expanded": String(hpOpen === k), textContent: t("Régler"), onclick: () => { hpOpen = hpOpen === k ? "" : k; renderHomePlan(st); }}) : null,
       el("input", {type: "checkbox", class: "sw", checked: shown, "aria-label": name,
@@ -1276,7 +1317,7 @@ function renderHomePlan(st) {
     return opts && hpOpen === k ? [row, el("div", {class: "hpopt"}, ...opts)] : [row];
   }));
   // Ajouter une pièce, un appareil ou une caméra : la carte arrive à la fin du moment affiché.
-  const used = new Set(HP_MOMENTS.flatMap(([m]) => plan[m].cards));
+  const used = new Set(plan.moments.flatMap(m => m.cards));
   const adder = (id, prefix, title, items) => {
     const s = $(id), free = items.filter(it => !cur.cards.includes(prefix + it.id));
     s.replaceChildren(el("option", {value: "", textContent: "＋ " + t(title)}), ...free.map(it => el("option", {value: it.id, textContent: it.name})));
@@ -1826,7 +1867,9 @@ async function loadSuggestions() {
 async function loadPlayLog(clear) {
   const b = $("playLog");
   let list = [];
-  try { list = (await api(clear ? "POST" : "GET", clear ? "/api/playlog/clear" : "/api/playlog")).entries || []; } catch (e) { b.textContent = t("Relevé indisponible."); return; }
+  let rejected = [];
+  try { const r = clear && clear.search ? await api("POST", "/api/poster/reject", clear) : await api(clear ? "POST" : "GET", clear ? "/api/playlog/clear" : "/api/playlog"); list = r.entries || []; rejected = r.rejected || []; }
+  catch (e) { b.textContent = t("Relevé indisponible."); return; }
   b.replaceChildren();
   if (!list.length) { b.textContent = t("Rien n'a encore joué depuis l'installation de cette version."); return; }
   for (const x of list) {
@@ -1834,7 +1877,10 @@ async function loadPlayLog(clear) {
     const parts = [x.series && t("série") + " : " + x.series, x.artist && t("artiste") + " : " + x.artist, x.channel && t("chaîne") + " : " + x.channel, x.type && "type : " + x.type, x.contentId && "id : " + x.contentId].filter(Boolean).join(" · ");
     b.append(el("div", {class: "sline", style: "display:block;padding:8px 0"},
       el("div", {}, el("b", {textContent: x.title || "—"}), " ", el("span", {class: "muted", textContent: "— " + [x.player, x.app].filter(Boolean).join(" · ")})),
-      el("div", {class: "muted", textContent: [when, t("affiche") + " : " + x.source, parts].filter(Boolean).join(" · ")})));
+      el("div", {class: "muted", textContent: [when, t("affiche") + " : " + x.source, parts].filter(Boolean).join(" · ")}),
+      // Une affiche trouvée par une recherche peut être la mauvaise : on la refuse ici, et ce titre garde le logo de la chaîne.
+      x.search && rejected.includes(x.search) ? el("div", {class: "muted"}, t("Affiche refusée") + " · ", el("button", {class: "mini", textContent: t("Rétablir"), onclick: () => loadPlayLog({search: x.search, on: false})}))
+        : x.search && /^(TMDB|TVmaze|iTunes)/.test(x.source || "") ? el("div", {}, el("button", {class: "mini", textContent: t("Ce n'est pas la bonne"), onclick: () => loadPlayLog({search: x.search, on: true})})) : null));
   }
 }
 $("testTmdb").onclick = async () => {

@@ -25,6 +25,7 @@ class MorningPanel(private val act: MainActivity, private val onRead: () -> Unit
     private val body = LinearLayout(act).apply { orientation = LinearLayout.VERTICAL }
     private val subtitle = act.label(15f, Skin.mute)
     private val titleView = act.label(26f, Skin.ink, true)
+    private val iconView = act.label(30f, text = "☀️")
     private val scroll = ScrollView(act)
     val showing get() = visibility == View.VISIBLE
     private var gen = 0
@@ -43,7 +44,7 @@ class MorningPanel(private val act: MainActivity, private val onRead: () -> Unit
             isClickable = true
         }
         val head = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(act.label(30f, text = "☀️").apply { setPadding(0, 0, act.dp(14), 0) })
+        head.addView(iconView.apply { setPadding(0, 0, act.dp(14), 0) })
         head.addView(LinearLayout(act).apply {
             orientation = LinearLayout.VERTICAL
             addView(titleView)
@@ -62,7 +63,11 @@ class MorningPanel(private val act: MainActivity, private val onRead: () -> Unit
         addView(panel, LayoutParams(minOf(dm.widthPixels - act.dp(56), act.dp(1180)), (dm.heightPixels * 0.9f).toInt(), Gravity.CENTER))
     }
 
-    fun show() {
+    /** [newsOnly] : seulement les flux de nouvelles, sans les textes du matin (bouton « Plus de nouvelles » de l'accueil). */
+    private var newsOnly = false
+
+    fun show(newsOnly: Boolean = false) {
+        this.newsOnly = newsOnly
         render()
         scroll.scrollTo(0, 0)
         visibility = View.VISIBLE
@@ -82,7 +87,8 @@ class MorningPanel(private val act: MainActivity, private val onRead: () -> Unit
         val cfg = App.instance.config
         val states = App.instance.ha.states
         val day = SimpleDateFormat(if (I18n.english) "EEEE, MMMM d" else "EEEE d MMMM", I18n.locale).format(Date())
-        titleView.text = tr("Ce matin")
+        titleView.text = tr(if (newsOnly) "Actualités" else "Ce matin")
+        iconView.text = if (newsOnly) "📰" else "☀️"
         subtitle.text = day.replaceFirstChar { it.uppercase() }
         body.removeAllViews()
 
@@ -92,7 +98,7 @@ class MorningPanel(private val act: MainActivity, private val onRead: () -> Unit
         for (i in 0 until sources.length()) {
             val s = sources.optJSONObject(i) ?: continue
             if (HomeExtras.isFeed(s)) feeds.add(s)
-            else HomeExtras.sourceText(s, states)?.let { texts.add(s.optString("title").ifEmpty { states[s.optString("entity")]?.name ?: "" } to it) }
+            else if (!newsOnly) HomeExtras.sourceText(s, states)?.let { texts.add(s.optString("title").ifEmpty { states[s.optString("entity")]?.name ?: "" } to it) }
         }
 
         // Textes : cartes côte à côte (3 au plus par rangée)

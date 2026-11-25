@@ -925,4 +925,85 @@ class NewFeaturesTest {
         // Le choix direct reste le même qu'avant.
         assertEquals("https://image.tmdb.org/t/p/w780/d.jpg", Posters.fromTmdb(search, "District 31", tv = true)); assertEquals("", Posters.fromTmdb(search, "Avion"))
     }
+
+    @Test fun attentionCardsOfferSafeActionsOnly() {
+        assertEquals("lock", HomeFlow.cardAction("lock", false)); assertEquals("off", HomeFlow.cardAction("light", false))
+        // Rien pour ce que la tablette ne peut pas faire, ni quand l'état normal est inversé (on ne rallume pas d'office).
+        for (k in listOf("door", "window", "cover", "battery", "smoke", "peak", "custom")) assertNull(HomeFlow.cardAction(k, false))
+        assertNull(HomeFlow.cardAction("light", true)); assertNull(HomeFlow.cardAction("lock", true))
+        // Clé d'une recherche d'affiche : le genre, puis ce qu'on cherche, sans la casse.
+        assertEquals("v|sports 30", Posters.searchKey(Posters.What("Sports 30", "", "", "Télé Fibe", "RDSHD", true)))
+        assertEquals("v|district 31", Posters.searchKey(Posters.What("Épisode 12", "District 31", "", "Télé Fibe", "ICIQH", true)))
+        assertEquals("m|artiste chanson", Posters.searchKey(Posters.What("Chanson", "", "Artiste", "Radio", "", false)))
+        assertTrue(Posters.searchKey(Posters.What("Titre", "", "Chaîne", "YouTube", "", true)).startsWith("yt|"))
+    }
+
+    @Test fun rowsFillAndAllClearSaysWhy() {
+        // La dernière carte d'une rangée incomplète s'étire ; une rangée pleine ne change pas.
+        val f = HomeFlow.fill(listOf(1f / 3f, 0.5f))
+        assertEquals(1f / 3f, f[0], 0.001f); assertEquals(2f / 3f, f[1], 0.001f); assertEquals(1f, f.sum(), 0.001f)
+        assertEquals(listOf(0.5f, 0.5f), HomeFlow.fill(listOf(0.5f, 0.5f))); assertTrue(HomeFlow.fill(emptyList()).isEmpty())
+        assertEquals(1f, HomeFlow.fill(listOf(1f / 3f, 1f / 3f)).sum(), 0.001f)
+        // « Tout est en ordre » : seulement ce qui est vrai, et seulement pour ce que la maison possède.
+        assertEquals(listOf("Serrures verrouillées", "Portes et fenêtres fermées", "Lumières éteintes"), HomeFlow.allClear(true, 0, true, 0, true, 0))
+        assertEquals(listOf("Serrures verrouillées"), HomeFlow.allClear(true, 0, true, 2, true, 5))
+        assertEquals(listOf("Lumières éteintes"), HomeFlow.allClear(false, 0, false, 0, true, 0)); assertTrue(HomeFlow.allClear(true, 1, true, 1, true, 1).isEmpty())
+        // Affiches gardées : trente jours au plus, les plus récentes d'abord, jamais une recherche vide.
+        val now = 100L * 86_400_000L; val day = 86_400_000L
+        fun e(url: String, age: Long) = org.json.JSONObject().put("url", url).put("at", now - age * day)
+        val kept = Posters.fresh(mapOf("a" to e("u1", 1), "b" to e("u2", 40), "c" to e("", 1), "d" to e("u4", 10)), now)
+        assertEquals(setOf("a", "d"), kept.keys); assertEquals(listOf("a"), Posters.fresh(mapOf("a" to e("u1", 1), "d" to e("u4", 10)), now, 1).keys.toList())
+        // Stores normalement ouverts : la pastille dit si ce sont des rideaux, des stores, ou les deux.
+        fun st(id: String, state: String) = id to EntityState(id, state, org.json.JSONObject())
+        val room = Room("r", "Salon"); for (id in listOf("cover.store", "cover.rideau_salon", "cover.autre")) room.entities.add(RoomEntity(id))
+        fun chip(a: String, b: String, c: String) = Present.chips(room, mapOf(st("cover.store", a), st("cover.rideau_salon", b), st("cover.autre", c)), setOf("cover")).firstOrNull { it.kind == "cover" }?.text
+        assertEquals("1 store fermé", chip("closed", "open", "open")); assertEquals("1 rideau fermé", chip("open", "closed", "open"))
+        assertEquals("2 stores et rideaux fermés", chip("closed", "closed", "open")); assertNull(chip("open", "open", "open"))
+    }
+
+    @Test fun momentsAreAFreeList() {
+        // Réglage d'origine : trois moments, tous les jours ; l'ancienne forme est relue telle quelle.
+        val d = HomeFlow.DEFAULT
+        assertEquals(listOf("morning", "day", "evening"), d.moments.map { it.id }); assertEquals(listOf(300, 600, 1140), d.moments.map { it.start })
+        assertTrue(d.moments.all { it.days == HomeFlow.ALL_DAYS && it.name.isEmpty() })
+        val p = HomeFlow.parsePlan("""{"v":3,"moments":[
+            {"id":"evening","name":"","from":1140,"days":"all","cards":["night"]},
+            {"id":"m1","name":"  Retour de l'école ","from":930,"days":"week","cards":["notes","inconnue","room:salon"]},
+            {"id":"morning","from":300,"cards":["weather","agenda"]},
+            {"id":"day","from":600,"days":"bizarre","cards":["notes"]},
+            {"id":"m2","name":"Matin tranquille","from":420,"days":"weekend","cards":["news"]},
+            {"id":"m1","name":"doublon","from":1,"cards":[]},{"id":"","from":5,"cards":[]},{"id":"m3","from":9999,"cards":[]}]}""")
+        // Rangés par heure ; identifiant en double ou vide ignoré ; heure et jours abîmés ramenés à une valeur valide.
+        assertEquals(listOf("morning", "m2", "day", "m1", "evening", "m3"), p.moments.map { it.id })
+        assertEquals("Retour de l'école", p.find("m1")!!.name); assertEquals(listOf("notes", "room:salon"), p.find("m1")!!.cards)
+        assertEquals(HomeFlow.ALL_DAYS, p.find("day")!!.days); assertEquals(1439, p.find("m3")!!.start); assertNull(p.find("absent"))
+        // En semaine : « Retour de l'école » à 15 h 30 ; la fin de semaine il n'existe pas, « Journée » continue. Et l'inverse pour le matin tranquille.
+        assertEquals("day", HomeFlow.moment(15 * 60 + 29, false, p)); assertEquals("m1", HomeFlow.moment(15 * 60 + 30, false, p)); assertEquals("day", HomeFlow.moment(16 * 60, true, p))
+        assertEquals("m2", HomeFlow.moment(8 * 60, true, p)); assertEquals("morning", HomeFlow.moment(8 * 60, false, p))
+        // Avant le premier moment du jour, celui de la veille au soir continue.
+        assertEquals("m3", HomeFlow.moment(60, false, p)); assertEquals("evening", HomeFlow.moment(60, false, HomeFlow.DEFAULT))
+        // Lundi 2 h : la veille était un dimanche. Samedi 2 h : la veille était un vendredi.
+        val q = HomeFlow.parsePlan("""{"v":3,"moments":[{"id":"a","from":360,"days":"week","cards":[]},{"id":"b","from":1200,"days":"week","cards":[]},{"id":"c","from":480,"days":"weekend","cards":[]}]}""")
+        assertEquals("c", HomeFlow.moment(120, false, q, weekendBefore = true)); assertEquals("b", HomeFlow.moment(120, true, q, weekendBefore = false))
+        val monday = java.util.Calendar.getInstance().apply { set(2026, 10, 23, 2, 0, 0) }; val saturday = java.util.Calendar.getInstance().apply { set(2026, 10, 21, 2, 0, 0) }
+        assertEquals("c", HomeFlow.momentAt(monday, q)); assertEquals("b", HomeFlow.momentAt(saturday, q))
+        // Aller-retour, et ordre fixe : les cartes de « Journée », ou du premier moment si elle a été retirée.
+        val again = HomeFlow.parsePlan(HomeFlow.planJson(p).toString())
+        assertEquals(p.moments.map { listOf(it.id, it.name, it.start, it.days, it.cards) }, again.moments.map { listOf(it.id, it.name, it.start, it.days, it.cards) })
+        assertEquals(listOf("notes"), HomeFlow.order("m1", true, p)); assertEquals(listOf("notes", "room:salon"), HomeFlow.order("m1", false, p)); assertTrue(HomeFlow.order("a", true, q).isEmpty())
+        assertEquals(HomeFlow.DEFAULT.moments.map { it.id }, HomeFlow.parsePlan("""{"v":3,"moments":[]}""").moments.map { it.id })
+        assertEquals(12, HomeFlow.parsePlan("""{"moments":[""" + (1..20).joinToString(",") { """{"id":"x$it","from":$it,"cards":[]}""" } + "]}").moments.size)
+    }
+
+    @Test fun cardsCanBeConditional() {
+        assertEquals(listOf("motion", "bell"), HomeFlow.conditions("cameras")); assertEquals(listOf("motion", "bell"), HomeFlow.conditions("camera:camera.x"))
+        assertEquals(listOf("events"), HomeFlow.conditions("agenda")); assertEquals(listOf("light", "presence"), HomeFlow.conditions("room:salon"))
+        assertTrue(HomeFlow.conditions("notes").isEmpty()); assertTrue(HomeFlow.conditions("music").isEmpty())
+        // Une condition qui n'est pas offerte à cette carte est ignorée : la carte s'affiche toujours.
+        val o = HomeFlow.Options("""{"cameras":{"when":"motion"},"agenda":{"when":"motion"},"energy":{"when":"peak"},"notes":{"when":"events"}}""")
+        assertEquals("motion", HomeFlow.condition("cameras", o)); assertEquals("", HomeFlow.condition("agenda", o)); assertEquals("peak", HomeFlow.condition("energy", o))
+        assertEquals("", HomeFlow.condition("notes", o)); assertEquals("", HomeFlow.condition("weather", o))
+        val now = 10_000_000L
+        assertTrue(HomeFlow.recent(now - 4 * 60_000, now)); assertFalse(HomeFlow.recent(now - 6 * 60_000, now)); assertFalse(HomeFlow.recent(0, now)); assertTrue(HomeFlow.recent(now - 9 * 60_000, now, 10))
+    }
 }

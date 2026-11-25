@@ -701,6 +701,8 @@ internal fun MainActivity.loadHomeData() {
                 // Garde les événements à venir (et ceux de la journée entière d'aujourd'hui)
                 events = collected.filter { it.allDay || it.start.time > now - 3_600_000L }.sortedBy { it.start }
                 calendarCard?.setEvents(events)
+                // L'agenda « s'il reste un événement aujourd'hui » se montre ou se masque à l'arrivée des événements.
+                for (r in priorityRefresh) r()
             }
         }
     }
@@ -764,12 +766,12 @@ internal fun MainActivity.showWeatherAlerts() {
     showReader(tr("Alertes météo"), if (text.isEmpty()) tr("Aucune alerte en vigueur.") else android.text.Html.fromHtml(text))
 }
 
-internal fun MainActivity.openMorning() {
+internal fun MainActivity.openMorning(newsOnly: Boolean = false) {
     val p = morningPanel ?: MorningPanel(this) { markMorningRead() }.also {
         root.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         morningPanel = it
     }
-    p.show()
+    p.show(newsOnly)
     markMorningRead()
 }
 

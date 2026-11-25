@@ -34,12 +34,30 @@ object HomeFlow {
     /** Cartes ajoutées par l'utilisateur, autant qu'il en veut : une pièce, un appareil, une caméra (« room:salon », « entity:light.x »). */
     val ADDED = listOf("room:", "entity:", "camera:")
     fun isCard(id: String) = id in CARDS || ADDED.any { id.startsWith(it) && id.length > it.length }
-    /** Version du réglage : avant la 2, « weather » voulait dire la météo et l'agenda ensemble. */
-    const val PLAN_VERSION = 2
+    /** Version du réglage : avant la 2, « weather » voulait dire la météo et l'agenda ensemble ; depuis la 3, les moments sont une liste libre. */
+    const val PLAN_VERSION = 3
+    /** Les trois moments d'origine. */
     val MOMENTS = listOf(MORNING, DAY, EVENING)
+    const val ALL_DAYS = "all"; const val WEEK = "week"; const val WEEKEND = "weekend"
+    val DAYS = listOf(ALL_DAYS, WEEK, WEEKEND)
+    const val MAX_MOMENTS = 12
 
-    /** Réglage de l'accueil par priorité : l'heure où commence chaque moment, et les cartes de chacun, dans l'ordre (une carte absente est masquée). */
-    class Plan(val from: Map<String, Int>, val cards: Map<String, List<String>>)
+    /**
+     * Un moment de la journée : son nom (vide pour un moment d'origine, nommé par l'application), la minute où il commence,
+     * ses jours ([DAYS]) et ses cartes, dans l'ordre (une carte absente est masquée).
+     */
+    class Moment(val id: String, val name: String, val start: Int, val days: String, val cards: List<String>) {
+        fun on(weekend: Boolean) = days == ALL_DAYS || (days == WEEKEND) == weekend
+    }
+
+    /** Réglage de l'accueil par priorité : les moments, du plus tôt au plus tard. */
+    class Plan(val moments: List<Moment>) {
+        constructor(from: Map<String, Int>, cards: Map<String, List<String>>) : this(MOMENTS.map { Moment(it, "", from.getValue(it) * 60, ALL_DAYS, cards.getValue(it)) })
+        /** Heure de début de chaque moment, par identifiant. */
+        val from: Map<String, Int> get() = moments.associate { it.id to it.start / 60 }
+        val cards: Map<String, List<String>> get() = moments.associate { it.id to it.cards }
+        fun find(id: String) = moments.firstOrNull { it.id == id }
+    }
 
     private val DEFAULT_FROM = mapOf(MORNING to 5, DAY to 10, EVENING to 19)
     private val DEFAULT_CARDS = mapOf(
@@ -48,40 +66,85 @@ object HomeFlow {
         EVENING to listOf("birthday", "night", "cameras", "notes", "favorites", "shortcuts", "weather", "agenda", "previews"))
     val DEFAULT = Plan(DEFAULT_FROM, DEFAULT_CARDS)
 
+    private fun cardList(a: org.json.JSONArray?): List<String>? = a?.let { (0 until it.length()).map { i -> it.optString(i) }.filter { c -> isCard(c) }.distinct() }
+
     /**
      * Lit le réglage enregistré. Tolérant : un texte vide ou abîmé donne le réglage d'origine ; une carte inconnue ou en
-     * double est ignorée ; des heures qui ne se suivent pas (matin < journée < soir) reviennent à celles d'origine.
+     * double est ignorée. L'ancienne forme (matin, journée, soir, en heures) est encore lue : des heures qui ne se suivent
+     * pas y reviennent à celles d'origine.
      */
     fun parsePlan(json: String): Plan {
         val o = try { org.json.JSONObject(json.ifBlank { "{}" }) } catch (_: Exception) { return DEFAULT }
+        val list = o.optJSONArray("moments")
+        if (list != null) {
+            val seen = HashSet<String>()
+            val moments = (0 until list.length()).mapNotNull { list.optJSONObject(it) }.mapNotNull { m ->
+                val id = m.optString("id").filter { c -> c.isLetterOrDigit() || c == '_' || c == '-' }.take(24)
+                if (id.isEmpty() || !seen.add(id)) return@mapNotNull null
+                Moment(id, m.optString("name").trim().take(40), m.optInt("from", 0).coerceIn(0, 1439), m.optString("days").takeIf { it in DAYS } ?: ALL_DAYS,
+                    cardList(m.optJSONArray("cards")) ?: emptyList())
+            }.take(MAX_MOMENTS).sortedBy { it.start }
+            return if (moments.isEmpty()) DEFAULT else Plan(moments)
+        }
         val from = HashMap<String, Int>(); val cards = HashMap<String, List<String>>()
-        val old = o.optInt("v", 1) < PLAN_VERSION
+        val old = o.optInt("v", 1) < 2
         for (m in MOMENTS) {
             val part = o.optJSONObject(m)
             from[m] = part?.optInt("from", DEFAULT_FROM.getValue(m))?.coerceIn(0, 23) ?: DEFAULT_FROM.getValue(m)
-            val a = part?.optJSONArray("cards")
-            cards[m] = if (a == null) DEFAULT_CARDS.getValue(m) else (0 until a.length()).map { a.optString(it) }.filter { isCard(it) }.distinct()
+            cards[m] = (cardList(part?.optJSONArray("cards")) ?: DEFAULT_CARDS.getValue(m))
                 // Ancien réglage : l'agenda suivait la météo sans être nommé.
-                .let { list -> if (old && "weather" in list && "agenda" !in list) list.flatMap { if (it == "weather") listOf(it, "agenda") else listOf(it) } else list }
+                .let { l -> if (old && part?.optJSONArray("cards") != null && "weather" in l && "agenda" !in l) l.flatMap { if (it == "weather") listOf(it, "agenda") else listOf(it) } else l }
         }
         val ordered = from.getValue(MORNING) < from.getValue(DAY) && from.getValue(DAY) < from.getValue(EVENING)
         return Plan(if (ordered) from else DEFAULT_FROM, cards)
     }
 
-    fun planJson(p: Plan): org.json.JSONObject = org.json.JSONObject().also { o ->
-        o.put("v", PLAN_VERSION)
-        for (m in MOMENTS) o.put(m, org.json.JSONObject().put("from", p.from.getValue(m)).put("cards", org.json.JSONArray(p.cards.getValue(m))))
+    fun planJson(p: Plan): org.json.JSONObject = org.json.JSONObject().put("v", PLAN_VERSION).put("moments", org.json.JSONArray().also { a ->
+        for (m in p.moments) a.put(org.json.JSONObject().put("id", m.id).put("name", m.name).put("from", m.start).put("days", m.days).put("cards", org.json.JSONArray(m.cards)))
+    })
+
+    /**
+     * Le moment en cours à la minute [minutes] de la journée : le dernier commencé parmi ceux du jour ([weekend] : samedi ou
+     * dimanche). Avant le premier de la journée, celui de la veille au soir continue ([weekendBefore] : la veille était-elle
+     * un jour de fin de semaine ?). Un moment hors de ses jours est ignoré : le précédent continue.
+     */
+    fun moment(minutes: Int, weekend: Boolean, plan: Plan = DEFAULT, weekendBefore: Boolean = weekend): String {
+        val today = plan.moments.filter { it.on(weekend) }
+        today.lastOrNull { it.start <= minutes }?.let { return it.id }
+        return (plan.moments.filter { it.on(weekendBefore) }.lastOrNull() ?: today.lastOrNull() ?: plan.moments.last()).id
     }
 
-    /** Moment de la journée à [hour] heures : le matin, la journée, puis le soir, qui dure jusqu'au matin suivant. */
-    fun moment(hour: Int, plan: Plan = DEFAULT): String = when {
-        hour >= plan.from.getValue(EVENING) || hour < plan.from.getValue(MORNING) -> EVENING
-        hour >= plan.from.getValue(DAY) -> DAY
-        else -> MORNING
+    /** Moment de la journée à [hour] heures, un jour de semaine. */
+    fun moment(hour: Int, plan: Plan = DEFAULT): String = moment(hour * 60, false, plan)
+
+    /** Le moment en cours à l'instant [now]. */
+    fun momentAt(now: java.util.Calendar, plan: Plan): String {
+        fun weekend(c: java.util.Calendar) = c.get(java.util.Calendar.DAY_OF_WEEK).let { it == java.util.Calendar.SATURDAY || it == java.util.Calendar.SUNDAY }
+        val before = (now.clone() as java.util.Calendar).apply { add(java.util.Calendar.DAY_OF_YEAR, -1) }
+        return moment(now.get(java.util.Calendar.HOUR_OF_DAY) * 60 + now.get(java.util.Calendar.MINUTE), weekend(now), plan, weekend(before))
     }
 
-    /** Cartes du moment, dans l'ordre ; [fixed] garde toujours celles de la journée. */
-    fun order(moment: String, fixed: Boolean, plan: Plan = DEFAULT): List<String> = plan.cards[if (fixed) DAY else moment] ?: DEFAULT_CARDS.getValue(DAY)
+    /** Cartes du moment, dans l'ordre ; [fixed] garde toujours celles de la journée (ou du premier moment, si « Journée » a été retiré). */
+    fun order(moment: String, fixed: Boolean, plan: Plan = DEFAULT): List<String> =
+        ((if (fixed) plan.find(DAY) ?: plan.moments.first() else plan.find(moment)) ?: plan.moments.first()).cards
+
+    // --- Cartes sous condition : {"cameras":{"when":"motion"}} ; sans « when », la carte s'affiche toujours.
+    /** Conditions offertes pour chaque carte, dans l'ordre de la page web. */
+    fun conditions(card: String): List<String> = when {
+        card == "cameras" || card.startsWith("camera:") -> listOf("motion", "bell")
+        card == "agenda" -> listOf("events")
+        card == "night" -> listOf("todo")
+        card == "energy" -> listOf("peak", "power")
+        card == "weather" -> listOf("alert")
+        card.startsWith("room:") -> listOf("light", "presence")
+        else -> emptyList()
+    }
+
+    /** La condition choisie pour [card], si elle est de celles qu'on lui offre ; "" = toujours. */
+    fun condition(card: String, opts: Options): String = opts.str(card, "when").takeIf { it in conditions(card) }.orEmpty()
+
+    /** Un événement (mouvement, sonnerie) compte encore [minutes] minutes après s'être produit en [at]. */
+    fun recent(at: Long, now: Long, minutes: Int = 5) = at > 0 && now - at < minutes * 60_000L
 
     private fun plainText(s: String) = java.text.Normalizer.normalize(s.lowercase(), java.text.Normalizer.Form.NFD).replace(Regex("\\p{M}"), "")
     private val OUTSIDE = listOf("entree", "entry", "entrance", "hall", "foyer", "vestibule", "porch", "garage", "exterieur", "outside", "outdoor", "patio",
@@ -154,6 +217,13 @@ object HomeFlow {
         for (k in KINDS) rules[k]?.let { o.put(k, org.json.JSONObject().put("level", it.level).put("delay", it.delay)) }
     }
 
+    /**
+     * Action offerte directement sur une carte « À voir maintenant » : « lock » (verrouiller) ou « off » (éteindre), sinon null.
+     * Jamais de déverrouillage ; rien non plus quand l'état normal du type est inversé ([flipped]) : la carte signale alors
+     * des lumières éteintes, qu'on ne rallume pas d'office.
+     */
+    fun cardAction(kind: String, flipped: Boolean): String? = when { flipped -> null; kind == "lock" -> "lock"; kind == "light" -> "off"; else -> null }
+
     /** Une pastille montée en carte : [red] pour une alerte rouge. */
     class Card(val chip: Present.Chip, val red: Boolean)
     class Placed(val cards: List<Card>, val info: List<Present.Chip>)
@@ -215,6 +285,24 @@ object HomeFlow {
         return out
     }
 
+    /**
+     * Parts de largeur des cartes d'une rangée : la dernière s'étire pour combler ce qui reste (un tiers suivi d'une
+     * moitié ne laisse pas de vide). Une rangée déjà pleine ne change pas.
+     */
+    fun fill(widths: List<Float>): List<Float> {
+        val rest = 1f - widths.sum()
+        return if (widths.isEmpty() || rest <= 0.001f) widths else widths.dropLast(1) + (widths.last() + rest)
+    }
+
+    /**
+     * Ce qui va bien, pour la ligne « Tout est en ordre » : seulement des faits vérifiés dans la maison, et seulement pour
+     * ce qu'elle possède ([hasLocks]…). [unlocked], [open], [lightsOn] : combien ne sont pas dans cet état.
+     */
+    fun allClear(hasLocks: Boolean, unlocked: Int, hasOpenings: Boolean, open: Int, hasLights: Boolean, lightsOn: Int): List<String> = listOfNotNull(
+        if (hasLocks && unlocked == 0) tr("Serrures verrouillées") else null,
+        if (hasOpenings && open == 0) tr("Portes et fenêtres fermées") else null,
+        if (hasLights && lightsOn == 0) tr("Lumières éteintes") else null)
+
     /** Groupes d'appareils d'une carte de pièce, que l'on peut masquer un à un. */
     val ROOM_GROUPS = listOf("light", "switch", "climate", "cover", "lock", "other")
     fun roomGroup(domain: String) = when (domain) {
@@ -264,8 +352,8 @@ internal fun MainActivity.showPriorityHome() {
     val plan = HomeFlow.parsePlan(cfg.homePlan)
     // Aperçu demandé depuis la page web : un moment choisi, pendant deux minutes, quelle que soit l'heure.
     val previewing = previewMoment.isNotEmpty() && SystemClock.uptimeMillis() < previewUntil
-    shownMoment = if (previewing) previewMoment else HomeFlow.moment(Calendar.getInstance().get(Calendar.HOUR_OF_DAY), plan)
-    if (previewing) content.addView(label(14f, Skin.onPrimary, true, tr("Aperçu") + " · " + tr(when (shownMoment) { HomeFlow.MORNING -> "Matin"; HomeFlow.EVENING -> "Soir"; else -> "Journée" })).apply {
+    shownMoment = if (previewing && plan.find(previewMoment) != null) previewMoment else HomeFlow.momentAt(Calendar.getInstance(), plan)
+    if (previewing) content.addView(label(14f, Skin.onPrimary, true, tr("Aperçu") + " · " + momentName(plan.find(shownMoment))).apply {
         background = roundRect(Skin.accent, dpf(16)); setPadding(dp(14), dp(6), dp(14), dp(6))
     }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { bottomMargin = dp(4) })
     val opts = HomeFlow.Options(cfg.homeCardOptions)
@@ -275,7 +363,8 @@ internal fun MainActivity.showPriorityHome() {
     var i = 0
     while (i < order.size) {
         val part = order[i]; val next = order.getOrNull(i + 1)
-        fun full(k: String) = HomeFlow.width(opts.str(k, "size")) >= 1f
+        // Pleine largeur et sans condition : seules ces cartes-là peuvent former la paire météo et agenda d'autrefois.
+        fun full(k: String) = HomeFlow.width(opts.str(k, "size")) >= 1f && HomeFlow.condition(k, opts).isEmpty()
         // Les cartes ajoutées qui se suivent partagent une grille : trois appareils de suite font une rangée de tuiles.
         fun run(prefix: String): List<String> = order.drop(i).takeWhile { it.startsWith(prefix) }.map { it.removePrefix(prefix) }
         when {
@@ -302,14 +391,29 @@ internal fun MainActivity.showPriorityHome() {
     }
     // Taille des cartes : les cartes en demi-largeur ou en tiers qui se suivent partagent une rangée.
     val widths = units.map { HomeFlow.width(opts.str(it.first, "size")) }
+    // Cartes sous condition : chacune vit dans un cadre que l'on montre ou masque selon l'état de la maison.
+    val conds = units.map { HomeFlow.condition(it.first, opts) }
     val main = content
     for (row in HomeFlow.rows(widths)) {
-        if (row.size == 1 && widths[row[0]] >= 1f) { units[row[0]].second(); continue }
-        val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; weightSum = 1f }
+        if (row.size == 1) {
+            val idx = row[0]
+            if (conds[idx].isEmpty()) { units[idx].second(); continue }
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            main.addView(box, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            content = box
+            try { units[idx].second() } finally { content = main }
+            priorityRefresh.add { showCard(box, cardShown(units[idx].first, conds[idx])) }
+            continue
+        }
+        // Pas de largeur totale imposée : une colonne masquée (rien ne joue) laisse sa place à ses voisines.
+        val line = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         main.addView(line, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        val shares = HomeFlow.fill(row.map { widths[it] })
         row.forEachIndexed { k, idx ->
             val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            line.addView(col, LinearLayout.LayoutParams(0, MATCH_PARENT, widths[idx]).apply { if (k > 0) marginStart = dp(12) })
+            line.addView(col, LinearLayout.LayoutParams(0, MATCH_PARENT, shares[k]).apply { if (k > 0) marginStart = dp(12) })
+            // Une colonne dont la carte s'est masquée disparaît avec elle (vérifié après chaque mise à jour des cartes).
+            priorityRefresh.add { showCard(col, cardShown(units[idx].first, conds[idx]) && !(col.childCount > 0 && (0 until col.childCount).all { col.getChildAt(it).visibility == View.GONE })) }
             // La carte se dessine dans sa colonne plutôt que dans la page.
             content = col
             try { units[idx].second() } finally { content = main }
@@ -319,6 +423,7 @@ internal fun MainActivity.showPriorityHome() {
             if (col.childCount == 1) col.getChildAt(0).let { v -> (v.layoutParams as LinearLayout.LayoutParams).apply { height = 0; weight = 1f }; v.requestLayout() }
         }
     }
+    for (r in priorityRefresh) r()
     updateRail()
     if (!cfg.sideNav) addFloorSections()
     if (System.currentTimeMillis() - homeDataAt > 10 * 60_000L) loadHomeData()
@@ -369,7 +474,7 @@ internal fun MainActivity.updatePriorityHeader(chips: List<Present.Chip>, make: 
     val attention = placed.cards; val info = placed.info
     fun since(list: List<RoomEntity>) = list.mapNotNull { app.ha.states[it.id]?.changed }.filter { it > 0 }.minOrNull()?.let { HomeFlow.since(it, nowMs) }.orEmpty()
     // Rien n'a changé à l'écran : on ne reconstruit pas (cette fonction est rappelée chaque minute pour les durées).
-    val key = attention.joinToString("|") { it.chip.text + it.red } + "#" + info.joinToString("|") { it.text } + "#" + lateDoors.size + since(lateDoors) + "/" + lateWindows.size + since(lateWindows) + "/" + since(night.locks) + "/" + inverted.joinToString { it + resting.getValue(it).size }
+    val key = attention.joinToString("|") { it.chip.text + it.red } + "#" + info.joinToString("|") { it.text } + "#" + lateDoors.size + since(lateDoors) + "/" + lateWindows.size + since(lateWindows) + "/" + since(night.locks) + "/" + inverted.joinToString { it + resting.getValue(it).size } + "/" + night.locks.size + "." + night.openings.size + "." + night.lights.size
     if (key == priorityKey && box.childCount > 0) { for (r in priorityRefresh) r(); return }
     priorityKey = key
     box.removeAllViews()
@@ -378,7 +483,11 @@ internal fun MainActivity.updatePriorityHeader(chips: List<Present.Chip>, make: 
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             background = roundRect(0x2434C759, dpf(18)); setPadding(dp(16), dp(10), dp(16), dp(10))
             addView(label(15f, HomeCare.GREEN, true, "✓").apply { setPadding(0, 0, dp(10), 0) })
+            // Avec ce qui a été vérifié : « Serrures verrouillées · Portes et fenêtres fermées ».
+            val kinds = homeRoom().entities.mapNotNull { Present.chipKind(it.id, app.ha.states[it.id]) }.toSet()
+            val facts = HomeFlow.allClear("lock" in kinds, night.locks.size, "door" in kinds || "window" in kinds, night.openings.size, "light" in kinds, night.lights.size)
             addView(label(15f, HomeCare.GREEN, text = tr("Tout est en ordre")))
+            if (facts.isNotEmpty()) addView(label(14f, Skin.fg(0xB3), text = facts.joinToString("  ·  ")).apply { setPadding(dp(14), 0, 0, 0); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
         }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply { topMargin = dp(4) })
     } else {
         box.addView(label(12.5f, Skin.mute, true, tr("À voir maintenant").uppercase(I18n.locale)).apply { letterSpacing = 0.08f; setPadding(dp(4), dp(4), 0, dp(8)) })
@@ -404,13 +513,26 @@ internal fun MainActivity.updatePriorityHeader(chips: List<Present.Chip>, make: 
             val elapsed = when (if (flipped) "" else c.kind) { "door" -> since(lateDoors); "window" -> since(lateWindows); "lock" -> since(night.locks); else -> "" }
             // Une carte sans précision dit au moins qu'on peut la toucher pour en savoir plus.
             val hint = when (if (flipped) "" else c.kind) { "door", "window" -> listOf(tr("À fermer à la main"), elapsed).filter { it.isNotEmpty() }.joinToString(" · "); "lock" -> elapsed; else -> if (detail.isEmpty()) tr("Toucher pour voir le détail") else "" }
+            // Ce que la tablette peut régler d'un toucher, sans ouvrir la liste : verrouiller, ou éteindre les lumières.
+            val fix = when (HomeFlow.cardAction(c.kind, flipped)) { "lock" -> night.locks; "off" -> night.lights; else -> emptyList() }
             val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL; minimumHeight = dp(84)
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; minimumHeight = dp(84)
                 background = android.graphics.drawable.GradientDrawable().apply { cornerRadius = dpf(18); setColor((tint and 0x00FFFFFF) or 0x24000000); setStroke(dp(1.5f), tint) }
-                setPadding(dp(16), dp(12), dp(16), dp(12)); isClickable = true
-                addView(label(17f, Skin.ink, true, heading).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-                if (detail.isNotEmpty()) addView(label(14f, Skin.mix(tint, Skin.ink, 0.6f), text = detail).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; setPadding(0, dp(2), 0, 0) })
-                if (hint.isNotEmpty()) addView(label(13f, Skin.mute, text = hint).apply { setPadding(0, dp(2), 0, 0) })
+                setPadding(dp(16), dp(12), dp(if (fix.isEmpty()) 16 else 12), dp(12)); isClickable = true
+                addView(LinearLayout(this@updatePriorityHeader).apply {
+                    orientation = LinearLayout.VERTICAL
+                    addView(label(17f, Skin.ink, true, heading).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+                    if (detail.isNotEmpty()) addView(label(14f, Skin.mix(tint, Skin.ink, 0.6f), text = detail).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; setPadding(0, dp(2), 0, 0) })
+                    if (hint.isNotEmpty()) addView(label(13f, Skin.mute, text = hint).apply { setPadding(0, dp(2), 0, 0) })
+                }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                if (fix.isNotEmpty()) addView(label(15f, Color.BLACK, true, tr(if (c.kind == "lock") "Verrouiller" else if (fix.size > 1) "Tout éteindre" else "Éteindre")).apply {
+                    gravity = Gravity.CENTER; background = roundRect(tint, dpf(20)); setPadding(dp(16), dp(10), dp(16), dp(10)); isClickable = true
+                    setOnClickListener {
+                        if (haOffline()) return@setOnClickListener
+                        for (re in fix) Present.bulkOff(app.ha, re.id, app.ha.states[re.id])
+                        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+                    }
+                }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { marginStart = dp(10) })
                 // Même effet qu'un toucher sur la pastille : la liste, le détail ou la fenêtre de l'alerte.
                 setOnClickListener { make(c) {}.performClick() }
             }
@@ -480,7 +602,7 @@ internal fun MainActivity.addNightCard(opts: HomeFlow.Options = HomeFlow.Options
     priorityRefresh.add(refresh)
 }
 
-/** Le moment de la journée a changé (10 h, 19 h, 5 h) : l'accueil se réordonne, mais pas sous le doigt ni devant une fenêtre ouverte. */
+/** Le moment de la journée a changé : l'accueil se réordonne, mais pas sous le doigt ni devant une fenêtre ouverte. */
 internal fun MainActivity.followMoment() {
     if (!priorityHome || roomIndex != MainActivity.HOME) return
     // Fin de l'aperçu d'un moment : l'accueil revient à l'heure réelle.
@@ -488,7 +610,7 @@ internal fun MainActivity.followMoment() {
     // Chaque minute : les durées (« depuis 40 min ») avancent, et une ouverture peut dépasser le délai.
     if (SystemClock.uptimeMillis() - priorityTickAt >= 60_000) { priorityTickAt = SystemClock.uptimeMillis(); updateHomeHeader() }
     if (cfg.homeFixedOrder || previewMoment.isNotEmpty()) return
-    val now = HomeFlow.moment(Calendar.getInstance().get(Calendar.HOUR_OF_DAY), HomeFlow.parsePlan(cfg.homePlan))
+    val now = HomeFlow.momentAt(Calendar.getInstance(), HomeFlow.parsePlan(cfg.homePlan))
     if (now != shownMoment && dialog?.isShowing != true && SystemClock.uptimeMillis() - lastTouch > 60_000) showHome()
 }
 
@@ -608,7 +730,7 @@ internal fun MainActivity.addNewsCard(opts: HomeFlow.Options) {
     // Sous les nouvelles, un bouton discret vers toutes les autres.
     card.addView(label(15f, Skin.ink, true, tr("Plus de nouvelles") + "  ›").apply {
         gravity = Gravity.CENTER; background = roundRect(Skin.fg(0x1A), dpf(22)); setPadding(dp(22), dp(11), dp(22), dp(11)); isClickable = true
-        setOnClickListener { openMorning() }
+        setOnClickListener { openMorning(newsOnly = true) }
     }, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(14); gravity = Gravity.CENTER_HORIZONTAL })
 
     fun tile(h: HomeFlow.Headline): View = LinearLayout(this).apply {
@@ -698,11 +820,51 @@ private fun MainActivity.infoPill(c: Present.Chip, onTap: () -> Unit): View = Li
 
 /** Aperçu d'un moment de la journée, demandé depuis la page web : l'accueil le montre deux minutes, puis revient à l'heure réelle. */
 internal fun MainActivity.previewHome(moment: String): Boolean {
-    if (!priorityHome || moment !in HomeFlow.MOMENTS || isFinishing) return false
+    if (!priorityHome || HomeFlow.parsePlan(cfg.homePlan).find(moment) == null || isFinishing) return false
     onMotion()
     previewMoment = moment; previewUntil = SystemClock.uptimeMillis() + HomeFlow.PREVIEW_MS
     dialog?.dismiss()
     if (roomIndex == MainActivity.HOME) showHome() else goHome()
     scroll.scrollTo(0, 0)
     return true
+}
+
+/** Nom affiché d'un moment : celui de l'utilisateur, sinon celui des trois moments d'origine. */
+internal fun momentName(m: HomeFlow.Moment?): String = m?.name?.takeIf { it.isNotEmpty() } ?: tr(when (m?.id) { HomeFlow.MORNING -> "Matin"; HomeFlow.EVENING -> "Soir"; else -> "Journée" })
+
+/**
+ * Montre ou masque le cadre d'une carte sous condition. La première fois, tout de suite ; ensuite jamais sous le doigt :
+ * une carte qui apparaît déplace celles du dessous, on attend trois secondes sans toucher (le prochain passage s'en charge).
+ */
+internal fun MainActivity.showCard(box: View, shown: Boolean) {
+    val want = if (shown) View.VISIBLE else View.GONE
+    if (box.visibility == want && box.tag != null) return
+    if (box.tag != null && SystemClock.uptimeMillis() - lastTouch < 3_000) return
+    box.tag = true
+    box.visibility = want
+}
+
+/** La condition [cond] de la carte [card] est-elle remplie en ce moment ? Sans condition : toujours. */
+internal fun MainActivity.cardShown(card: String, cond: String): Boolean {
+    if (cond.isEmpty()) return true
+    val st = app.ha.states; val now = System.currentTimeMillis()
+    val presence = setOf("motion", "occupancy", "presence")
+    // Un capteur compte quand il est actif, et encore cinq minutes après.
+    fun sensed(rooms: List<Room>) = rooms.any { r -> r.entities.any { re ->
+        st[re.id]?.let { e -> e.domain == "binary_sensor" && e.attrs.str("device_class") in presence && (e.state == "on" || e.state == "off" && HomeFlow.recent(e.changed, now)) } == true } }
+    val room = cfg.rooms.firstOrNull { it.id == card.removePrefix("room:") }
+    return when (cond) {
+        // Les capteurs de mouvement des pièces où se trouvent les caméras de la carte.
+        "motion" -> (if (card == "cameras") cfg.homeCameras else listOf(card.removePrefix("camera:"))).let { cams -> sensed(cfg.rooms.filter { r -> cams.any { r.find(it) != null } }) }
+        "bell" -> HomeFlow.recent(app.lastRingAt, now)
+        "events" -> events?.let { HomeFlow.within(it, 1, now) { ev -> ev.start.time }.isNotEmpty() } ?: false
+        "todo" -> HomeCare.night(homeRoom(), st).fixable
+        "peak" -> Dial.inPeak(peaks.map { it.start to it.end }, now)
+        "power" -> cfg.energySensors.asSequence().mapNotNull { st[it] }.firstOrNull { it.attrs.str("device_class") == "power" }
+            ?.let { Dial.kilowatts(it.state.toDoubleOrNull(), it.attrs.str("unit_of_measurement")) }?.let { it > (cfg.peakPowerLimit.takeIf { l -> l > 0 } ?: 50) / 10.0 } ?: false
+        "alert" -> HomeExtras.weatherChips(cfg.weatherAlerts, st).any { it.level >= 1 }
+        "light" -> room?.entities?.any { Present.domain(it.id) == "light" && st[it.id]?.state == "on" } ?: false
+        "presence" -> room?.let { sensed(listOf(it)) } ?: false
+        else -> true
+    }
 }

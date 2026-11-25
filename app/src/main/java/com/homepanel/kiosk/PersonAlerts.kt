@@ -80,6 +80,7 @@ class PersonAlerts(private val app: App) : HaClient.Listener {
         val rang = if (id.startsWith("event.")) st != before && st != "unknown" && st != "unavailable" &&
             e.attrs.str("event_type").lowercase().let { it.isEmpty() || it == "ring" || it == "press" || it == "doorbell" }
         else st == "on" && before == "off"
+        if (rang) app.lastRingAt = System.currentTimeMillis()
         if (!rang || !app.config.doorbellAlert) return
         // L'event et le binary_sensor d'une même sonnette arrivent ensemble : une seule alerte.
         val now = SystemClock.elapsedRealtime()

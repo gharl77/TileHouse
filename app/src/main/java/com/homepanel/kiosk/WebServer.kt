@@ -349,8 +349,14 @@ class WebServer(private val app: App) {
                 latch.await(20, TimeUnit.SECONDS)
                 ok(JSONObject().put("code", code).put("poster", poster))
             }
-            "GET /api/playlog" -> ok(JSONObject().put("entries", onMain { PlayLog.json() }))
-            "POST /api/playlog/clear" -> ok(JSONObject().put("entries", onMain { PlayLog.clear(); PlayLog.json() }))
+            "GET /api/playlog" -> ok(onMain { playLog() })
+            "POST /api/playlog/clear" -> ok(onMain { PlayLog.clear(); playLog() })
+            // Refuser (ou rétablir) l'affiche trouvée pour un titre : on ne la cherchera plus, le logo de la chaîne la remplace.
+            "POST /api/poster/reject" -> ok(onMain {
+                val key = req.str("search")
+                if (key.isNotBlank()) { app.config.posterRejected = if (req.optBoolean("on", true)) app.config.posterRejected + key else app.config.posterRejected - key; Posters.forget(key) }
+                playLog()
+            })
             "GET /api/backups" -> ok(backupsJson())
             "POST /api/backups/now" -> {
                 if (app.config.demo) return Reply(409, JSON, err(tr("Quittez le mode démo pour exporter votre configuration.")))
@@ -592,6 +598,9 @@ class WebServer(private val app: App) {
         }
         return out
     }
+
+    /** Le relevé de lecture, avec les affiches refusées à la main. */
+    private fun playLog() = JSONObject().put("entries", PlayLog.json()).put("rejected", JSONArray(app.config.posterRejected.toList()))
 
     /** Lumières, serrures, portes, fenêtres et stores des pièces : ce que la page propose pour les pastilles de l'accueil. */
     private fun summaryDevices(): JSONArray {

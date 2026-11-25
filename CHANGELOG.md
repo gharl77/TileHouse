@@ -2,6 +2,21 @@
 
 TileHouse uses calendar versioning: `YEAR.MONTH.N`.
 
+## 2026.11.19
+
+- **Home by priority: your own times of day.** Morning, day and evening become a list you manage: add one (*Back from school*, *Weekend morning*), rename it, remove it — up to twelve. Each starts at a time to the minute and applies every day, on weekdays or at the weekend; outside its days it is ignored and the previous one goes on. Nothing changes until you add one.
+- **Home by priority: cards on condition.** In *Adjust*, a card can show *Always* or only in one case: the cameras on motion or when someone rings, the calendar if an event is left today, *For the night* if something is left to turn off or lock, electricity during a peak or above the red-zone threshold, the weather on an alert, a room when a light is on or someone is there. A hidden card gives its place to its neighbours, and never moves under a finger.
+- **Act from a card.** The card of an unlocked lock has a *Lock* button; the card of the lights, *Turn off* or *Turn everything off*. Never a button to unlock.
+- **"All is well" says why.** The green line adds what was checked: *Locks locked · Doors and windows closed · Lights off*.
+- **Rows that fill.** The last card of an incomplete row stretches (a third followed by a half no longer leaves a gap), and a card that hides itself leaves its place.
+- **Reorder with arrows.** Each card of the settings has ▲▼ next to its handle: dragging does not work on a touch screen.
+- **Preview stays awake.** The tablet no longer goes to sleep during the two minutes of a preview.
+- **More news, only news.** *More news* opens a *News* window with the feeds only, without the morning texts.
+- **Posters: you have the last word.** In the log, a *Wrong poster* button refuses the poster found for a title: it is no longer searched and the channel's logo replaces it. *Restore* undoes it.
+- **Posters are kept.** A poster found is kept on the tablet for thirty days: after a restart it shows at once, without a new search.
+- **Unticked devices, in rooms too.** A device unticked under *Devices that count* no longer counts in the chip of its room either.
+- **Curtains told apart.** With blinds *normally open*, the chip says *curtains closed*, *blinds closed* or *blinds and curtains closed*.
+
 ## 2026.11.18
 
 - **Home by priority: you decide what counts.** One row per kind of chip — smoke, lock, doors, windows, lights, blinds, low batteries, offline devices, vacuum maintenance, electricity peak, weather alert, waste collection, electricity — with where it shows (*Red alert*, *Needs attention*, *Information line* or *Hidden*) and after how long. Nothing changes until you touch it. The card of an unlocked lock now says since when.

@@ -145,7 +145,7 @@ internal fun MainActivity.showChipDetail(room: Room, chip: Present.Chip) {
 
 /** Met à jour les pastilles seulement si leur contenu a changé. */
 internal fun MainActivity.updateChips(room: Room?, only: Set<String>? = null, activeOnly: Boolean = false, extra: List<Present.Chip> = emptyList()) {
-    val chips = ((if (room == null) emptyList() else Present.chips(room, app.ha.states, cfg.normalOn.toSet())
+    val chips = ((if (room == null) emptyList() else Present.chips(counted(room), app.ha.states, cfg.normalOn.toSet())
         .filter { (only == null || it.kind in only) && (!activeOnly || it.level > 0 || it.kind == "light" || it.kind == "cover" || it.kind == "smoke") }) + extra)
         // Tableau de bord, sur l'accueil : les voyants des systèmes de la maison restent en place, éteints quand tout va bien.
         .let { list -> if (Skin.gauges && activeOnly && room != null) Present.standing(list, room.entities.mapNotNull { Present.chipKind(it.id, app.ha.states[it.id]) }.toSet()) else list }
@@ -258,4 +258,18 @@ internal fun MainActivity.showSensorHistory(room: Room, kind: String) {
         chart.set(pts, false, unit, from, to, floor = axisLo, ceil = axisHi)
     }
     showSheet(d, box)
+}
+
+/**
+ * La pièce telle que ses pastilles la comptent : sans les appareils décochés dans « Appareils comptés » (ni ceux décochés
+ * d'office, comme la porte du réfrigérateur). L'accueil arrive ici déjà filtré ([MainActivity.homeRoom]).
+ */
+internal fun MainActivity.counted(room: Room): Room {
+    if (room.id == "__home") return room
+    val hidden = cfg.summaryHidden.toSet(); val shown = cfg.summaryShown.toSet()
+    val keep = room.entities.filter { e ->
+        val st = app.ha.states[e.id]
+        !Choices.hidden(e.id, hidden, shown, Choices.summaryHiddenByDefault(e.id, st?.name ?: "", Present.chipKind(e.id, st)))
+    }
+    return if (keep.size == room.entities.size) room else Room(room.id, room.name, room.areaId).also { it.entities.addAll(keep) }
 }

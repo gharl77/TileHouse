@@ -118,6 +118,8 @@ class App : Application() {
     var onLaunchPreview: ((String) -> Boolean)? = null
     /** Aperçu d'un moment de l'accueil par priorité (« morning », « day », « evening »), demandé depuis la page web. */
     var onHomePreview: ((String) -> Boolean)? = null
+    /** Dernier coup de sonnette vu (millisecondes), pour les cartes de l'accueil affichées « quand quelqu'un sonne ». */
+    var lastRingAt = 0L
     var onTimerDone: ((KitchenTimer) -> Unit)? = null
 
     private fun timerDone(t: KitchenTimer) {

@@ -776,6 +776,8 @@ class MainActivity : Activity(), HaClient.Listener {
     internal fun checkDim() {
         val m = cfg.dimMinutes
         if (m <= 0 || dimmed || dialog?.isShowing == true || safetyDialog != null) return
+        // Un aperçu demandé depuis la page web reste à l'écran jusqu'au bout.
+        if (previewMoment.isNotEmpty() && SystemClock.uptimeMillis() < previewUntil) return
         if (SystemClock.uptimeMillis() - lastTouch > m * 60_000L) dim()
     }
 

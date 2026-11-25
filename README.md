@@ -230,6 +230,8 @@ Everything can also be done directly on the tablet, from the ⋮ menu in the top
   or *normally on / open*. A chip disappears when everything is in its normal state and only reports the exceptions: with
   blinds normally open, *8 blinds open* gives way to *2 blinds closed* once you close two. This applies to every chip — the
   classic home screen, the home screen by priority and the header of each room. A device that cannot be reached counts neither way.
+  With blinds *normally open*, the chip says *curtains closed*, *blinds closed* or *blinds and curtains closed*, as it does for
+  what is open. **A device you untick no longer counts in its room either**: the chip in the room's header follows the same list.
 - **Rooms by floor**: rooms are grouped using your Home Assistant floors, in the order you choose. Rooms without a floor appear under *Other rooms*.
 - **Collection reminders**: "Recycling tomorrow" (blue bin) or "Garbage today" (green bin) chips. On the web page
   (*Home → Collections*) pick a calendar and a keyword for each: an event counts when its title contains the keyword
@@ -407,6 +409,9 @@ the current value, the minimum and the maximum.
   A **log** on the web page (*Tools & media → Now playing → Log*) lists the last titles as each player reported them and where the
   poster came from, to understand why one is missing; it stays on the tablet.
   The log says how TMDB recognised a title (*TMDB · original title: Home Alone*, *TMDB · aired by TVA*).
+  **You have the last word**: each title whose poster came from a search (TMDB, TVmaze, iTunes) has a *Wrong poster* button in
+  the log. A refused title is no longer searched and shows the channel's logo; *Restore* undoes it. It applies the next time
+  the title plays. **Posters found are kept on the tablet for thirty days**, so after a restart they show at once, without a new search.
   When nothing is certain the channel's logo is shown rather than a doubtful poster; without one, the card keeps an icon. The search sends the title of what is
   playing to those sites: untick *Look for the poster on the internet* to keep to Home Assistant's image. The home screen doesn't show the cards. **You choose which players have a card** on the web page (*Tools & media → Now playing*): every speaker and TV of your rooms is listed and ticked at first, except voice assistants, which "play" at every answer; untick one and it goes back to being a plain tile.
 - Devices are shown as tiles, **grouped by category** (Cameras, Scenes, Lights, Climate, Blinds & shades, Media, Plugs & switches,
@@ -708,12 +713,16 @@ cards, always in the same order. **By priority** sorts things by what they ask o
 - **Needs attention**: at most three cards for what needs an action or a check — an open door or window, a lock that is unlocked
   or no longer answers, smoke, low batteries, an electricity peak, and your custom chips coloured orange or red. The most
   serious comes first. Each card says what and where — and since when, for doors, windows and locks — and a tap opens the same
-  list as the chip did. With nothing to report, a green line says *All is well*.
+  list as the chip did. **Two cards act on the spot**: an unlocked lock has a *Lock* button, and lights (when you raise them to
+  a card) have *Turn off* or *Turn everything off* — never a button to unlock, and none when lights are *normally on*. With
+  nothing to report, a green line says *All is well*, followed by what was checked: *Locks locked · Doors and windows closed ·
+  Lights off* — only what is true, and only for what the house has.
 - **Information chips** for everything else: one quiet chip per subject (lights on, blinds open, power, collections…), each
   with its icon in a coloured dot — yellow for lights, blue for blinds, green for electricity — and its own tap: *9 on* opens
   the list of lights with *Turn everything off*. They fit on two rows; a *+N* chip opens the rest. *No smoke* is never shown:
   smoke only matters when detected, and it is then a red card.
-- **Cards that follow the day**: one list of cards for the morning, one for the day and one for the evening.
+- **Cards that follow the day**: one list of cards per time of day — morning, day and evening to start with, and as many
+  others as you add.
 
 With *By priority* on, the card **Home by priority** appears right below (also in the *Home* sub-menu). It has three parts.
 
@@ -734,8 +743,30 @@ when the app restarts, because those have no known start time.
 doors that lead outside alert (a room or a name that says entrance, hall, garage, patio, garden, front, back…); an inside door,
 a fridge, a washer or a cupboard does not, and stays among the information chips when open.
 
-**3. The cards.** Pick a time of day (morning from 5 a.m., day from 10 a.m., evening from 7 p.m. — each hour can be changed),
-then, for each card: switch it on or off, drag ⠿ to reorder, choose its **size** and press **Adjust** to choose what it shows.
+**3. The cards.** Pick a time of day, then, for each card: switch it on or off, drag ⠿ or tap ▲▼ to reorder (the arrows work
+on a phone, where dragging does not), choose its **size** and press **Adjust** to choose when it shows and what it shows.
+
+**Times of day are yours.** You start with morning (5 a.m.), day (10 a.m.) and evening (7 p.m.). *＋ Add* creates another one —
+*Back from school*, *Weekend morning* — up to twelve. Each has a **name**, a **start time to the minute** and its **days**: every
+day, weekdays or the weekend. Outside its days a time of day is ignored and the previous one goes on, so *Back from school* at
+3:30 p.m. on weekdays does not exist on Saturday. A new one starts from the cards of the one you are looking at; *Remove this
+time of day* deletes it with its list of cards. Before the first one of the day, the last one of the day before goes on.
+
+**Cards on condition.** In *Adjust*, the first line, *Show*, is *Always* or one condition; the choice shows as a small label
+next to the card's name.
+
+| Card | Conditions |
+|---|---|
+| Cameras, an added camera | on motion; when someone rings — and for five minutes after |
+| Calendar | if an event is left today |
+| For the night | if something is left to turn off or lock |
+| Electricity | during a peak; above the red-zone threshold (*Home → Electricity*, 5 kW by default) |
+| Weather | when there is a weather alert |
+| A room | when a light is on there; when someone is there (and for five minutes after) |
+
+*On motion* looks at the motion and presence sensors of the rooms the cameras are in, not at the image: a camera whose room
+has no such sensor never shows with that condition. A hidden card gives its place to its neighbours, and a card never appears
+or disappears while someone is touching the screen. Weather and Calendar only pair up side by side when neither has a condition.
 
 | Card | What *Adjust* offers |
 |---|---|
@@ -756,17 +787,19 @@ then, for each card: switch it on or off, drag ⠿ to reorder, choose its **size
   (a tap opens the room) and its devices as tiles. Devices added one after the other share one row of tiles; cameras, one row
   of thumbnails. A device already on screen is not repeated.
 - **Size**: *Full width*, *Half width* or *One third*. Smaller cards that follow each other share a row — two halves, three
-  thirds — with the same height and the same top line. A row that is not full leaves the rest empty.
+  thirds — with the same height and the same top line. The last card of a row that is not full stretches to fill it, and a
+  card that hides itself (*Now playing* when nothing plays) leaves its place to its neighbours.
 - **News** shows the latest headlines of the *This morning* feeds, all feeds together, in two columns: the image, the feed's
   name, the title and its age. A story repeated by two feeds shows once; one without an image gets a tile with the feed's
-  initial. Tap a story to read its summary; **More news** opens the *This morning* panel. The feeds themselves are still set
-  under *Tools & media → This morning*.
+  initial. Tap a story to read its summary; **More news** opens a *News* window with all the stories of your feeds, without
+  the morning texts. The feeds themselves are still set under *Tools & media → This morning*.
 - **▶ Preview on the tablet** shows the selected time of day for two minutes, whatever the hour, with a small *Preview* label;
-  changing a setting meanwhile redraws it. The tablet then returns to the real time of day.
-- *Always keep the same order of cards* keeps the day's cards from morning to night. *Back to the original settings* forgets
+  changing a setting meanwhile redraws it, and the screen does not go to sleep. The tablet then returns to the real time of day.
+- *Always keep the same order of cards* keeps the cards of *Day* from morning to night (or of the first time of day, if you
+  removed *Day*). *Back to the original settings* forgets
   everything in this card.
 
-What *Adjust* and *Size* set applies all day; only the order and the presence of the cards change with the time of day. It
+What *Adjust* and *Size* set — condition included — applies all day; only the order and the presence of the cards change with the time of day. It
 combines with either layout and any skin. The classic home screen stays the default.
 
 | By priority, in the evening | By priority, fixed order |

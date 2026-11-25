@@ -44,6 +44,48 @@ object Posters {
         val channelLabel: String get() = Channels.label(contentId)
     }
 
+    /** Clé d'une recherche d'affiche par titre : le genre (YouTube, vidéo, musique) et ce qu'on cherche. */
+    fun searchKey(w: What): String = (if (w.youtube) "yt|" else if (w.video) "v|" else "m|") + w.term.lowercase()
+
+    /** Oublie l'affiche trouvée pour [key] : la prochaine lecture la cherchera de nouveau (ou appliquera un refus). */
+    fun forget(key: String) { found.remove(key); if (kept.remove(key) != null) save() }
+
+    // --- Affiches trouvées, gardées sur la tablette : après un redémarrage, pas de nouvelle recherche et l'image tout de suite.
+    private const val KEEP_MS = 30L * 86_400_000L
+    private const val KEEP_MAX = 300
+    private val kept = HashMap<String, JSONObject>()
+    private var restored = false
+
+    /**
+     * Ce qu'on garde d'une liste d'affiches trouvées ([entries] : clé → {url, at}) : celles de moins de trente jours, les
+     * plus récentes d'abord, [max] au plus. Une affiche vieillit pour qu'une meilleure image puisse la remplacer un jour.
+     */
+    fun fresh(entries: Map<String, JSONObject>, now: Long, max: Int = KEEP_MAX): Map<String, JSONObject> =
+        entries.filter { it.value.optString("url").isNotEmpty() && now - it.value.optLong("at") < KEEP_MS }.entries.sortedByDescending { it.value.optLong("at") }.take(max).associate { it.key to it.value }
+
+    private fun prefs() = App.instance.getSharedPreferences("posters", 0)
+    private fun save() { prefs().edit().putString("found", JSONObject().also { o -> for ((k, v) in kept) o.put(k, v) }.toString()).apply() }
+
+    /** Relit une fois les affiches gardées. */
+    private fun restore() {
+        if (restored) return
+        restored = true
+        try {
+            val o = JSONObject(prefs().getString("found", "{}") ?: "{}")
+            val all = HashMap<String, JSONObject>()
+            for (k in o.keys()) o.optJSONObject(k)?.let { all[k] = it }
+            for ((k, v) in fresh(all, System.currentTimeMillis())) { kept[k] = v; found[k] = v.optString("url") }
+        } catch (_: Exception) {}
+    }
+
+    /** Garde une affiche trouvée (jamais une recherche restée vide : elle sera retentée au prochain démarrage). */
+    private fun keep(key: String, url: String, source: String) {
+        if (url.isEmpty() || Channels.isLogo(url)) return
+        kept[key] = JSONObject().put("url", url).put("at", System.currentTimeMillis()).put("source", source)
+        if (kept.size > KEEP_MAX) { val f = fresh(kept, System.currentTimeMillis(), KEEP_MAX - 50); kept.clear(); kept.putAll(f) }
+        save()
+    }
+
     /** Le lecteur sait s'éteindre (fonction TURN_OFF de Home Assistant, bit 256). */
     fun canTurnOff(e: EntityState) = e.attrs.optInt("supported_features", 0) and 256 != 0
 
@@ -269,7 +311,10 @@ object Posters {
         if (w.youtube) youtubeId(w.contentId)?.let { PlayLog.record(e, w, "YouTube"); cb(youtubeThumb(it)); return }
         val cfg = App.instance.config
         if (!cfg.posterSearch || cfg.demo || w.term.length < 2) { PlayLog.record(e, w, "—"); cb(""); return }
-        val key = (if (w.youtube) "yt|" else if (w.video) "v|" else "m|") + w.term.lowercase()
+        val key = searchKey(w)
+        restore()
+        // Affiche refusée à la main (relevé de la page web) : on ne cherche plus ce titre ; le logo de la chaîne, ou rien.
+        if (key in cfg.posterRejected) { PlayLog.record(e, w, tr("affiche refusée")); cb(Channels.logo(w.contentId)); return }
         found[key]?.let { cb(it); return }
         pending[key]?.let { it.add(cb); return }
         pending[key] = arrayListOf(cb)
@@ -300,6 +345,7 @@ object Posters {
         fun done(url: String, source: String) {
             if (found.size > 300) found.clear()
             found[key] = url
+            keep(key, url, source)
             PlayLog.record(e, w, source)
             pending.remove(key)?.forEach { it(url) }
         }

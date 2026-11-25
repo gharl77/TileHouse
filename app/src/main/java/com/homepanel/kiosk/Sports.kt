@@ -124,7 +124,7 @@ object PlayLog {
         val keep = JSONArray()
         keep.put(JSONObject().put("key", key).put("at", System.currentTimeMillis()).put("player", e.name).put("app", w.app)
             .put("title", w.title).put("series", w.series).put("artist", w.artist).put("type", a.str("media_content_type"))
-            .put("contentId", w.contentId.take(80)).put("channel", w.channel.ifEmpty { a.str("media_channel") }).put("source", source))
+            .put("contentId", w.contentId.take(80)).put("channel", w.channel.ifEmpty { a.str("media_channel") }).put("source", source).put("search", Posters.searchKey(w)))
         for (i in 0 until old.length()) { val o = old.optJSONObject(i) ?: continue; if (o.optString("key") != key && keep.length() < MAX) keep.put(o) }
         entries = keep
         prefs().edit().putString("log", keep.toString()).apply()

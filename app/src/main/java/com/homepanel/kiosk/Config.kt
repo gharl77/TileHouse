@@ -147,6 +147,10 @@ class ConfigStore(ctx: Context) {
     var normalOn: List<String>
         get() = csv("normalOn")
         set(v) = p.edit().putString("normalOn", v.filter { it in Present.NORMAL_KINDS }.distinct().joinToString(",")).apply()
+    /** Affiches refusées à la main : clés de recherche ([Posters.searchKey]) pour lesquelles on ne cherche plus d'affiche. */
+    var posterRejected: Set<String>
+        get() = try { JSONArray(p.getString("posterRejected", "[]")).let { a -> (0 until a.length()).map { a.optString(it) }.toSet() } } catch (_: Exception) { emptySet() }
+        set(v) = p.edit().putString("posterRejected", JSONArray(v.filter { it.isNotBlank() }.take(300)).toString()).apply()
     /** Accueil par priorité : options des cartes (voir [HomeFlow.Options]). */
     var homeCardOptions: String
         get() = p.getString("homeCardOptions", "") ?: ""
@@ -720,7 +724,7 @@ class ConfigStore(ctx: Context) {
             .put("exportedAt", System.currentTimeMillis())
             .put("rooms", roomsToJson())
             .put("display", JSONObject()
-                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("layout", layout).put("homeStyle", homeStyle).put("homeFixedOrder", homeFixedOrder).put("homePlan", homePlan).put("normalOn", JSONArray(normalOn)).put("attentionRules", attentionRules).put("homeCardOptions", homeCardOptions).put("attentionDelay", attentionDelay).put("alertOn", JSONArray(alertOn)).put("alertOff", JSONArray(alertOff)).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
+                .put("theme", theme).put("photoVeilLevel", photoVeilLevel).put("autoHolidays", JSONArray(autoHolidays.toList())).put("skin", skin).put("layout", layout).put("homeStyle", homeStyle).put("homeFixedOrder", homeFixedOrder).put("homePlan", homePlan).put("posterRejected", JSONArray(posterRejected.toList())).put("normalOn", JSONArray(normalOn)).put("attentionRules", attentionRules).put("homeCardOptions", homeCardOptions).put("attentionDelay", attentionDelay).put("alertOn", JSONArray(alertOn)).put("alertOff", JSONArray(alertOff)).put("nightSkin", nightSkin).put("nightSkinStart", nightSkinStart).put("nightSkinEnd", nightSkinEnd).put("wallpaper", wallpaper).put("dim", dimMinutes).put("motionWake", motionWake).put("dimStyle", dimStyle).put("dimBrightness", dimBrightness)
                 .put("group", groupByCategory).put("clock", showClock).put("battery", showBattery).put("noticeSeconds", noticeSeconds)
                 .put("quietEnabled", quietEnabled).put("quietStart", quietStart).put("quietEnd", quietEnd).put("soundsEnabled", soundsEnabled)
                 .put("photoSource", photoSource).put("photoSourceName", photoSourceName).put("photoSeconds", photoSeconds)
@@ -759,6 +763,7 @@ class ConfigStore(ctx: Context) {
             if (d.has("homePlan")) homePlan = d.str("homePlan")
             if (d.has("attentionRules")) attentionRules = d.str("attentionRules")
             d.optJSONArray("normalOn")?.let { a -> normalOn = (0 until a.length()).map { a.optString(it) } }
+            d.optJSONArray("posterRejected")?.let { a -> posterRejected = (0 until a.length()).map { a.optString(it) }.toSet() }
             if (d.has("homeCardOptions")) homeCardOptions = d.str("homeCardOptions")
             if (d.has("attentionDelay")) attentionDelay = d.optInt("attentionDelay", 5)
             d.optJSONArray("alertOn")?.let { a -> alertOn = (0 until a.length()).map { a.optString(it) } }

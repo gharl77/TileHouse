@@ -466,7 +466,7 @@ object Present {
      * est allumé ou ouvert mais ce qui s'en écarte (« 2 stores fermés »), et disparaît quand tout est normal.
      */
     fun chips(room: Room, states: Map<String, EntityState>, normalOn: Set<String> = emptySet()): List<Chip> {
-        var lightsOff = 0; var doorsClosed = 0; var windowsClosed = 0; var coversClosed = 0
+        var lightsOff = 0; var doorsClosed = 0; var windowsClosed = 0; var coversClosed = 0; var curtainsClosed = 0
         var tSum = 0.0; var tN = 0; var tUnit = ""
         var hSum = 0.0; var hN = 0
         val thermostats = ArrayList<Chip>()
@@ -506,7 +506,7 @@ object Present {
                 "climate" -> thermostats.add(Chip(R.drawable.ic_thermostat, climateChip(e), kind = "climate", entity = e.id,
                     iconTint = when (e.attrs.str("hvac_action")) { "heating" -> 0xFFFF7A00.toInt(); "cooling" -> 0xFF4DB8FF.toInt(); else -> null }))
                 "light" -> if (on) lights++ else lightsOff++
-                "cover" -> if (dc !in setOf("garage", "door", "gate")) { if (active(e)) { coversOpen++; if (isCurtain(e.id, e)) curtainsOpen++ } else coversClosed++ }
+                "cover" -> if (dc !in setOf("garage", "door", "gate")) { if (active(e)) { coversOpen++; if (isCurtain(e.id, e)) curtainsOpen++ } else { coversClosed++; if (isCurtain(e.id, e)) curtainsClosed++ } }
                 "lock" -> {
                     locks++
                     if (e.state == "jammed") jammed++ else if (e.state != "locked" && e.state != "locking") unlocked++
@@ -542,7 +542,11 @@ object Present {
         else if (windowsOpen > 0) out.add(Chip(R.drawable.ic_window, plural(windowsOpen, tr("Fenêtre ouverte"), tr("fenêtres ouvertes")), 1, "window"))
         // Comme les lumières : la pastille n'existe que s'il y a quelque chose d'ouvert.
         // Le texte dit ce qui est ouvert : des stores, des rideaux, ou les deux.
-        if ("cover" in normalOn) { if (coversClosed > 0) out.add(Chip(R.drawable.ic_blinds, plural(coversClosed, tr("1 store fermé"), tr("stores fermés")), kind = "cover")) }
+        if ("cover" in normalOn) { if (coversClosed > 0) out.add(when (curtainsClosed) {
+            0 -> Chip(R.drawable.ic_blinds, plural(coversClosed, tr("1 store fermé"), tr("stores fermés")), kind = "cover")
+            coversClosed -> Chip(R.drawable.ic_curtain, plural(coversClosed, tr("1 rideau fermé"), tr("rideaux fermés")), kind = "cover")
+            else -> Chip(R.drawable.ic_blinds, "$coversClosed " + tr("stores et rideaux fermés"), kind = "cover")
+        }) }
         else if (coversOpen > 0) out.add(when (curtainsOpen) {
             0 -> Chip(R.drawable.ic_blinds, plural(coversOpen, tr("1 store ouvert"), tr("stores ouverts")), kind = "cover")
             coversOpen -> Chip(R.drawable.ic_curtain, plural(coversOpen, tr("1 rideau ouvert"), tr("rideaux ouverts")), kind = "cover")
